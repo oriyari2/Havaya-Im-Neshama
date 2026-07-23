@@ -1,9 +1,13 @@
 from fastapi import FastAPI
 
+from backend.app.routers.system import router as system_router
+
 app = FastAPI(
     title="Havaya Im Neshama API",
     version="0.1.0",
 )
+
+app.include_router(system_router)
 
 
 @app.get("/health", tags=["system"])
