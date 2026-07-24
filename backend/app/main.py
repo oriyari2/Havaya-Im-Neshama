@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from backend.app.routers.auth import router as auth_router
 from backend.app.routers.customers import router as customers_router
 from backend.app.routers.system import router as system_router
 
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(system_router)
+app.include_router(auth_router)
 app.include_router(customers_router)
 
 

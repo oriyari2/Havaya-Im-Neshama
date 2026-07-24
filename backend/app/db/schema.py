@@ -1,4 +1,5 @@
 EXPECTED_TABLES = [
+    "users",
     "customers",
     "customer_contacts",
     "instructors",
@@ -57,6 +58,19 @@ CREATE_TABLE_SQL = [
         city text,
         notes text,
         is_active boolean NOT NULL DEFAULT true,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS users (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL UNIQUE,
+        password_hash text NOT NULL,
+        role text NOT NULL CHECK (role IN ('manager', 'instructor', 'customer')),
+        is_active boolean NOT NULL DEFAULT true,
+        customer_id uuid REFERENCES customers(id),
+        instructor_id uuid REFERENCES instructors(id),
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -199,6 +213,8 @@ CREATE_TABLE_SQL = [
 
 
 CREATE_INDEX_SQL = [
+    "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);",
+    "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);",
     "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);",
     "CREATE INDEX IF NOT EXISTS idx_customers_city ON customers(city);",
     "CREATE INDEX IF NOT EXISTS idx_customer_contacts_customer_id ON customer_contacts(customer_id);",

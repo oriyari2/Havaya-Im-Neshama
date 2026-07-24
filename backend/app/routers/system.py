@@ -1,4 +1,8 @@
+import os
+
 from fastapi import APIRouter, HTTPException
+
+from backend.app.core.security import get_app_env
 
 from backend.app.db.connection import get_connection
 from backend.app.db.init_db import initialize_database
@@ -23,6 +27,10 @@ def db_status() -> dict[str, str]:
 
 @router.post("/init-db")
 def init_db() -> dict[str, object]:
+    if get_app_env() not in {"development", "local", "test"}:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if os.getenv("INIT_DB_ENABLED", "false").strip().lower() != "true":
+        raise HTTPException(status_code=403, detail="Database initialization is disabled")
     try:
         with get_connection() as conn:
             initialize_database(conn)

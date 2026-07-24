@@ -3,9 +3,10 @@ from __future__ import annotations
 from typing import Annotated, NoReturn
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.application.services import customer_service
+from backend.app.core.auth import get_current_user, require_roles
 from backend.app.schemas.customer import (
     CustomerContactCreate,
     CustomerContactResponse,
@@ -18,6 +19,7 @@ from backend.app.schemas.customer import (
 
 
 router = APIRouter(tags=["customers"])
+RequireManager = Depends(require_roles("manager"))
 
 
 def _customer_response(customer: dict, contacts: list[dict] | None = None) -> CustomerResponse:
@@ -32,6 +34,12 @@ def _raise_not_found(exc: Exception) -> NoReturn:
     raise exc
 
 
+def _raise_access_denied(exc: Exception) -> NoReturn:
+    if isinstance(exc, customer_service.CustomerAccessDeniedError):
+        raise HTTPException(status_code=403, detail="Not authorized") from exc
+    raise exc
+
+
 @router.get("/customers", response_model=CustomerListResponse)
 def list_customers(
     search: str | None = None,
@@ -41,6 +49,7 @@ def list_customers(
     order_by: Annotated[str, Query(pattern="^(name|created_at)$")] = "name",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    current_user: dict = Depends(get_current_user),
 ) -> CustomerListResponse:
     try:
         customers = customer_service.list_customers(
@@ -51,7 +60,10 @@ def list_customers(
             order_by=order_by,
             limit=limit,
             offset=offset,
+            current_user=current_user,
         )
+    except customer_service.CustomerAccessDeniedError as exc:
+        _raise_access_denied(exc)
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not list customers") from exc
 
@@ -62,11 +74,16 @@ def list_customers(
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)
-def get_customer(customer_id: UUID) -> CustomerResponse:
+def get_customer(
+    customer_id: UUID,
+    current_user: dict = Depends(get_current_user),
+) -> CustomerResponse:
     try:
-        customer, contacts = customer_service.get_customer(customer_id)
+        customer, contacts = customer_service.get_customer_for_user(customer_id, current_user)
     except (customer_service.CustomerNotFoundError, customer_service.ContactNotFoundError) as exc:
         _raise_not_found(exc)
+    except customer_service.CustomerAccessDeniedError as exc:
+        _raise_access_denied(exc)
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not get customer") from exc
 
@@ -74,7 +91,7 @@ def get_customer(customer_id: UUID) -> CustomerResponse:
 
 
 @router.post("/customers", response_model=CustomerResponse, status_code=201)
-def create_customer(payload: CustomerCreate) -> CustomerResponse:
+def create_customer(payload: CustomerCreate, _current_user: dict = RequireManager) -> CustomerResponse:
     try:
         customer = customer_service.create_customer(payload)
     except Exception as exc:
@@ -84,7 +101,11 @@ def create_customer(payload: CustomerCreate) -> CustomerResponse:
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerResponse)
-def update_customer(customer_id: UUID, payload: CustomerUpdate) -> CustomerResponse:
+def update_customer(
+    customer_id: UUID,
+    payload: CustomerUpdate,
+    _current_user: dict = RequireManager,
+) -> CustomerResponse:
     try:
         customer, contacts = customer_service.update_customer(customer_id, payload)
     except customer_service.CustomerNotFoundError as exc:
@@ -96,7 +117,7 @@ def update_customer(customer_id: UUID, payload: CustomerUpdate) -> CustomerRespo
 
 
 @router.delete("/customers/{customer_id}", response_model=CustomerResponse)
-def delete_customer(customer_id: UUID) -> CustomerResponse:
+def delete_customer(customer_id: UUID, _current_user: dict = RequireManager) -> CustomerResponse:
     try:
         customer, contacts = customer_service.soft_delete_customer(customer_id)
     except customer_service.CustomerNotFoundError as exc:
@@ -114,11 +135,14 @@ def delete_customer(customer_id: UUID) -> CustomerResponse:
 def list_customer_contacts(
     customer_id: UUID,
     is_active: bool | None = None,
+    current_user: dict = Depends(get_current_user),
 ) -> list[CustomerContactResponse]:
     try:
-        contacts = customer_service.list_customer_contacts(customer_id, is_active)
+        contacts = customer_service.list_customer_contacts_for_user(customer_id, is_active, current_user)
     except customer_service.CustomerNotFoundError as exc:
         _raise_not_found(exc)
+    except customer_service.CustomerAccessDeniedError as exc:
+        _raise_access_denied(exc)
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not list contacts") from exc
 
@@ -133,6 +157,7 @@ def list_customer_contacts(
 def create_customer_contact(
     customer_id: UUID,
     payload: CustomerContactCreate,
+    _current_user: dict = RequireManager,
 ) -> CustomerContactResponse:
     try:
         contact = customer_service.create_customer_contact(customer_id, payload)
@@ -151,6 +176,7 @@ def create_customer_contact(
 def update_customer_contact(
     contact_id: UUID,
     payload: CustomerContactUpdate,
+    _current_user: dict = RequireManager,
 ) -> CustomerContactResponse:
     try:
         contact = customer_service.update_customer_contact(contact_id, payload)
@@ -166,7 +192,10 @@ def update_customer_contact(
     "/customer-contacts/{contact_id}",
     response_model=CustomerContactResponse,
 )
-def delete_customer_contact(contact_id: UUID) -> CustomerContactResponse:
+def delete_customer_contact(
+    contact_id: UUID,
+    _current_user: dict = RequireManager,
+) -> CustomerContactResponse:
     try:
         contact = customer_service.soft_delete_customer_contact(contact_id)
     except customer_service.ContactNotFoundError as exc:

@@ -22,6 +22,18 @@ class ContactNotFoundError(Exception):
     pass
 
 
+class CustomerAccessDeniedError(Exception):
+    pass
+
+
+def _can_read_customer(current_user: dict, customer_id: UUID) -> bool:
+    if current_user["role"] == "manager":
+        return True
+    if current_user["role"] == "customer":
+        return current_user.get("customer_id") == customer_id
+    return False
+
+
 def _require_customer(cur, customer_id: UUID) -> dict:
     customer = repo.get_customer(cur, customer_id)
     if customer is None:
@@ -36,6 +48,11 @@ def _require_contact(cur, contact_id: UUID) -> dict:
     return contact
 
 
+def _require_customer_access(current_user: dict, customer_id: UUID) -> None:
+    if not _can_read_customer(current_user, customer_id):
+        raise CustomerAccessDeniedError
+
+
 def list_customers(
     search: str | None,
     city: str | None,
@@ -44,7 +61,21 @@ def list_customers(
     order_by: str,
     limit: int,
     offset: int,
+    current_user: dict,
 ) -> list[dict]:
+    if current_user["role"] == "instructor":
+        raise CustomerAccessDeniedError
+    if current_user["role"] == "customer":
+        customer_id = current_user.get("customer_id")
+        if customer_id is None:
+            raise CustomerAccessDeniedError
+        with get_connection() as conn:
+            with conn.cursor(row_factory=dict_row) as cur:
+                customer = _require_customer(cur, customer_id)
+                if is_active is not None and customer["is_active"] is not is_active:
+                    return []
+                return [customer]
+
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             return repo.list_customers(
@@ -63,6 +94,15 @@ def get_customer(customer_id: UUID) -> tuple[dict, list[dict]]:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             customer = _require_customer(cur, customer_id)
+            contacts = repo.list_contacts(cur, customer_id)
+    return customer, contacts
+
+
+def get_customer_for_user(customer_id: UUID, current_user: dict) -> tuple[dict, list[dict]]:
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            customer = _require_customer(cur, customer_id)
+            _require_customer_access(current_user, customer["id"])
             contacts = repo.list_contacts(cur, customer_id)
     return customer, contacts
 
@@ -100,9 +140,18 @@ def soft_delete_customer(customer_id: UUID) -> tuple[dict, list[dict]]:
 
 
 def list_customer_contacts(customer_id: UUID, is_active: bool | None) -> list[dict]:
+    return list_customer_contacts_for_user(customer_id, is_active, {"role": "manager"})
+
+
+def list_customer_contacts_for_user(
+    customer_id: UUID,
+    is_active: bool | None,
+    current_user: dict,
+) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             _require_customer(cur, customer_id)
+            _require_customer_access(current_user, customer_id)
             return repo.list_contacts(cur, customer_id, True if is_active is None else is_active)
 
 
