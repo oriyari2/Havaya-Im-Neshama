@@ -3,9 +3,9 @@
 Student final project for Windows Systems Engineering.
 
 The project will become the Havaya Im Neshama management system described in
-[docs/PRD.md](docs/PRD.md). Task 01 creates only the initial working skeleton:
-a FastAPI backend health check, a basic PySide6 desktop window, and empty folders
-for later RAG, Docker, and database migration work.
+[docs/PRD.md](docs/PRD.md). The current MVP foundation includes the initial
+FastAPI and PySide6 skeleton, Supabase-compatible PostgreSQL setup, Hebrew demo
+seed data, and a customer/contact CRUD API.
 
 ## Project Structure
 
@@ -69,5 +69,13 @@ python -m desktop_client.app.main
 
 ## Current Scope
 
-Authentication, customers, activities, bookings, event sourcing, dashboard, and
-RAG behavior are intentionally not implemented yet.
+Implemented so far:
+
+- FastAPI health/system endpoints.
+- PostgreSQL schema initialization and Hebrew demo seed data.
+- Customer and customer-contact CRUD API, including soft delete, active defaults,
+  search, and `city` / `customer_type` filters.
+- Basic PySide6 desktop startup shell.
+
+Authentication, activities, bookings, event sourcing, dashboard, desktop feature
+screens, image upload, and RAG behavior are intentionally not implemented yet.
