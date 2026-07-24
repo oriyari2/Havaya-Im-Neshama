@@ -80,6 +80,14 @@ CREATE_TABLE_SQL = [
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         name text NOT NULL,
         description text,
+        target_audience text,
+        duration_minutes integer,
+        recommended_capacity integer,
+        pricing_rule text,
+        required_equipment text,
+        preparation_notes text,
+        season text,
+        tags text,
         default_duration_minutes integer,
         min_participants integer,
         max_participants integer,
@@ -212,6 +220,18 @@ CREATE_TABLE_SQL = [
 ]
 
 
+ALTER_TABLE_SQL = [
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS target_audience text;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS duration_minutes integer;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS recommended_capacity integer;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS pricing_rule text;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS required_equipment text;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS preparation_notes text;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS season text;",
+    "ALTER TABLE activities ADD COLUMN IF NOT EXISTS tags text;",
+]
+
+
 CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);",
     "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);",
@@ -220,6 +240,8 @@ CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_customer_contacts_customer_id ON customer_contacts(customer_id);",
     "CREATE INDEX IF NOT EXISTS idx_instructors_full_name ON instructors(full_name);",
     "CREATE INDEX IF NOT EXISTS idx_activities_name ON activities(name);",
+    "CREATE INDEX IF NOT EXISTS idx_activities_is_active ON activities(is_active);",
+    "CREATE INDEX IF NOT EXISTS idx_activities_season ON activities(season);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_customer_id ON bookings(customer_id);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_event_date ON bookings(event_date);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);",
