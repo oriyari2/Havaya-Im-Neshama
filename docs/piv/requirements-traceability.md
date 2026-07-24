@@ -76,9 +76,9 @@ Activity catalog
 
 FR-ACT-01, FR-ACT-02, FR-ACT-04
 
-Seed data only
+Backend API implemented
 
-Needs API and UI
+Task 06 adds authenticated activity list/search/detail/create/update/soft-delete API, additive PostgreSQL persistence fields for target audience, duration, recommended capacity, pricing rule, required equipment, preparation notes, season, and tags, manager-only mutations, active-only instructor/customer reads, Hebrew search validation, and PIV documentation. Desktop activity UI remains not started.
 
 Activity image Gateway
 
@@ -196,11 +196,13 @@ HTTP/database-backed manual checks passed for login, current-user behavior, inva
 
 Task 06 - Activities CRUD API
 
+Status: Implemented at backend API level.
+
 This should come before role-specific UI and before booking/customer ownership behavior.
 
 Required by FR-ACT-01 and FR-ACT-02.
 
-Required:
+Implemented:
 
 Create/list/search/detail/update/deactivate activities.
 
@@ -215,6 +217,8 @@ Hebrew activity data can be searched.
 Activity catalog can be read by non-manager roles where permitted.
 
 Mutations are restricted by role after RBAC exists.
+
+FR-ACT-01 is implemented at API level. FR-ACT-02 is implemented at API/persistence level for textual catalog data. FR-ACT-04 is implemented for backend authorization. FR-ACT-03 remains not started until Task 07.
 
 Task 07 - Cloudinary Gateway and Activity Images
 
