@@ -66,11 +66,11 @@ Required for end-to-end demo
 
 Authentication and RBAC
 
-FR-AUTH-01 to FR-AUTH-04
+FR-AUTH-01, FR-AUTH-02
 
-Not started
+Backend implemented and hardened
 
-Must requirement
+Task 05 adds login, current-user retrieval, hashed demo users, PyJWT bearer tokens, environment-backed AUTH_SECRET_KEY configuration, reusable auth helpers, manager-only customer/contact mutations, authenticated customer/contact reads, customer-owned customer/contact reads, instructor read denial until a clear relationship exists, and local-only guarded /system/init-db. FR-AUTH-03 and booking-specific FR-AUTH-04 remain for desktop and booking ownership tasks.
 
 Activity catalog
 
@@ -164,53 +164,49 @@ compileall passes.
 
 Documentation notes the chosen structure.
 
-Task 06 - Authentication and RBAC
+Task 05 - Authentication and RBAC
 
-This should come before role-specific UI and before protected booking/customer behavior.
+Status: Implemented and hardened.
 
-Required:
+Implemented:
 
-Users table or existing users schema.
+Users table.
 
-Seeded demo users:
+Hashed demo users for manager, instructor, and customer.
 
-manager
+POST /auth/login.
 
-instructor
+GET /auth/me.
 
-customer
+Reusable current-user and require-role helpers.
 
-Login endpoint.
+Manager-only customer/contact mutation routes.
 
-Current-user endpoint.
+Authenticated customer/contact read routes.
 
-Passwords hashed, never plaintext.
+Resource-aware customer read rules for manager and customer roles.
 
-Server-side role checks.
-
-401 for unauthenticated requests.
-
-403 for unauthorized requests.
+Local/development/test-only `/system/init-db`, additionally gated by `INIT_DB_ENABLED=true`.
 
 Validation:
 
-Manager can access manager operations.
+compileall passes.
 
-Instructor cannot mutate customer/activity commercial data.
+HTTP/database-backed manual checks passed for login, current-user behavior, invalid password 401, missing/invalid token 401 on customer/contact reads, non-manager mutation 403, customer cross-resource read 403, customer own-resource read 200, manager customer/contact read and mutation access, and disabled `/system/init-db` 403.
 
-Customer cannot access another customer's data.
+Task 06 - Activities CRUD API
 
-Task 07 - Activities CRUD API
+This should come before role-specific UI and before booking/customer ownership behavior.
 
 Required by FR-ACT-01 and FR-ACT-02.
 
-Implement:
+Required:
 
 Create/list/search/detail/update/deactivate activities.
 
 Include equipment and preparation notes.
 
-Keep activity image upload out of this task unless the Gateway is already ready.
+Keep image upload out of this task unless the Gateway is already ready.
 
 Validation:
 
@@ -220,7 +216,7 @@ Activity catalog can be read by non-manager roles where permitted.
 
 Mutations are restricted by role after RBAC exists.
 
-Task 08 - Cloudinary Gateway and Activity Images
+Task 07 - Cloudinary Gateway and Activity Images
 
 Required by FR-ACT-03 and the course Gateway requirement.
 
@@ -244,7 +240,7 @@ Image upload returns asset_id and secure_url.
 
 Activity details can display the saved image URL.
 
-Task 09 - Booking Event Sourcing and CQRS Core
+Task 08 - Booking Event Sourcing and CQRS Core
 
 This is the most important architecture task for the grade.
 
@@ -278,7 +274,7 @@ Stale expected version is rejected.
 
 Application API does not update/delete event rows.
 
-Task 10 - Booking Queries, History, Instructor Assignment, Dashboard API
+Task 09 - Booking Queries, History, Instructor Assignment, Dashboard API
 
 Required by booking, instructor, and dashboard requirements.
 
@@ -304,7 +300,7 @@ Instructor sees assigned and eligible open events only.
 
 Customer ownership rules work after auth is connected.
 
-Task 11 - PySide6 Desktop Shell and Customers Screen
+Task 10 - PySide6 Desktop Shell and Customers Screen
 
 Start UI only after backend basics exist.
 
@@ -326,7 +322,7 @@ Hebrew RTL layout is readable.
 
 Customer CRUD works through API, not direct DB access.
 
-Task 12 - Activities and Bookings Screens
+Task 11 - Activities and Bookings Screens
 
 Implement:
 
@@ -346,7 +342,7 @@ Manager can complete the main scenario from the PRD.
 
 Booking history is visible and chronological.
 
-Task 13 - RAG AI Assistant With Ollama and Docker
+Task 12 - RAG AI Assistant With Ollama and Docker
 
 Required by AI/RAG and Docker requirements.
 
@@ -376,7 +372,7 @@ When context is missing, assistant says information is unavailable.
 
 AI cannot mutate operational data.
 
-Task 14 - Final Validation and Demo Documentation
+Task 13 - Final Validation and Demo Documentation
 
 Prepare submission evidence.
 
