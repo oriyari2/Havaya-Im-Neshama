@@ -6,6 +6,7 @@ from psycopg.rows import dict_row
 
 from backend.app.db.connection import get_connection
 from backend.app.infrastructure.repositories import activity_repository as repo
+from backend.app.infrastructure.repositories import activity_image_repository
 from backend.app.schemas.activity import ActivityCreate, ActivityUpdate
 
 
@@ -67,6 +68,7 @@ def get_activity_for_user(activity_id: UUID, current_user: dict) -> dict:
         with conn.cursor(row_factory=dict_row) as cur:
             activity = _require_activity(cur, activity_id)
             _require_activity_visible(current_user, activity)
+            activity["images"] = activity_image_repository.list_activity_images(cur, activity_id)
             return activity
 
 

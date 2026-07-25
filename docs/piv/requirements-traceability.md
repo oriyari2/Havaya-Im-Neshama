@@ -84,9 +84,9 @@ Activity image Gateway
 
 FR-ACT-03, Gateway course requirement
 
-Not started
+Backend API implemented
 
-Must requirement
+Task 07 adds activity image persistence, manager-only upload/delete endpoints, customer/instructor read visibility for active activities, activity response image URLs, and a Cloudinary adapter behind an application-owned Gateway abstraction. Desktop image UI remains not started.
 
 Booking Event Sourcing
 
@@ -224,17 +224,21 @@ Task 07 - Cloudinary Gateway and Activity Images
 
 Required by FR-ACT-03 and the course Gateway requirement.
 
-Implement:
+Status: Implemented at backend/Gateway/API level.
+
+Implemented:
 
 Gateway interface for activity image upload.
 
 Cloudinary implementation behind the Gateway.
 
-API endpoint for upload.
+API endpoints for upload, list, and delete.
 
 Store external asset metadata in activity_images.
 
-Provide a safe fallback/error when upload fails.
+Activity list/detail image metadata for display.
+
+Safe controlled errors when upload/delete fails.
 
 Validation:
 
@@ -243,6 +247,8 @@ Business logic does not import Cloudinary directly.
 Image upload returns asset_id and secure_url.
 
 Activity details can display the saved image URL.
+
+FR-ACT-02 is now implemented for textual catalog data plus activity image URL exposure at API level. FR-ACT-03 is implemented at backend/Gateway/API level. FR-ACT-04 includes read-only image visibility for customers and instructors on active activities. Activity image UI remains not started until the desktop activity screen task.
 
 Task 08 - Booking Event Sourcing and CQRS Core
 
