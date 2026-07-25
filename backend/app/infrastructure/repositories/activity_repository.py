@@ -9,7 +9,29 @@ ACTIVITY_COLUMNS = (
     "COALESCE(recommended_capacity, max_participants) AS recommended_capacity, "
     "COALESCE(pricing_rule, price_notes) AS pricing_rule, "
     "required_equipment, preparation_notes, season, tags, "
-    "is_active, created_at, updated_at"
+    "is_active, created_at, updated_at, "
+    """
+    (
+        SELECT jsonb_build_object(
+            'id', ai.id,
+            'activity_id', ai.activity_id,
+            'public_id', ai.public_id,
+            'secure_url', ai.secure_url,
+            'original_filename', ai.original_filename,
+            'content_type', ai.content_type,
+            'width', ai.width,
+            'height', ai.height,
+            'bytes', ai.bytes,
+            'is_primary', ai.is_primary,
+            'created_at', ai.created_at,
+            'updated_at', ai.updated_at
+        )
+        FROM activity_images ai
+        WHERE ai.activity_id = activities.id
+        ORDER BY ai.is_primary DESC, ai.created_at ASC, ai.id ASC
+        LIMIT 1
+    ) AS primary_image
+    """
 )
 ACTIVITY_UPDATE_FIELDS = [
     "name",

@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from backend.app.schemas.activity_image import ActivityImageResponse
+
 
 def _clean_optional_text(value: str | None) -> str | None:
     if value is None:
@@ -96,6 +98,8 @@ class ActivityResponse(ActivityBase):
     name: str
     created_at: datetime
     updated_at: datetime
+    primary_image: ActivityImageResponse | None = None
+    images: list[ActivityImageResponse] = Field(default_factory=list)
 
 
 class ActivityListResponse(BaseModel):

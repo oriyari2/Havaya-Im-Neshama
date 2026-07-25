@@ -4,6 +4,7 @@ EXPECTED_TABLES = [
     "customer_contacts",
     "instructors",
     "activities",
+    "activity_images",
     "activity_instruction_notes",
     "inventory_items",
     "activity_equipment_requirements",
@@ -107,6 +108,22 @@ CREATE_TABLE_SQL = [
         title text NOT NULL,
         body text NOT NULL,
         sort_order integer NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now()
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS activity_images (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        activity_id uuid NOT NULL REFERENCES activities(id) ON DELETE CASCADE,
+        public_id text NOT NULL,
+        secure_url text NOT NULL,
+        original_filename text,
+        content_type text,
+        width integer,
+        height integer,
+        bytes integer,
+        is_primary boolean NOT NULL DEFAULT true,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
     );
@@ -242,6 +259,8 @@ CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_activities_name ON activities(name);",
     "CREATE INDEX IF NOT EXISTS idx_activities_is_active ON activities(is_active);",
     "CREATE INDEX IF NOT EXISTS idx_activities_season ON activities(season);",
+    "CREATE INDEX IF NOT EXISTS idx_activity_images_activity_id ON activity_images(activity_id);",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_images_one_primary ON activity_images(activity_id) WHERE is_primary = true;",
     "CREATE INDEX IF NOT EXISTS idx_bookings_customer_id ON bookings(customer_id);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_event_date ON bookings(event_date);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);",
