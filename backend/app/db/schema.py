@@ -13,6 +13,7 @@ EXPECTED_TABLES = [
     "booking_instructors",
     "booking_equipment_items",
     "booking_price_components",
+    "booking_events",
 ]
 
 
@@ -180,6 +181,19 @@ CREATE_TABLE_SQL = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS booking_events (
+        event_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        aggregate_id uuid NOT NULL,
+        aggregate_version integer NOT NULL CHECK (aggregate_version > 0),
+        event_type text NOT NULL,
+        event_data jsonb NOT NULL,
+        actor_user_id uuid NOT NULL REFERENCES users(id),
+        occurred_at timestamptz NOT NULL DEFAULT now(),
+        correlation_id uuid,
+        UNIQUE (aggregate_id, aggregate_version)
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS booking_activities (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         booking_id uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -199,6 +213,9 @@ CREATE_TABLE_SQL = [
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         booking_activity_id uuid NOT NULL REFERENCES booking_activities(id) ON DELETE CASCADE,
         instructor_id uuid NOT NULL REFERENCES instructors(id),
+        assigned_at timestamptz NOT NULL DEFAULT now(),
+        removed_at timestamptz,
+        active boolean NOT NULL DEFAULT true,
         role text,
         payment_status text NOT NULL DEFAULT 'not_relevant',
         notes text,
@@ -246,6 +263,20 @@ ALTER_TABLE_SQL = [
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS preparation_notes text;",
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS season text;",
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS tags text;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS activity_id uuid REFERENCES activities(id);",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS event_at timestamptz;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS venue text;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS participant_count integer;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS agreed_price numeric;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS requires_instructor boolean NOT NULL DEFAULT false;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS notes text;",
+    "ALTER TABLE bookings ADD COLUMN IF NOT EXISTS version integer NOT NULL DEFAULT 0;",
+    "ALTER TABLE bookings ALTER COLUMN status SET DEFAULT 'NEW';",
+    "ALTER TABLE booking_instructors ADD COLUMN IF NOT EXISTS booking_activity_id uuid REFERENCES booking_activities(id) ON DELETE CASCADE;",
+    "ALTER TABLE booking_instructors ALTER COLUMN booking_activity_id SET NOT NULL;",
+    "ALTER TABLE booking_instructors ADD COLUMN IF NOT EXISTS assigned_at timestamptz NOT NULL DEFAULT now();",
+    "ALTER TABLE booking_instructors ADD COLUMN IF NOT EXISTS removed_at timestamptz;",
+    "ALTER TABLE booking_instructors ADD COLUMN IF NOT EXISTS active boolean NOT NULL DEFAULT true;",
 ]
 
 
@@ -262,11 +293,16 @@ CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_activity_images_activity_id ON activity_images(activity_id);",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_images_one_primary ON activity_images(activity_id) WHERE is_primary = true;",
     "CREATE INDEX IF NOT EXISTS idx_bookings_customer_id ON bookings(customer_id);",
-    "CREATE INDEX IF NOT EXISTS idx_bookings_event_date ON bookings(event_date);",
     "CREATE INDEX IF NOT EXISTS idx_bookings_status ON bookings(status);",
+    "CREATE INDEX IF NOT EXISTS idx_bookings_activity_id ON bookings(activity_id);",
+    "CREATE INDEX IF NOT EXISTS idx_bookings_event_at ON bookings(event_at);",
+    "CREATE INDEX IF NOT EXISTS idx_booking_events_aggregate_id ON booking_events(aggregate_id);",
+    "CREATE INDEX IF NOT EXISTS idx_booking_events_occurred_at ON booking_events(occurred_at);",
     "CREATE INDEX IF NOT EXISTS idx_booking_activities_booking_id ON booking_activities(booking_id);",
+    "DROP INDEX IF EXISTS idx_booking_instructors_booking_instructor;",
     "CREATE INDEX IF NOT EXISTS idx_booking_instructors_booking_activity_id ON booking_instructors(booking_activity_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_instructors_instructor_id ON booking_instructors(instructor_id);",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_instructors_activity_instructor ON booking_instructors(booking_activity_id, instructor_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_equipment_items_booking_id ON booking_equipment_items(booking_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_price_components_booking_id ON booking_price_components(booking_id);",
 ]
