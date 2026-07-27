@@ -92,9 +92,9 @@ Booking Event Sourcing
 
 FR-BKG-01 to FR-BKG-06
 
-Not started
+Backend core implemented
 
-Critical course requirement
+Task 08 adds booking-only Event Sourcing and CQRS core: `booking_events` append-only event store, `bookings` projection, `booking_instructors` activity-scoped current-assignment projection keyed by `booking_activity_id` and `instructor_id`, booking aggregate replay, manager command handlers, projection-based query handlers, optimistic concurrency, chronological history API, and replay API. Implemented events are `BookingCreated`, `BookingStatusChanged`, `BookingDateChanged`, `BookingPriceChanged`, `BookingLocationChanged`, `BookingParticipantCountChanged`, `BookingNotesUpdated`, `BookingInstructorAssigned`, and `BookingInstructorRemoved`. Dashboard/open-event queries are deferred to Task 09. Activity images and activities are not event-sourced.
 
 Instructor management
 
@@ -256,6 +256,8 @@ This is the most important architecture task for the grade.
 
 Required by FR-BKG-01 to FR-BKG-06.
 
+Status: Implemented at backend core/API level for booking creation, supported updates, booking-activity instructor assignment/removal, history, replay, projection reads, and optimistic concurrency.
+
 Implement:
 
 Booking aggregate.
@@ -271,6 +273,8 @@ Versioning and optimistic concurrency.
 Replay function.
 
 Tests proving replay reconstructs projection.
+
+Assign/remove instructor for a booking activity through booking events.
 
 Validation:
 

@@ -347,7 +347,7 @@ If QtCharts creates installation difficulty in the demonstration environment, a 
 | `activity_equipment` | Structured equipment lists | id, activity_id, item_name, quantity_rule, notes, required |
 | `booking_events` | Append-only booking event store | event_id, booking_id/aggregate_id, aggregate_version, event_type, event_data JSONB, actor_user_id, occurred_at, correlation_id |
 | `bookings` | Rebuildable current-state projection | id, customer_id, activity_id, event_at, city, venue, participant_count, agreed_price, status, requires_instructor, notes, version, timestamps |
-| `booking_instructors` | Read projection for current assignments | booking_id, instructor_id, assigned_at, active |
+| `booking_instructors` | Read projection for current activity assignments | booking_activity_id, instructor_id, assigned_at, active |
 | `knowledge_documents` | Approved RAG source registry | id, title, audience_scope, status, source_type, checksum, timestamps |
 | `knowledge_chunks` | Searchable RAG chunks/embeddings | id, document_id, chunk_text, embedding/vector reference, metadata |
 

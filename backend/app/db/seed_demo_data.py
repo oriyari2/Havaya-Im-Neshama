@@ -9,6 +9,11 @@ from backend.app.db.connection import get_connection
 
 DEMO_MARKER = "נתוני דמו - חוויה עם נשמה"
 DEMO_BASE_UUID = "00000000-0000-4000-8000"
+DEMO_USER_EMAILS = (
+    "manager@example.com",
+    "instructor@example.com",
+    "customer@example.com",
+)
 
 
 def demo_id(group: int, number: int) -> str:
@@ -231,25 +236,89 @@ PRICE_COMPONENTS = [
 ]
 
 
+def booking_seed_rows() -> list[tuple]:
+    first_activity_by_booking: dict[str, str] = {}
+    for activity_row in BOOKING_ACTIVITIES:
+        booking_id = activity_row[1]
+        activity_id = activity_row[2]
+        first_activity_by_booking.setdefault(booking_id, activity_id)
+
+    booking_activity_ids_with_instructors = {row[1] for row in BOOKING_INSTRUCTORS}
+    bookings_with_instructors = {
+        activity_row[1]
+        for activity_row in BOOKING_ACTIVITIES
+        if activity_row[0] in booking_activity_ids_with_instructors
+    }
+
+    agreed_prices: dict[str, Decimal] = {}
+    for price_component in PRICE_COMPONENTS:
+        booking_id = price_component[1]
+        total_price = price_component[6]
+        agreed_prices[booking_id] = agreed_prices.get(booking_id, Decimal("0")) + Decimal(total_price)
+
+    rows = []
+    for booking in BOOKINGS:
+        (
+            booking_id,
+            _customer_id,
+            _primary_contact_id,
+            _event_title,
+            event_date,
+            location_name,
+            _location_address,
+            _city,
+            participants_count,
+            _audience_type,
+            _status,
+            internal_notes,
+            *_remaining,
+        ) = booking
+        rows.append(
+            (
+                *booking,
+                first_activity_by_booking[booking_id],
+                event_date,
+                location_name,
+                participants_count,
+                agreed_prices.get(booking_id, Decimal("0")),
+                booking_id in bookings_with_instructors,
+                internal_notes,
+                1,
+            )
+        )
+    return rows
+
+
 def delete_demo_data(conn: Connection) -> None:
     demo_ids = tuple(demo_id(group, number) for group in range(1, 13) for number in range(1, 201))
+    demo_id_list = list(demo_ids)
     tables = [
         "booking_price_components",
         "booking_equipment_items",
         "booking_instructors",
         "booking_activities",
+        "booking_events",
         "bookings",
         "activity_equipment_requirements",
+        "activity_images",
         "inventory_items",
         "activity_instruction_notes",
         "activities",
+        "users",
         "instructors",
         "customer_contacts",
         "customers",
     ]
     with conn.cursor() as cur:
         for table in tables:
-            cur.execute(f"DELETE FROM {table} WHERE id::text = ANY(%s);", (list(demo_ids),))
+            if table == "booking_events":
+                cur.execute("DELETE FROM booking_events WHERE aggregate_id::text = ANY(%s);", (demo_id_list,))
+            elif table == "activity_images":
+                cur.execute("DELETE FROM activity_images WHERE activity_id::text = ANY(%s);", (demo_id_list,))
+            elif table == "users":
+                cur.execute("DELETE FROM users WHERE email = ANY(%s);", (list(DEMO_USER_EMAILS),))
+            else:
+                cur.execute(f"DELETE FROM {table} WHERE id::text = ANY(%s);", (demo_id_list,))
 
 
 def seed_demo_data(conn: Connection) -> dict[str, int]:
@@ -329,11 +398,16 @@ def seed_demo_data(conn: Connection) -> dict[str, int]:
                 id, customer_id, primary_contact_id, event_title, event_date,
                 location_name, location_address, city, participants_count,
                 audience_type, status, internal_notes, customer_notes,
-                requires_vehicle, vehicle_notes, loading_notes
+                requires_vehicle, vehicle_notes, loading_notes,
+                activity_id, event_at, venue, participant_count, agreed_price,
+                requires_instructor, notes, version
             )
-            VALUES (%s, %s, %s, %s, %s::timestamptz, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+            VALUES (
+                %s, %s, %s, %s, %s::timestamptz, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                %s, %s::timestamptz, %s, %s, %s, %s, %s, %s
+            );
             """,
-            BOOKINGS,
+            booking_seed_rows(),
         )
         cur.executemany(
             """
