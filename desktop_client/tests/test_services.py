@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 
 from desktop_client.app.services.booking_service import BookingService
+from desktop_client.app.services.ai_chat_service import AIChatService
 
 
 class _ApiClient:
@@ -23,6 +24,15 @@ class _ApiClient:
 
 
 class BookingServiceTests(unittest.TestCase):
+    def test_ai_chat_service_uses_consult_endpoint(self) -> None:
+        client = _ApiClient()
+        service = AIChatService(client)
+
+        answer = service.consult("שלום")
+
+        self.assertEqual(answer, "")
+        self.assertEqual(client.calls, [("POST", "/api/ai/consult", {"prompt": "שלום"})])
+
     def test_booking_service_uses_completed_task_09_endpoints(self) -> None:
         client = _ApiClient()
         service = BookingService(client)

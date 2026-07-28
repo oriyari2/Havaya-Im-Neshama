@@ -28,4 +28,5 @@ NAVIGATION_BY_ROLE = {
 
 def navigation_for_role(role: str, *, has_profile: bool = True) -> tuple[tuple[str, str], ...]:
     items = NAVIGATION_BY_ROLE.get(role, ())
-    return tuple(item for item in items if has_profile or item[0] != "my_profile")
+    visible_items = tuple(item for item in items if has_profile or item[0] != "my_profile")
+    return (*visible_items, ("ai_chat", "יועץ AI")) if visible_items else ()

@@ -10,6 +10,7 @@ from desktop_client.app.models.session import Session
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter
 from desktop_client.app.presenters.booking_assignments_presenter import BookingAssignmentsPresenter
 from desktop_client.app.presenters.activities_presenter import ActivitiesPresenter
+from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
 from desktop_client.app.presenters.instructors_presenter import InstructorProfilePresenter, InstructorsPresenter
@@ -20,10 +21,12 @@ from desktop_client.app.services.auth_service import AuthService
 from desktop_client.app.services.booking_service import BookingService
 from desktop_client.app.services.assignment_service import AssignmentService
 from desktop_client.app.services.activity_service import ActivityService
+from desktop_client.app.services.ai_chat_service import AIChatService
 from desktop_client.app.services.customer_service import CustomerService
 from desktop_client.app.services.instructor_service import InstructorService
 from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.activities_view import ActivitiesView
+from desktop_client.app.views.ai_chat_view import AIChatView
 from desktop_client.app.views.dashboard_view import DashboardView
 from desktop_client.app.views.customer_profile_view import CustomerProfileView
 from desktop_client.app.views.customers_view import CustomersView
@@ -60,6 +63,7 @@ class MainWindow(QMainWindow):
         self.booking_service = BookingService(self.api_client)
         self.assignment_service = AssignmentService(self.api_client)
         self.activity_service = ActivityService(self.api_client)
+        self.ai_chat_service = AIChatService(self.api_client)
         self.customer_service = CustomerService(self.api_client)
         self.instructor_service = InstructorService(self.api_client)
         self._presenters: dict[str, object] = {}
@@ -176,6 +180,12 @@ class MainWindow(QMainWindow):
             open_view.retry_requested.connect(open_presenter.load)
             self.shell.add_page("open_events", open_view)
             self._presenters["open_events"] = open_presenter
+
+        ai_chat_view = AIChatView()
+        ai_chat_presenter = AIChatPresenter(ai_chat_view, self.ai_chat_service)
+        ai_chat_view.message_submitted.connect(ai_chat_presenter.send_message)
+        self.shell.add_page("ai_chat", ai_chat_view)
+        self._presenters["ai_chat"] = ai_chat_presenter
 
         self.setCentralWidget(self.shell)
         self._navigate("dashboard")

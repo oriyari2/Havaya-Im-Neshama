@@ -7,6 +7,7 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 BACKEND_ENV_PATH = BACKEND_DIR / ".env"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
+DEFAULT_OLLAMA_MODEL = "llama3.1"
 
 
 def load_backend_env() -> None:
@@ -26,3 +27,9 @@ def get_ollama_url() -> str:
     """Return the configured Ollama base URL for local RAG infrastructure."""
     load_backend_env()
     return os.getenv("OLLAMA_URL", DEFAULT_OLLAMA_URL).rstrip("/")
+
+
+def get_ollama_model() -> str:
+    """Return the configured Ollama model name for local generation."""
+    load_backend_env()
+    return os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL).strip()

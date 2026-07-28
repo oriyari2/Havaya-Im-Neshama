@@ -144,6 +144,11 @@ defaulting to `http://localhost:11434`, an importable `rag` package, an
 application-facing `LLMClient` interface, and an `OllamaLLMClient` that posts
 non-streaming generation requests to `/api/generate`. Retrieval, role-filtered
 knowledge access, citations, API endpoints, and desktop UI remain future tasks.
+Task 14 adds authenticated `POST /api/ai/consult`, injects the `LLMClient`
+through an AI consultation service, and adds a PySide6 MVP chat screen available
+from manager, instructor, and customer navigation. The assistant remains
+read-only and currently answers from the base model only; approved-knowledge
+retrieval, role-filtered citations, and abstention behavior remain future work.
 
 Required course/PRD concept
 
