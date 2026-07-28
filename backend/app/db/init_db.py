@@ -12,7 +12,7 @@ DEMO_USERS = [
 ]
 
 
-def seed_demo_users(conn: Connection) -> None:
+def seed_demo_users(conn: Connection, *, commit: bool = True) -> None:
     with conn.cursor() as cur:
         cur.execute("SELECT id FROM customers WHERE is_active = true ORDER BY created_at ASC, id ASC LIMIT 1;")
         customer_row = cur.fetchone()
@@ -30,7 +30,8 @@ def seed_demo_users(conn: Connection) -> None:
                 customer_id=customer_id if role == "customer" else None,
                 instructor_id=instructor_id if role == "instructor" else None,
             )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def initialize_database(conn: Connection) -> None:

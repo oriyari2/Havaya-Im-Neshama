@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from uuid import uuid4
 
-from backend.app.application.bookings import command_handlers
+from backend.app.application.bookings import command_handlers, query_handlers
 from backend.app.application.bookings.commands import AssignInstructorCommand, ChangeStatusCommand, RemoveInstructorCommand
 from backend.app.domain.bookings.aggregate import BookingAggregate
 from backend.app.domain.bookings.events import (
@@ -25,6 +25,25 @@ def _event(version: int, event_type: str, data: dict) -> dict:
         "event_type": event_type,
         "event_data": data,
     }
+
+
+class _DummyCursor:
+    def __enter__(self) -> "_DummyCursor":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+
+class _DummyConnection:
+    def __enter__(self) -> "_DummyConnection":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+    def cursor(self, row_factory=None) -> _DummyCursor:
+        return _DummyCursor()
 
 
 class BookingEventSourcingTests(unittest.TestCase):
@@ -82,6 +101,89 @@ class BookingEventSourcingTests(unittest.TestCase):
         self.assertEqual(projection["participant_count"], 90)
         self.assertEqual(projection["notes"], "Updated")
         self.assertEqual(projection["version"], 6)
+
+    def test_assigned_instructor_can_view_booking(self) -> None:
+        booking_id = uuid4()
+        booking = {"id": booking_id, "customer_id": uuid4(), "activity_id": uuid4(), "status": "NEW"}
+        current_user = {"role": "instructor", "instructor_id": uuid4()}
+
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.get_booking") as get_booking_mock:
+                get_booking_mock.return_value = booking
+
+                result = query_handlers.get_booking(booking_id, current_user)
+
+        self.assertEqual(result, booking)
+        get_booking_mock.assert_called_once_with(
+            unittest.mock.ANY,
+            booking_id,
+            role="instructor",
+            customer_id=None,
+            instructor_id=current_user["instructor_id"],
+        )
+
+    def test_unassigned_instructor_cannot_view_booking(self) -> None:
+        booking_id = uuid4()
+        current_user = {"role": "instructor", "instructor_id": uuid4()}
+
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.get_booking", return_value=None) as get_booking_mock:
+                with patch("backend.app.application.bookings.query_handlers.projection_repo.booking_exists", return_value=True):
+                    with self.assertRaises(query_handlers.BookingAccessDeniedError):
+                        query_handlers.get_booking(booking_id, current_user)
+
+    def test_instructor_loses_access_after_assignment_removed(self) -> None:
+        booking_id = uuid4()
+        current_user = {"role": "instructor", "instructor_id": uuid4()}
+
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.get_booking", return_value=None) as get_booking_mock:
+                with patch("backend.app.application.bookings.query_handlers.projection_repo.booking_exists", return_value=True):
+                    with self.assertRaises(query_handlers.BookingAccessDeniedError):
+                        query_handlers.get_booking(booking_id, current_user)
+
+    def test_manager_can_list_all_bookings(self) -> None:
+        current_user = {"role": "manager"}
+        bookings = [{"id": uuid4(), "customer_id": uuid4(), "activity_id": uuid4(), "status": "NEW"}]
+
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.list_bookings") as list_bookings_mock:
+                list_bookings_mock.return_value = bookings
+
+                result = query_handlers.list_bookings(current_user, None, 50, 0)
+
+        self.assertEqual(result, bookings)
+        list_bookings_mock.assert_called_once_with(
+            unittest.mock.ANY,
+            role="manager",
+            customer_id=None,
+            instructor_id=None,
+            status=None,
+            limit=50,
+            offset=0,
+        )
+
+    def test_customer_can_only_list_their_own_bookings(self) -> None:
+        customer_id = uuid4()
+        current_user = {"role": "customer", "customer_id": customer_id}
+        bookings = [{"id": uuid4(), "customer_id": customer_id, "activity_id": uuid4(), "status": "NEW"}]
+
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.list_bookings") as list_bookings_mock:
+                list_bookings_mock.return_value = bookings
+
+                result = query_handlers.list_bookings(current_user, None, 50, 0)
+
+        self.assertEqual(result, bookings)
+        list_bookings_mock.assert_called_once_with(
+            unittest.mock.ANY,
+            role="customer",
+            customer_id=customer_id,
+            instructor_id=None,
+            status=None,
+            limit=50,
+            offset=0,
+        )
 
     def test_replay_reconstructs_active_instructors(self) -> None:
         booking_id = uuid4()
@@ -313,7 +415,13 @@ class BookingEventSourcingTests(unittest.TestCase):
     def test_cancelled_booking_rejects_operational_updates(self) -> None:
         aggregate = self._aggregate_with_status("CANCELLED")
 
-        with self.assertRaisesRegex(ValueError, "Cancelled bookings"):
+        with self.assertRaisesRegex(ValueError, "Completed or cancelled"):
+            aggregate.ensure_can_update_operational_fields()
+
+    def test_completed_booking_rejects_operational_updates(self) -> None:
+        aggregate = self._aggregate_with_status("COMPLETED")
+
+        with self.assertRaisesRegex(ValueError, "Completed or cancelled"):
             aggregate.ensure_can_update_operational_fields()
 
     def _aggregate_with_status(self, status: str) -> BookingAggregate:

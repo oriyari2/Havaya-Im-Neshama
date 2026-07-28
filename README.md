@@ -75,7 +75,25 @@ Implemented so far:
 - PostgreSQL schema initialization and Hebrew demo seed data.
 - Customer and customer-contact CRUD API, including soft delete, active defaults,
   search, and `city` / `customer_type` filters.
-- Basic PySide6 desktop startup shell.
+- PySide6 login and role-based desktop shell using MVP boundaries.
+- Role-aware dashboard, bookings, booking details/history, open events, and
+  customer my-bookings screens backed by the FastAPI API.
+- Manager booking creation, confirmation, cancellation, and supported field
+  edits through the event-sourced command API with optimistic concurrency.
+- Manager customer directory and nested contact management with search,
+  filters, pagination, and soft deactivate/reactivate; customer-owned read-only
+  profile access.
+- Manager textual activity management and an active-only read-only activity
+  catalog for instructors/customers, including search, filters, pagination,
+  detail, and soft deactivate/reactivate.
+- Manager instructor profile management with search/filter/page/detail and soft
+  deactivate/reactivate, plus an instructor-owned read-only profile.
+- Event-sourced instructor assignment/removal embedded in Booking Details and
+  role-safe open-event detail for instructors.
+- Paged and named booking filters, readable customer/activity projections,
+  manager completion, role-operational dashboard drill-down, and synchronized
+  role navigation (Task 12F).
 
-Authentication, activities, bookings, event sourcing, dashboard, desktop feature
-screens, image upload, and RAG behavior are intentionally not implemented yet.
+Task 12 functional coverage and final acceptance are complete with documented
+limitations. Task 13 UI/UX redesign, AI/RAG, and activity image UI remain future
+work.

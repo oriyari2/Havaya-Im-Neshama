@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Annotated, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.application.bookings import command_handlers, query_handlers
+from backend.app.application.bookings import assignment_query_handlers
 from backend.app.application.bookings.commands import (
     ChangeDateCommand,
     ChangeLocationCommand,
@@ -30,8 +32,15 @@ from backend.app.schemas.booking import (
     BookingPriceChange,
     BookingResponse,
     BookingStatusChange,
+    CustomerBookingSummaryListResponse,
+    CustomerBookingSummaryResponse,
+    DashboardSummaryResponse,
     ExpectedVersionRequest,
+    InstructorBookingListResponse,
+    InstructorBookingResponse,
+    OpenEventResponse,
 )
+from backend.app.schemas.booking_assignment import BookingAssignmentsResponse,OpenEventDetailResponse
 
 
 router = APIRouter(tags=["bookings"])
@@ -53,6 +62,8 @@ def _raise_query_error(exc: Exception) -> NoReturn:
         raise HTTPException(status_code=404, detail="Booking not found") from exc
     if isinstance(exc, query_handlers.BookingAccessDeniedError):
         raise HTTPException(status_code=403, detail="Not authorized") from exc
+    if isinstance(exc, query_handlers.BookingValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     raise exc
 
 
@@ -67,27 +78,111 @@ def create_booking(payload: BookingCreate, current_user: dict = RequireManager) 
     return BookingResponse(**booking)
 
 
-@router.get("/bookings", response_model=BookingListResponse)
+@router.get(
+    "/bookings",
+    response_model=BookingListResponse | InstructorBookingListResponse,
+    description="Returns full booking fields to managers/customers and an operational, commercial-field-safe view to instructors.",
+)
 def list_bookings(
     status: str | None = None,
+    customer_id: UUID | None = None,
+    activity_id: UUID | None = None,
+    instructor_id: UUID | None = None,
+    from_date: datetime | None = None,
+    to_date: datetime | None = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),
-) -> BookingListResponse:
+) -> BookingListResponse | InstructorBookingListResponse:
     try:
-        bookings = query_handlers.list_bookings(current_user, status, limit, offset)
+        bookings = query_handlers.list_bookings(
+            current_user,
+            status,
+            limit,
+            offset,
+            customer_id=customer_id,
+            activity_id=activity_id,
+            instructor_id=instructor_id,
+            from_date=from_date,
+            to_date=to_date,
+        )
     except Exception as exc:
         _raise_query_error(exc)
-    return BookingListResponse(items=[BookingResponse(**booking) for booking in bookings], count=len(bookings))
+    if current_user["role"] == "instructor":
+        return InstructorBookingListResponse(
+            items=[InstructorBookingResponse(**booking) for booking in bookings],
+            count=len(bookings),
+        )
+    return BookingListResponse(
+        items=[BookingResponse(**booking) for booking in bookings],
+        count=len(bookings),
+    )
 
 
-@router.get("/bookings/{booking_id}", response_model=BookingResponse)
-def get_booking(booking_id: UUID, current_user: dict = Depends(get_current_user)) -> BookingResponse:
+@router.get("/bookings/dashboard", response_model=DashboardSummaryResponse)
+def get_dashboard_summary(current_user: dict = Depends(get_current_user)) -> DashboardSummaryResponse:
+    try:
+        summary = query_handlers.get_dashboard_summary(current_user)
+    except Exception as exc:
+        _raise_query_error(exc)
+    return DashboardSummaryResponse(**summary)
+
+
+@router.get("/bookings/open-events", response_model=list[OpenEventResponse])
+def get_open_events(current_user: dict = Depends(get_current_user)) -> list[OpenEventResponse]:
+    try:
+        bookings = query_handlers.get_open_events(current_user)
+    except Exception as exc:
+        _raise_query_error(exc)
+    return [OpenEventResponse(**booking) for booking in bookings]
+
+@router.get("/bookings/open-events/{booking_id}",response_model=OpenEventDetailResponse)
+def get_open_event_detail(booking_id:UUID,current_user:dict=Depends(get_current_user)):
+    try:return OpenEventDetailResponse(**assignment_query_handlers.get_open_event_detail(booking_id,current_user))
+    except Exception as exc:_raise_query_error(exc)
+
+
+@router.get(
+    "/bookings/my-bookings",
+    response_model=CustomerBookingSummaryListResponse,
+    description="Returns a compact list containing only the signed-in customer's bookings.",
+)
+def get_my_bookings(
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    current_user: dict = Depends(get_current_user),
+) -> CustomerBookingSummaryListResponse:
+    try:
+        bookings = query_handlers.get_my_bookings(current_user, limit, offset)
+    except Exception as exc:
+        _raise_query_error(exc)
+    return CustomerBookingSummaryListResponse(
+        items=[CustomerBookingSummaryResponse(**booking) for booking in bookings],
+        count=len(bookings),
+    )
+
+
+@router.get(
+    "/bookings/{booking_id}",
+    response_model=BookingResponse | InstructorBookingResponse,
+    description="Returns full booking fields to managers/customers and an operational, commercial-field-safe view to instructors.",
+)
+def get_booking(
+    booking_id: UUID,
+    current_user: dict = Depends(get_current_user),
+) -> BookingResponse | InstructorBookingResponse:
     try:
         booking = query_handlers.get_booking(booking_id, current_user)
     except Exception as exc:
         _raise_query_error(exc)
+    if current_user["role"] == "instructor":
+        return InstructorBookingResponse(**booking)
     return BookingResponse(**booking)
+
+@router.get("/bookings/{booking_id}/assignments",response_model=BookingAssignmentsResponse)
+def get_booking_assignments(booking_id:UUID,current_user:dict=Depends(get_current_user)):
+    try:return BookingAssignmentsResponse(**assignment_query_handlers.get_assignments(booking_id,current_user))
+    except Exception as exc:_raise_query_error(exc)
 
 
 @router.get("/bookings/{booking_id}/history", response_model=list[BookingEventResponse])

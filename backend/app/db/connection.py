@@ -26,7 +26,13 @@ def _load_env_file(path: Path) -> None:
 
 
 def load_local_env() -> None:
-    _load_env_file(BACKEND_DIR / ".env")
+    backend_env_path = BACKEND_DIR / ".env"
+    root_env_path = ROOT_DIR / ".env"
+
+    if backend_env_path.exists():
+        _load_env_file(backend_env_path)
+    if root_env_path.exists():
+        _load_env_file(root_env_path)
 
 
 def get_database_url() -> str:

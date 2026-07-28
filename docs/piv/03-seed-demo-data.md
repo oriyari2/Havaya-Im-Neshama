@@ -30,27 +30,46 @@ All business-facing demo content is Hebrew and represents the business
 "חוויה עם נשמה". The contacts, phone numbers, and email addresses are fake demo
 values only, using examples such as `050-0000001` and `demo1@example.com`.
 
-The script is safe to run multiple times. It uses stable UUIDs for demo records
-and deletes only those known demo UUIDs before inserting the fresh demo dataset.
-It does not delete non-demo records.
+The refresh uses stable UUIDs for demo records and reserves the three demo-user
+email addresses. Records using the reserved UUID range are demo-owned. Records
+attached to demo parents are part of the demo object graph and are checked
+before deletion.
+
+Before changing data, the command checks the known customer, contact, activity,
+instructor, inventory, booking, and booking-activity relationships. It aborts
+if an external row would be deleted by a cascade or would prevent deletion
+through a foreign key. The refresh is therefore destructive only to the
+verified demo object graph.
+
+The business-data refresh and recreation of the manager, instructor, and
+customer demo users run in one transaction. A failure rolls back the complete
+refresh. Booking statuses use the domain values `NEW`, `CONFIRMED`, `COMPLETED`,
+and `CANCELLED`.
 
 ## Run
 
-From the repository root in PowerShell:
+From the repository root in PowerShell, preview the affected object groups and
+row counts without writing anything:
+
+```powershell
+.\.venv\Scripts\python.exe -m backend.app.db.seed_demo_data --dry-run
+```
+
+After reviewing the preview, perform the refresh:
 
 ```powershell
 .\.venv\Scripts\python.exe -m backend.app.db.seed_demo_data
 ```
 
-Expected output includes:
+The refresh recreates these authentication users through the existing
+`seed_demo_users()` implementation:
 
-```text
-Demo data seeded successfully.
-Customers: 7
-Contacts: 9
-Activities: 5
-Bookings: 5
-```
+- `manager@example.com` / `manager123`
+- `instructor@example.com` / `instructor123`
+- `customer@example.com` / `customer123`
+
+`POST /system/init-db` is not required afterward because the refresh recreates
+the demo users itself.
 
 ## Validate
 

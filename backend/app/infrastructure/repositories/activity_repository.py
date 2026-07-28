@@ -61,9 +61,7 @@ def list_activities(
     clauses: list[str] = []
     params: list[object] = []
 
-    if is_active is None:
-        clauses.append("is_active = true")
-    else:
+    if is_active is not None:
         clauses.append("is_active = %s")
         params.append(is_active)
 

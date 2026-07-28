@@ -9,9 +9,10 @@ Implemented the backend booking command/query core for the academic MVP.
 - Booking aggregate replay logic under `backend/app/domain/bookings`.
 - Booking command handlers that append immutable events and update projections.
 - Booking query handlers that read projections and chronological history.
+- Role-aware booking read authorization for managers, customers, and instructors. Customers can only access their own bookings, while instructors can access bookings only when they are an active assignment on the booking activity.
 - Booking activity instructor assignment/removal events, commands, handlers, API endpoints, and current-assignment projection sync. Instructor reassignment after removal reactivates the projection row, clears `removed_at`, and resets `assigned_at` to the latest assignment time.
 - FastAPI booking routes for create, list, detail, history, supported updates, instructor assignment/removal, and replay.
-- Focused automated tests for replay, booking-activity instructor assignment/removal/reassignment events, booking-activity ownership validation on removal, projection reassignment SQL, active instructor reconstruction, terminal status rules, and stale version conflicts.
+- Focused automated tests for replay, booking-activity instructor assignment/removal/reassignment events, booking-activity ownership validation on removal, projection reassignment SQL, active instructor reconstruction, terminal status rules, stale version conflicts, and role-based read authorization.
 
 Event Sourcing applies to bookings only. Activity images remain regular Cloudinary Gateway metadata from Task 07.
 
@@ -26,6 +27,7 @@ Task 08 booking code uses `event_at` for booking dates. The older `event_date` c
 - `FR-BKG-05`: booking state can be reconstructed by replaying ordered events.
 - `FR-BKG-06`: update commands require `expected_version`; stale versions return conflict.
 - `FR-INS-04`: manager instructor assignment/removal is scoped to a booking activity, appends `BookingInstructorAssigned` and `BookingInstructorRemoved` events, and updates the current instructor projection.
+- Booking read authorization now enforces role-specific visibility: managers see all bookings, customers see only their own bookings, and instructors see only bookings where they are an active assignment.
 
 ## Files Changed
 
@@ -79,7 +81,7 @@ Automated validation:
 Actual results on 2026-07-27:
 
 - `compileall backend desktop_client`: passed.
-- `unittest backend.tests.test_booking_event_sourcing`: passed, 11 tests.
+- `unittest backend.tests.test_booking_event_sourcing`: passed, 16 tests.
 
 Manual API validation should use a manager token:
 

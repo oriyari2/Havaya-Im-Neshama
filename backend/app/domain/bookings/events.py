@@ -31,12 +31,14 @@ def booking_created(
     status: str,
     requires_instructor: bool,
     notes: str | None,
+    booking_activity_id: UUID | None = None,
 ) -> BookingEvent:
     return BookingEvent(
         "BookingCreated",
         {
             "customer_id": str(customer_id),
             "activity_id": str(activity_id),
+            **({"booking_activity_id": str(booking_activity_id)} if booking_activity_id else {}),
             "event_at": event_at.isoformat(),
             "city": city,
             "venue": venue,

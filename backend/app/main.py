@@ -5,6 +5,7 @@ from backend.app.routers.activities import router as activities_router
 from backend.app.routers.auth import router as auth_router
 from backend.app.routers.bookings import router as bookings_router
 from backend.app.routers.customers import router as customers_router
+from backend.app.routers.instructors import router as instructors_router
 from backend.app.routers.system import router as system_router
 
 app = FastAPI(
@@ -15,6 +16,7 @@ app = FastAPI(
 app.include_router(system_router)
 app.include_router(auth_router)
 app.include_router(customers_router)
+app.include_router(instructors_router)
 app.include_router(activities_router)
 app.include_router(activity_images_router)
 app.include_router(bookings_router)

@@ -58,11 +58,13 @@ Task 04 completed at API level
 
 Customer UI
 
-FR-CUS-01
+FR-CUS-01, FR-CUS-02, FR-CUS-03
 
-Not started
+Task 12 Milestone 12B implemented
 
-Required for end-to-end demo
+Manager customer/contact management and customer-owned read-only profile are
+implemented through `CustomerService`, role-specific presenters, and passive
+PySide6 views. Contacts remain nested in Customer Details.
 
 Authentication and RBAC
 
@@ -70,15 +72,15 @@ FR-AUTH-01, FR-AUTH-02
 
 Backend implemented and hardened
 
-Task 05 adds login, current-user retrieval, hashed demo users, PyJWT bearer tokens, environment-backed AUTH_SECRET_KEY configuration, reusable auth helpers, manager-only customer/contact mutations, authenticated customer/contact reads, customer-owned customer/contact reads, instructor read denial until a clear relationship exists, and local-only guarded /system/init-db. FR-AUTH-03 and booking-specific FR-AUTH-04 remain for desktop and booking ownership tasks.
+Task 05 adds login, current-user retrieval, hashed demo users, PyJWT bearer tokens, environment-backed AUTH_SECRET_KEY configuration, reusable auth helpers, manager-only customer/contact mutations, authenticated customer/contact reads, customer-owned customer/contact reads, instructor read denial until a clear relationship exists, and local-only guarded /system/init-db. Task 09 implements booking ownership and Task 10 implements role-based desktop navigation and authenticated API sessions for `FR-AUTH-03` and `FR-AUTH-04`.
 
 Activity catalog
 
 FR-ACT-01, FR-ACT-02, FR-ACT-04
 
-Backend API implemented
+Backend and Task 12 desktop workflows implemented
 
-Task 06 adds authenticated activity list/search/detail/create/update/soft-delete API, additive PostgreSQL persistence fields for target audience, duration, recommended capacity, pricing rule, required equipment, preparation notes, season, and tags, manager-only mutations, active-only instructor/customer reads, Hebrew search validation, and PIV documentation. Desktop activity UI remains not started.
+Task 06 adds authenticated activity list/search/detail/create/update/soft-delete API, additive PostgreSQL persistence fields for target audience, duration, recommended capacity, pricing rule, required equipment, preparation notes, season, and tags, manager-only mutations, active-only instructor/customer reads, Hebrew search validation, and PIV documentation. Task 12 Milestone 12C adds manager textual management and the active-only instructor/customer desktop catalog with search, filters, pagination, details, and role-safe controls.
 
 Activity image Gateway
 
@@ -92,25 +94,40 @@ Booking Event Sourcing
 
 FR-BKG-01 to FR-BKG-06
 
-Backend core implemented
+Backend core and manager desktop command workflows implemented
 
 Task 08 adds booking-only Event Sourcing and CQRS core: `booking_events` append-only event store, `bookings` projection, `booking_instructors` activity-scoped current-assignment projection keyed by `booking_activity_id` and `instructor_id`, booking aggregate replay, manager command handlers, projection-based query handlers, optimistic concurrency, chronological history API, and replay API. Implemented events are `BookingCreated`, `BookingStatusChanged`, `BookingDateChanged`, `BookingPriceChanged`, `BookingLocationChanged`, `BookingParticipantCountChanged`, `BookingNotesUpdated`, `BookingInstructorAssigned`, and `BookingInstructorRemoved`. Dashboard/open-event queries are deferred to Task 09. Activity images and activities are not event-sourced.
+
+Task 11 connects the desktop manager workflow to creation, status, schedule,
+price, location, participant-count, and notes command endpoints. Each update
+sends the current projection version and refreshes the query views afterward.
 
 Instructor management
 
 FR-INS-01 to FR-INS-04
 
-Seed data only
+Instructor CRUD/profile, assigned/open booking backend, and role UI implemented
 
-Needs API/UI and booking integration
+Task 12D implements `FR-INS-01` manager instructor profile CRUD and the
+instructor-owned read-only profile. `FR-INS-02` and `FR-INS-03` are visible in
+Task 10. Task 08 implements assignment/removal commands for `FR-INS-04`; its
+manager desktop assignment UI and focused role-safe read models are implemented
+in Task 12 Milestone 12E using the existing event-sourced commands.
+Task 12 Milestone 12F adds paged/filtered role-scoped desktop booking lists,
+readable projection names, manager completion through the existing status
+event, operational dashboard drill-down, local Open Events search, and
+role-synchronized navigation without weakening server authorization.
 
 Dashboard
 
 FR-DASH-01 to FR-DASH-03
 
-Not started
+Backend API and Task 10 desktop presentation implemented
 
-Required for role-specific demo
+Task 09 adds role-aware upcoming status and assignment counts, assigned-booking
+views, eligible instructor open events, and customer-owned compact booking
+summaries. Task 10 presents these through role-specific PySide6 dashboard,
+booking, open-event, detail, and my-bookings screens.
 
 RAG AI assistant
 
@@ -132,9 +149,15 @@ PySide6 desktop MVP
 
 Desktop GUI, MVP pattern, modular UI
 
-Skeleton only
+Booking/dashboard read and manager command slices implemented
 
-Must be visible in final demo
+Task 10 adds FastAPI-backed sign-in, Hebrew RTL role navigation, passive views,
+UI-independent presenters, dashboard summaries, assigned/my booking lists,
+booking details, manager history, eligible open events, and standard loading,
+empty, and error states. Task 11 adds manager-only create, confirm, cancel, and
+supported field-edit workflows while keeping instructor/customer views
+read-only. Customer/activity management and instructor assignment UI remain
+future desktop work.
 
 Recommended Task Order From Now
 
@@ -218,7 +241,7 @@ Activity catalog can be read by non-manager roles where permitted.
 
 Mutations are restricted by role after RBAC exists.
 
-FR-ACT-01 is implemented at API level. FR-ACT-02 is implemented at API/persistence level for textual catalog data. FR-ACT-04 is implemented for backend authorization. FR-ACT-03 remains not started until Task 07.
+FR-ACT-01 is implemented at API level. FR-ACT-02 is implemented at API/persistence level for textual catalog data. FR-ACT-04 is implemented for backend authorization. FR-ACT-03 is implemented by Task 07 at backend/Gateway/API level; desktop media mutation remains deferred.
 
 Task 07 - Cloudinary Gateway and Activity Images
 
@@ -248,7 +271,7 @@ Image upload returns asset_id and secure_url.
 
 Activity details can display the saved image URL.
 
-FR-ACT-02 is now implemented for textual catalog data plus activity image URL exposure at API level. FR-ACT-03 is implemented at backend/Gateway/API level. FR-ACT-04 includes read-only image visibility for customers and instructors on active activities. Activity image UI remains not started until the desktop activity screen task.
+FR-ACT-02 is implemented for textual catalog data plus activity image URL exposure at API level. FR-ACT-03 is implemented at backend/Gateway/API level. FR-ACT-04 includes read-only image visibility for customers and instructors on active activities. Desktop image mutation/display is explicitly deferred to a later media task.
 
 Task 08 - Booking Event Sourcing and CQRS Core
 
@@ -256,7 +279,19 @@ This is the most important architecture task for the grade.
 
 Required by FR-BKG-01 to FR-BKG-06.
 
-Status: Implemented at backend core/API level for booking creation, supported updates, booking-activity instructor assignment/removal, history, replay, projection reads, and optimistic concurrency.
+Status: Implemented at backend core/API level for booking creation, supported updates, booking-activity instructor assignment/removal, history, replay, projection reads, optimistic concurrency, and role-aware booking read authorization. Managers can see all bookings, customers see only their own bookings, and instructors see only bookings where they are an active assignment.
+
+Task 09 - Dashboard and Booking Queries
+
+Required by FR-DASH-01 to FR-DASH-03 and FR-BKG-07.
+
+Status: Implemented at backend/API level for filtered booking lists, dashboard
+summaries at `GET /bookings/dashboard`, eligible instructor open-event queries at
+`GET /bookings/open-events`, and customer-owned compact summaries at
+`GET /bookings/my-bookings`. The dashboard exposes upcoming status counts plus
+mutually exclusive `assigned_count` and `unassigned_count` booking counts.
+Instructor list/detail responses exclude customer ID, agreed price, and notes;
+open-event responses additionally omit participant count.
 
 Implement:
 
@@ -314,19 +349,20 @@ Instructor sees assigned and eligible open events only.
 
 Customer ownership rules work after auth is connected.
 
-Task 10 - PySide6 Desktop Shell and Customers Screen
+Task 10 - Desktop Booking and Dashboard UI
 
-Start UI only after backend basics exist.
+Status: Implemented.
 
 Implement:
 
-Login screen or simplified sign-in.
+FastAPI-backed login and bearer-token session.
 
 Role-based shell/navigation.
 
-Customers feature package using MVP pattern.
+Dashboard, bookings, details/history, open events, and my-bookings packages
+using MVP boundaries.
 
-Customer table, search, create/edit/deactivate form.
+Role-safe booking presentation plus loading, empty, and error states.
 
 Validation:
 
@@ -334,85 +370,52 @@ Desktop starts on Windows.
 
 Hebrew RTL layout is readable.
 
-Customer CRUD works through API, not direct DB access.
+All operational data flows through FastAPI, not direct database access.
 
-Task 11 - Activities and Bookings Screens
+Task 11 - Desktop Booking Command Workflows
 
-Implement:
+Status: Implemented.
 
-Activity catalog screen.
+Implemented:
 
-Booking list screen.
+- Manager booking creation using active customer/activity selectors.
+- Confirm, cancel with confirmation, and supported granular field edits.
+- Optimistic version propagation, duplicate-submit prevention, projection
+  refresh, and command error states.
 
-Booking details screen.
+Deferred after Task 11: instructor assignment UI and customer/activity
+management. Customer management is now implemented in Task 12B and activity
+management/catalog in Task 12C.
 
-Event history display.
+Task 12 - Complete Desktop Functional Management Coverage
 
-Instructor assignment UI.
+Status: Complete with documented limitations.
 
-Validation:
+Implemented across Milestones 12A-12G:
 
-Manager can complete the main scenario from the PRD.
+- customer/contact, activity, and instructor profile management
+- role-scoped catalogs, profiles, booking lists, dashboards, and Open Events
+- event-sourced booking create/edit/status and instructor assignment/removal
+- named filters, sorting where supported, real offset pagination, retry/error
+  states, authorization-safe navigation, and final OpenAPI coverage
+- final hardening: SQL removed from system routers, raw history made
+  manager-only, customer directory made manager-only, and both terminal booking
+  statuses made immutable for operational commands
 
-Booking history is visible and chronological.
+Evidence: `tasks/12-desktop-functional-management-coverage.md`,
+`docs/piv/12-desktop-functional-management-coverage.md`, and
+`docs/manual-testing-task-12.md`.
 
-Task 12 - RAG AI Assistant With Ollama and Docker
+Task 13 - Desktop UI/UX Redesign
 
-Required by AI/RAG and Docker requirements.
+Deferred intentionally: final visual design, branding, typography, iconography,
+and layout polish. Functional workflows are already complete.
 
-Implement:
+Later tasks
 
-Docker setup for Ollama.
-
-Knowledge documents/chunks.
-
-Simple ingestion flow.
-
-Retrieval with source references.
-
-Read-only AI chat endpoint.
-
-Role-aware retrieval.
-
-Desktop AI screen.
-
-Validation:
-
-Assistant answers from approved knowledge.
-
-Sources are shown.
-
-When context is missing, assistant says information is unavailable.
-
-AI cannot mutate operational data.
-
-Task 13 - Final Validation and Demo Documentation
-
-Prepare submission evidence.
-
-Include:
-
-Setup instructions.
-
-Demo users and passwords or safe local demo credentials.
-
-Final demo scenario.
-
-Screenshots if useful.
-
-Known limitations.
-
-Requirement traceability table.
-
-Test results.
-
-Validation:
-
-Clean run from setup instructions.
-
-End-to-end demo passes.
-
-No real secrets committed.
+- Activity media/Cloudinary desktop mutations through the existing Gateway.
+- Read-only AI/RAG with Ollama and approved grounded knowledge.
+- Final submission/demo packaging after the remaining product tasks.
 
 Grade-Focused Priorities
 

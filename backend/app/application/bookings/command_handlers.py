@@ -66,6 +66,8 @@ def _append_and_project(cur, aggregate: BookingAggregate, event, actor_user_id, 
     aggregate.apply(event.event_type, event.payload())
     aggregate.version = next_version
     projection = projection_repo.upsert_projection(cur, aggregate.to_projection())
+    if aggregate.booking_activity_id is not None:
+        projection_repo.upsert_default_booking_activity(cur,aggregate.booking_activity_id,aggregate.id,aggregate.activity_id,aggregate.event_at,aggregate.participant_count)
     projection_repo.sync_instructor_projection(cur, aggregate.id, aggregate.active_instructor_assignments)
     return projection
 
@@ -102,10 +104,12 @@ def create_booking(command: CreateBookingCommand) -> dict:
             if not projection_repo.activity_is_active(cur, command.activity_id):
                 raise BookingValidationError("Booking must reference an active activity")
             booking_id = uuid4()
+            booking_activity_id = uuid4()
             aggregate = BookingAggregate(id=booking_id)
             event = booking_created(
                 customer_id=command.customer_id,
                 activity_id=command.activity_id,
+                booking_activity_id=booking_activity_id,
                 event_at=command.event_at,
                 city=command.city,
                 venue=command.venue,

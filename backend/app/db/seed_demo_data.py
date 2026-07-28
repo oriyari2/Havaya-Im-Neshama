@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import argparse
+from dataclasses import dataclass
 from decimal import Decimal
 
 from psycopg import Connection
 
+from backend.app.domain.bookings.status import BookingStatus
+
 from backend.app.db.connection import get_connection
+from backend.app.db.init_db import seed_demo_users
 
 
 DEMO_MARKER = "נתוני דמו - חוויה עם נשמה"
@@ -18,6 +23,27 @@ DEMO_USER_EMAILS = (
 
 def demo_id(group: int, number: int) -> str:
     return f"{DEMO_BASE_UUID}-{group:04d}{number:08d}"
+
+
+def demo_ids() -> list[str]:
+    return [demo_id(group, number) for group in range(1, 13) for number in range(1, 201)]
+
+
+@dataclass(frozen=True)
+class ExternalReference:
+    table: str
+    relationship: str
+    count: int
+
+
+class DemoSeedSafetyError(RuntimeError):
+    def __init__(self, references: list[ExternalReference]) -> None:
+        self.references = references
+        details = "; ".join(
+            f"{reference.table}.{reference.relationship}: {reference.count} external row(s)"
+            for reference in references
+        )
+        super().__init__(f"Demo refresh aborted because external references were found: {details}")
 
 
 CUSTOMERS = [
@@ -173,11 +199,11 @@ ACTIVITY_REQUIREMENTS = [
 
 
 BOOKINGS = [
-    (demo_id(8, 1), demo_id(1, 1), demo_id(2, 1), "פעילות פתיחת שנה - בית ספר נועם ירושלים", "2026-09-01 08:30:00+03", "אולם ספורט נועם", "רחוב הדמו 1", "ירושלים", 72, "כיתות ה-ו", "מאושר", "להגיע שעה לפני לפתיחת תחנות. נתוני דמו.", "יש להיערך לחלוקה ל-6 קבוצות.", True, "נדרש רכב להובלת ערכות לייזר", "להעמיס ערכות לייזר, מטענים ורמקול בערב קודם."),
-    (demo_id(8, 2), demo_id(1, 4), demo_id(2, 5), "יום שיא חסד - אולפנת אורות", "2026-09-14 10:00:00+03", "אולפנת אורות", "רחוב האור 18", "בית שמש", 95, "כיתות ט-י", "מתוכנן", "לשלב תחנות חשיבה וחידון. נתוני דמו.", "נא להכין מקרן אם יש.", False, None, "להביא שלטים וכרטיסי צופן."),
-    (demo_id(8, 3), demo_id(1, 2), demo_id(2, 3), 'פעילות חנוכה - מתנ"ס גבעת שמואל', "2026-12-10 17:00:00+02", 'מתנ"ס גבעת שמואל', "שדרות הקהילה 12", "גבעת שמואל", 80, "משפחות", "ממתין לאישור", "סדנת יצירה עם אפשרות לשני סבבים. נתוני דמו.", "נדרש שולחן לכל 10 משתתפים.", True, "רכב קטן לחומרי יצירה", "להעמיס תיקי בד, טושים ושבלונות."),
-    (demo_id(8, 4), demo_id(1, 6), demo_id(2, 7), "קייטנת קיץ - בית שמש", "2026-08-05 09:00:00+03", "פארק העיר", "פארק העיר 3", "בית שמש", 100, "ילדי קייטנה", "מתוכנן", "פעילות סוכות מוקדמת לדוגמה עבור בדיקות עומס. נתוני דמו.", "לוודא אזור מוצל.", True, "נדרש רכב לחומרי יצירה", "להביא קנבסים, טושים וכבלים מאריכים."),
-    (demo_id(8, 5), demo_id(1, 3), demo_id(2, 4), "ערב משפחות - עיריית מודיעין", "2026-10-20 18:30:00+03", "היכל התרבות מודיעין", "כיכר העיר 5", "מודיעין", 140, "משפחות", "מאושר", "אירוע משפחות גדול עם שתי מדריכות. נתוני דמו.", "פתיחת שערים בשעה 18:00.", True, "רכב גדול לציוד כללי", "להעמיס ארגז כללי, רמקול וקנבסים."),
+    (demo_id(8, 1), demo_id(1, 1), demo_id(2, 1), "פעילות פתיחת שנה - בית ספר נועם ירושלים", "2026-09-01 08:30:00+03", "אולם ספורט נועם", "רחוב הדמו 1", "ירושלים", 72, "כיתות ה-ו", BookingStatus.CONFIRMED.value, "להגיע שעה לפני לפתיחת תחנות. נתוני דמו.", "יש להיערך לחלוקה ל-6 קבוצות.", True, "נדרש רכב להובלת ערכות לייזר", "להעמיס ערכות לייזר, מטענים ורמקול בערב קודם."),
+    (demo_id(8, 2), demo_id(1, 4), demo_id(2, 5), "יום שיא חסד - אולפנת אורות", "2026-09-14 10:00:00+03", "אולפנת אורות", "רחוב האור 18", "בית שמש", 95, "כיתות ט-י", BookingStatus.NEW.value, "לשלב תחנות חשיבה וחידון. נתוני דמו.", "נא להכין מקרן אם יש.", False, None, "להביא שלטים וכרטיסי צופן."),
+    (demo_id(8, 3), demo_id(1, 2), demo_id(2, 3), 'פעילות חנוכה - מתנ"ס גבעת שמואל', "2026-12-10 17:00:00+02", 'מתנ"ס גבעת שמואל', "שדרות הקהילה 12", "גבעת שמואל", 80, "משפחות", BookingStatus.NEW.value, "סדנת יצירה עם אפשרות לשני סבבים. נתוני דמו.", "נדרש שולחן לכל 10 משתתפים.", True, "רכב קטן לחומרי יצירה", "להעמיס תיקי בד, טושים ושבלונות."),
+    (demo_id(8, 4), demo_id(1, 6), demo_id(2, 7), "קייטנת קיץ - בית שמש", "2026-08-05 09:00:00+03", "פארק העיר", "פארק העיר 3", "בית שמש", 100, "ילדי קייטנה", BookingStatus.NEW.value, "פעילות סוכות מוקדמת לדוגמה עבור בדיקות עומס. נתוני דמו.", "לוודא אזור מוצל.", True, "נדרש רכב לחומרי יצירה", "להביא קנבסים, טושים וכבלים מאריכים."),
+    (demo_id(8, 5), demo_id(1, 3), demo_id(2, 4), "ערב משפחות - עיריית מודיעין", "2026-10-20 18:30:00+03", "היכל התרבות מודיעין", "כיכר העיר 5", "מודיעין", 140, "משפחות", BookingStatus.CONFIRMED.value, "אירוע משפחות גדול עם שתי מדריכות. נתוני דמו.", "פתיחת שערים בשעה 18:00.", True, "רכב גדול לציוד כללי", "להעמיס ארגז כללי, רמקול וקנבסים."),
 ]
 
 
@@ -289,28 +315,87 @@ def booking_seed_rows() -> list[tuple]:
     return rows
 
 
-def delete_demo_data(conn: Connection) -> None:
-    demo_ids = tuple(demo_id(group, number) for group in range(1, 13) for number in range(1, 201))
-    demo_id_list = list(demo_ids)
-    tables = [
-        "booking_price_components",
-        "booking_equipment_items",
-        "booking_instructors",
-        "booking_activities",
-        "booking_events",
-        "bookings",
-        "activity_equipment_requirements",
-        "activity_images",
-        "inventory_items",
-        "activity_instruction_notes",
-        "activities",
-        "users",
-        "instructors",
-        "customer_contacts",
-        "customers",
-    ]
+EXTERNAL_REFERENCE_CHECKS = [
+    ("customer_contacts", "customer_id -> customers.id", "SELECT COUNT(*) FROM customer_contacts WHERE customer_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("users", "customer_id -> customers.id", "SELECT COUNT(*) FROM users WHERE customer_id::text = ANY(%s) AND NOT (email = ANY(%s));"),
+    ("users", "instructor_id -> instructors.id", "SELECT COUNT(*) FROM users WHERE instructor_id::text = ANY(%s) AND NOT (email = ANY(%s));"),
+    ("bookings", "customer_id -> customers.id", "SELECT COUNT(*) FROM bookings WHERE customer_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("bookings", "primary_contact_id -> customer_contacts.id", "SELECT COUNT(*) FROM bookings WHERE primary_contact_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("bookings", "activity_id -> activities.id", "SELECT COUNT(*) FROM bookings WHERE activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("activity_instruction_notes", "activity_id -> activities.id", "SELECT COUNT(*) FROM activity_instruction_notes WHERE activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("activity_images", "activity_id -> activities.id", "SELECT COUNT(*) FROM activity_images WHERE activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("activity_equipment_requirements", "activity_id -> activities.id", "SELECT COUNT(*) FROM activity_equipment_requirements WHERE activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("activity_equipment_requirements", "inventory_item_id -> inventory_items.id", "SELECT COUNT(*) FROM activity_equipment_requirements WHERE inventory_item_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_activities", "booking_id -> bookings.id", "SELECT COUNT(*) FROM booking_activities WHERE booking_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_activities", "activity_id -> activities.id", "SELECT COUNT(*) FROM booking_activities WHERE activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_instructors", "booking_activity_id -> booking_activities.id", "SELECT COUNT(*) FROM booking_instructors WHERE booking_activity_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_instructors", "instructor_id -> instructors.id", "SELECT COUNT(*) FROM booking_instructors WHERE instructor_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_equipment_items", "booking_id -> bookings.id", "SELECT COUNT(*) FROM booking_equipment_items WHERE booking_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_equipment_items", "inventory_item_id -> inventory_items.id", "SELECT COUNT(*) FROM booking_equipment_items WHERE inventory_item_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_price_components", "booking_id -> bookings.id", "SELECT COUNT(*) FROM booking_price_components WHERE booking_id::text = ANY(%s) AND NOT (id::text = ANY(%s));"),
+    ("booking_events", "aggregate_id -> demo booking aggregate", "SELECT COUNT(*) FROM booking_events WHERE aggregate_id::text = ANY(%s) AND NOT (event_id::text = ANY(%s));"),
+    ("booking_events", "actor_user_id -> reserved demo user", "SELECT COUNT(*) FROM booking_events be JOIN users u ON u.id = be.actor_user_id WHERE u.email = ANY(%s) AND NOT (be.aggregate_id::text = ANY(%s));"),
+]
+
+
+DELETION_TABLES = [
+    "booking_price_components",
+    "booking_equipment_items",
+    "booking_instructors",
+    "booking_activities",
+    "booking_events",
+    "bookings",
+    "activity_equipment_requirements",
+    "activity_images",
+    "inventory_items",
+    "activity_instruction_notes",
+    "activities",
+    "users",
+    "instructors",
+    "customer_contacts",
+    "customers",
+]
+
+
+def check_external_references(conn: Connection) -> list[ExternalReference]:
+    reserved_ids = demo_ids()
+    references: list[ExternalReference] = []
     with conn.cursor() as cur:
-        for table in tables:
+        for table, relationship, query in EXTERNAL_REFERENCE_CHECKS:
+            if table == "users":
+                params = (reserved_ids, list(DEMO_USER_EMAILS))
+            elif table == "booking_events" and relationship.startswith("actor_user_id"):
+                params = (list(DEMO_USER_EMAILS), reserved_ids)
+            else:
+                params = (reserved_ids, reserved_ids)
+            cur.execute(query, params)
+            count = int(cur.fetchone()[0])
+            if count:
+                references.append(ExternalReference(table, relationship, count))
+    return references
+
+
+def inspect_demo_records(conn: Connection) -> dict[str, int]:
+    reserved_ids = demo_ids()
+    counts: dict[str, int] = {}
+    with conn.cursor() as cur:
+        for table in DELETION_TABLES:
+            if table == "booking_events":
+                cur.execute("SELECT COUNT(*) FROM booking_events WHERE aggregate_id::text = ANY(%s);", (reserved_ids,))
+            elif table == "activity_images":
+                cur.execute("SELECT COUNT(*) FROM activity_images WHERE activity_id::text = ANY(%s);", (reserved_ids,))
+            elif table == "users":
+                cur.execute("SELECT COUNT(*) FROM users WHERE email = ANY(%s);", (list(DEMO_USER_EMAILS),))
+            else:
+                cur.execute(f"SELECT COUNT(*) FROM {table} WHERE id::text = ANY(%s);", (reserved_ids,))
+            counts[table] = int(cur.fetchone()[0])
+    return counts
+
+
+def delete_demo_data(conn: Connection) -> None:
+    demo_id_list = demo_ids()
+    with conn.cursor() as cur:
+        for table in DELETION_TABLES:
             if table == "booking_events":
                 cur.execute("DELETE FROM booking_events WHERE aggregate_id::text = ANY(%s);", (demo_id_list,))
             elif table == "activity_images":
@@ -321,8 +406,7 @@ def delete_demo_data(conn: Connection) -> None:
                 cur.execute(f"DELETE FROM {table} WHERE id::text = ANY(%s);", (demo_id_list,))
 
 
-def seed_demo_data(conn: Connection) -> dict[str, int]:
-    delete_demo_data(conn)
+def insert_demo_business_data(conn: Connection) -> dict[str, int]:
     with conn.cursor() as cur:
         cur.executemany(
             """
@@ -447,7 +531,6 @@ def seed_demo_data(conn: Connection) -> dict[str, int]:
             """,
             PRICE_COMPONENTS,
         )
-    conn.commit()
     return {
         "Customers": len(CUSTOMERS),
         "Contacts": len(CONTACTS),
@@ -464,12 +547,64 @@ def seed_demo_data(conn: Connection) -> dict[str, int]:
     }
 
 
+def seed_demo_data(conn: Connection, *, dry_run: bool = False) -> dict[str, object]:
+    references = check_external_references(conn)
+    if references:
+        raise DemoSeedSafetyError(references)
+
+    existing_counts = inspect_demo_records(conn)
+    recreated_counts = {
+        "Customers": len(CUSTOMERS),
+        "Contacts": len(CONTACTS),
+        "Instructors": len(INSTRUCTORS),
+        "Activities": len(ACTIVITIES),
+        "Instruction notes": len(INSTRUCTION_NOTES),
+        "Inventory items": len(INVENTORY_ITEMS),
+        "Activity equipment requirements": len(ACTIVITY_REQUIREMENTS),
+        "Bookings": len(BOOKINGS),
+        "Booking activities": len(BOOKING_ACTIVITIES),
+        "Booking instructors": len(BOOKING_INSTRUCTORS),
+        "Booking equipment items": len(BOOKING_EQUIPMENT),
+        "Booking price components": len(PRICE_COMPONENTS),
+        "Demo users": len(DEMO_USER_EMAILS),
+    }
+    report: dict[str, object] = {
+        "mode": "dry-run" if dry_run else "refresh",
+        "delete_counts": existing_counts,
+        "recreate_counts": recreated_counts,
+    }
+    if dry_run:
+        conn.rollback()
+        return report
+
+    try:
+        delete_demo_data(conn)
+        insert_demo_business_data(conn)
+        seed_demo_users(conn, commit=False)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return report
+
+
+def _print_report(report: dict[str, object]) -> None:
+    print(f"Demo data {report['mode']} completed safely.")
+    print("Rows by object group that would be deleted:" if report["mode"] == "dry-run" else "Rows deleted by object group:")
+    for table, count in report["delete_counts"].items():
+        print(f"  {table}: {count}")
+    print("Rows and object groups that would be recreated:" if report["mode"] == "dry-run" else "Rows recreated by object group:")
+    for label, count in report["recreate_counts"].items():
+        print(f"  {label}: {count}")
+
+
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Safely refresh the deterministic demo dataset.")
+    parser.add_argument("--dry-run", action="store_true", help="Run safety checks and preview changes without writing.")
+    args = parser.parse_args()
     with get_connection() as conn:
-        counts = seed_demo_data(conn)
-    print("Demo data seeded successfully.")
-    for label, count in counts.items():
-        print(f"{label}: {count}")
+        report = seed_demo_data(conn, dry_run=args.dry_run)
+    _print_report(report)
 
 
 if __name__ == "__main__":

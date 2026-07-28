@@ -84,7 +84,9 @@ class BookingResponse(BaseModel):
 
     id: UUID
     customer_id: UUID
+    customer_name: str | None = None
     activity_id: UUID
+    activity_name: str | None = None
     event_at: datetime
     city: str | None = None
     venue: str | None = None
@@ -101,6 +103,73 @@ class BookingResponse(BaseModel):
 class BookingListResponse(BaseModel):
     items: list[BookingResponse]
     count: int
+
+
+class InstructorBookingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    activity_id: UUID
+    activity_name: str | None = None
+    event_at: datetime
+    city: str | None = None
+    venue: str | None = None
+    participant_count: int
+    status: str
+    requires_instructor: bool
+    version: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class InstructorBookingListResponse(BaseModel):
+    items: list[InstructorBookingResponse]
+    count: int
+
+
+class CustomerBookingSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    activity_id: UUID
+    activity_name: str | None = None
+    event_at: datetime
+    city: str | None = None
+    venue: str | None = None
+    status: str
+    version: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+
+class CustomerBookingSummaryListResponse(BaseModel):
+    items: list[CustomerBookingSummaryResponse]
+    count: int
+
+
+class DashboardSummaryResponse(BaseModel):
+    confirmed_count: int = Field(description="Upcoming bookings with status CONFIRMED")
+    pending_count: int = Field(description="Upcoming bookings with status NEW")
+    cancelled_count: int = Field(description="Upcoming bookings with status CANCELLED")
+    upcoming_count: int = Field(description="All upcoming bookings regardless of status")
+    assigned_count: int = Field(description="Upcoming instructor-required bookings whose activities all have an active instructor")
+    unassigned_count: int = Field(description="Upcoming instructor-required bookings with at least one activity lacking an active instructor")
+
+
+class OpenEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    activity_id: UUID | None
+    activity_name: str | None = None
+    event_at: datetime
+    city: str | None = None
+    venue: str | None = None
+    status: str
+    requires_instructor: bool
+    version: int
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
 
 
 class BookingEventResponse(BaseModel):

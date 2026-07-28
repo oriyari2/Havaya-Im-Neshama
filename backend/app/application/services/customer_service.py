@@ -63,18 +63,8 @@ def list_customers(
     offset: int,
     current_user: dict,
 ) -> list[dict]:
-    if current_user["role"] == "instructor":
+    if current_user["role"] != "manager":
         raise CustomerAccessDeniedError
-    if current_user["role"] == "customer":
-        customer_id = current_user.get("customer_id")
-        if customer_id is None:
-            raise CustomerAccessDeniedError
-        with get_connection() as conn:
-            with conn.cursor(row_factory=dict_row) as cur:
-                customer = _require_customer(cur, customer_id)
-                if is_active is not None and customer["is_active"] is not is_active:
-                    return []
-                return [customer]
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:

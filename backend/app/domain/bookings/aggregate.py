@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from backend.app.domain.bookings.status import BookingStatus, parse_booking_status, validate_status_transition
+from backend.app.domain.bookings.status import TERMINAL_STATUSES, BookingStatus, parse_booking_status, validate_status_transition
 
 
 @dataclass
@@ -13,6 +13,7 @@ class BookingAggregate:
     id: UUID
     customer_id: UUID | None = None
     activity_id: UUID | None = None
+    booking_activity_id: UUID | None = None
     event_at: datetime | None = None
     city: str | None = None
     venue: str | None = None
@@ -40,6 +41,7 @@ class BookingAggregate:
         if event_type == "BookingCreated":
             self.customer_id = UUID(data["customer_id"])
             self.activity_id = UUID(data["activity_id"])
+            self.booking_activity_id = UUID(data["booking_activity_id"]) if data.get("booking_activity_id") else None
             self.event_at = datetime.fromisoformat(data["event_at"])
             self.city = data.get("city")
             self.venue = data.get("venue")
@@ -69,8 +71,8 @@ class BookingAggregate:
             raise ValueError(f"Unsupported booking event: {event_type}")
 
     def ensure_can_update_operational_fields(self) -> None:
-        if self.status == BookingStatus.CANCELLED:
-            raise ValueError("Cancelled bookings cannot receive operational updates")
+        if self.status in TERMINAL_STATUSES:
+            raise ValueError("Completed or cancelled bookings cannot receive operational updates")
 
     def validate_status_change(self, new_status: str) -> BookingStatus:
         parsed = parse_booking_status(new_status)
