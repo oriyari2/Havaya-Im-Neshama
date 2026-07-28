@@ -40,8 +40,10 @@ Install desktop dependencies:
 pip install -r desktop_client\requirements.txt
 ```
 
-Copy `.env.example` to `.env` when local configuration is needed. Do not commit
-real secrets.
+Copy `backend\.env.example` to `backend\.env` when local backend
+configuration is needed. The backend reads configuration only from
+`backend\.env`, resolved from the backend source location, and real secrets
+must not be committed.
 
 ## Run The Backend
 

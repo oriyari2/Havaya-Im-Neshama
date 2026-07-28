@@ -5,11 +5,12 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import os
-from pathlib import Path
 import secrets
 
 import jwt
 from jwt import InvalidTokenError as JwtInvalidTokenError
+
+from backend.app.core.environment import load_backend_env
 
 HASH_ALGORITHM = "pbkdf2_sha256"
 HASH_ITERATIONS = 260_000
@@ -18,21 +19,8 @@ TOKEN_EXPIRE_MINUTES = 120
 LOCAL_DEVELOPMENT_SECRET = "local-dev-auth-secret-change-me"
 
 
-def _load_env_file() -> None:
-    env_path = Path(__file__).resolve().parents[2] / ".env"
-    if not env_path.exists():
-        return
-
-    for raw_line in env_path.read_text(encoding="utf-8-sig").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        os.environ.setdefault(key.strip(), value.strip().strip('"').strip("'"))
-
-
 def get_app_env() -> str:
-    _load_env_file()
+    load_backend_env()
     return os.getenv("APP_ENV", "development").strip().lower()
 
 
@@ -69,7 +57,7 @@ def verify_password(password: str, password_hash: str) -> bool:
 
 
 def get_auth_secret() -> str:
-    _load_env_file()
+    load_backend_env()
     secret = os.getenv("AUTH_SECRET_KEY")
     if secret and secret != "change-me-in-local-env":
         return secret

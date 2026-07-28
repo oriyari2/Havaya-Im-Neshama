@@ -29,7 +29,7 @@ Created or retained:
 Hardened:
 
 - `backend/app/core/security.py` now uses `PyJWT` for JWT creation and validation instead of custom HMAC/JWT logic.
-- `AUTH_SECRET_KEY` is loaded from `backend/.env` or the process environment. A fixed fallback is allowed only for `APP_ENV=development`, `APP_ENV=local`, or `APP_ENV=test`; non-local runtime without a real secret raises an error.
+- `AUTH_SECRET_KEY` is loaded from the process environment after the shared backend loader reads `backend/.env`. A fixed fallback is allowed only for `APP_ENV=development`, `APP_ENV=local`, or `APP_ENV=test`; non-local runtime without a real secret raises an error.
 - `backend/.env.example` documents `AUTH_SECRET_KEY=change-me-in-local-env`, `APP_ENV=development`, and `INIT_DB_ENABLED=false`.
 - A strong local `AUTH_SECRET_KEY` was generated into `backend/.env`. This file is ignored and must not be committed.
 - Customer/contact reads now require authentication.
@@ -37,7 +37,7 @@ Hardened:
 - `backend/app/application/services/customer_service.py` applies resource-aware customer read rules.
 - `backend/app/routers/system.py` prevents `/system/init-db` unless the app is running in local/development/test mode and `INIT_DB_ENABLED=true`.
 - `backend/app/db/init_db.py` links seeded customer/instructor users to the first active customer/instructor records when those records exist.
-- `backend/app/db/connection.py` and `backend/app/core/security.py` read local `.env` with `utf-8-sig` for Windows-created env files.
+- `backend/app/core/environment.py` is the single backend `.env` loader. It reads only `backend/.env` with `utf-8-sig` for Windows-created env files and resolves the file path from backend source location.
 
 ## Access Rules
 
