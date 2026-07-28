@@ -3,17 +3,19 @@
 Student final project for Windows Systems Engineering.
 
 The project will become the Havaya Im Neshama management system described in
-[docs/PRD.md](docs/PRD.md). The current MVP foundation includes the initial
-FastAPI and PySide6 skeleton, Supabase-compatible PostgreSQL setup, Hebrew demo
-seed data, and a customer/contact CRUD API.
+[docs/PRD.md](docs/PRD.md). The current MVP foundation includes FastAPI and
+PySide6 MVP layers, Supabase-compatible PostgreSQL persistence, Hebrew demo
+seed data, authentication/RBAC, customer/activity/instructor management,
+event-sourced booking workflows, role-aware desktop screens, local Ollama AI
+infrastructure, and the first approved-knowledge RAG ingestion slice.
 
 ## Project Structure
 
 ```text
 backend/            FastAPI backend
 desktop_client/     PySide6 desktop client
-rag/                Future RAG modules
-docker/             Future Docker configuration
+rag/                Ollama LLM and embedding clients
+docker/             Local Ollama Docker Compose service
 migrations/         Future database migrations
 docs/               Product and project documentation
 tasks/              Implementation task files
@@ -51,20 +53,42 @@ must not be committed.
 
 ## AI Server Setup (Ollama)
 
-The system uses a local Ollama server running inside a Docker container to power the AI consultation features (RAG).
+The system uses a local Ollama server running inside a Docker container to
+power the AI consultation and embedding features.
 
 1. Ensure Docker Desktop is running, then navigate to the docker directory and start the container:
 ```powershell
 cd docker
 docker-compose up -d
 ```
-2. Download the Llama 3 model into the running container (this may take a few minutes as the model is ~4.7GB):
+2. Download the Llama 3 generation model into the running container. This may
+   take a few minutes:
 ```powershell
-docker exec -it ollama_server ollama run llama3
+docker exec ollama_server ollama pull llama3
 ```
-3. Once the download is complete, a prompt (`>>>`) will appear. Type `/bye` and press Enter to exit. The server will continue running in the background.
+3. Once the download is complete, a prompt (`>>>`) will appear. Type `/bye`
+   and press Enter to exit. The server will continue running in the background.
+4. Download the embedding model used by Task 15 RAG ingestion:
+```powershell
+docker exec ollama_server ollama pull nomic-embed-text
+```
 
-*Note: The backend connects to this service automatically via the `OLLAMA_URL` environment variable in `backend\.env` (default: `http://localhost:11434`).*
+*Note: The backend connects to this service via `OLLAMA_URL` in `backend\.env`
+(default: `http://localhost:11434`). Embeddings use `OLLAMA_EMBEDDING_MODEL`
+(default: `nomic-embed-text`).*
+
+## Initialize The Database
+
+With a configured Supabase-compatible PostgreSQL connection, initialize the
+schema through the guarded system endpoint:
+
+```text
+POST http://127.0.0.1:8000/system/init-db
+```
+
+Set `INIT_DB_ENABLED=true` in `backend\.env` for local/demo initialization.
+The current schema includes booking event sourcing tables, activity image
+metadata, and Task 15 `knowledge_chunks` storage using PostgreSQL `vector`.
 
 ## Run The Backend
 
@@ -118,6 +142,38 @@ Implemented so far:
   manager completion, role-operational dashboard drill-down, and synchronized
   role navigation (Task 12F).
 - Local Ollama AI infrastructure integration via backend HTTP client (Task 13).
+- Authenticated read-only AI consultation endpoint and PySide6 chat screen
+  backed by the Ollama generation client (Task 14).
+- Manager-only approved-knowledge RAG ingestion infrastructure using Ollama
+  embeddings, deterministic chunking, content hashes, and PostgreSQL pgvector
+  storage in `knowledge_chunks` (Task 15).
 
-Task 12 functional coverage and final acceptance are complete with documented
-limitations. Full RAG workflows, AI UI integration, and UI/UX redesign remain future work.
+Task 15 is the current completed slice. Retrieval over `knowledge_chunks`,
+role-filtered citations, abstention behavior for missing approved knowledge,
+desktop knowledge-source management, and UI/UX redesign remain future work.
+
+## RAG Knowledge Ingestion
+
+After the backend is running, managers can ingest approved internal knowledge:
+
+```text
+POST /api/rag/knowledge
+```
+
+The endpoint chunks the submitted text, calls Ollama embeddings, and stores the
+approved chunks in PostgreSQL for a future retrieval task. The AI consultation
+flow remains read-only for operational data.
+
+## Validation
+
+Recent Task 15 validation:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest backend.tests.test_task15_rag_ingestion
+.\.venv\Scripts\python.exe -m unittest discover backend/tests
+.\.venv\Scripts\python.exe -m compileall backend desktop_client
+```
+
+Expected results from the latest documented pass: Task 15 tests passed, the
+full backend unittest suite passed, and compile validation passed for both
+backend and desktop client.

@@ -14,10 +14,14 @@ EXPECTED_TABLES = [
     "booking_equipment_items",
     "booking_price_components",
     "booking_events",
+    "knowledge_chunks",
 ]
 
 
-CREATE_EXTENSION_SQL = "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
+CREATE_EXTENSION_SQL = """
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS vector;
+"""
 
 
 CREATE_TABLE_SQL = [
@@ -251,6 +255,23 @@ CREATE_TABLE_SQL = [
         updated_at timestamptz NOT NULL DEFAULT now()
     );
     """,
+    """
+    CREATE TABLE IF NOT EXISTS knowledge_chunks (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        source_title text NOT NULL,
+        source_uri text,
+        chunk_index integer NOT NULL CHECK (chunk_index >= 0),
+        content text NOT NULL,
+        metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+        embedding_model text NOT NULL,
+        embedding_dimensions integer NOT NULL CHECK (embedding_dimensions > 0),
+        embedding vector NOT NULL,
+        content_hash text NOT NULL,
+        created_by uuid NOT NULL REFERENCES users(id),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (source_title, chunk_index, content_hash)
+    );
+    """,
 ]
 
 
@@ -305,4 +326,6 @@ CREATE_INDEX_SQL = [
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_instructors_activity_instructor ON booking_instructors(booking_activity_id, instructor_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_equipment_items_booking_id ON booking_equipment_items(booking_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_price_components_booking_id ON booking_price_components(booking_id);",
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source_title ON knowledge_chunks(source_title);",
+    "CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_content_hash ON knowledge_chunks(content_hash);",
 ]

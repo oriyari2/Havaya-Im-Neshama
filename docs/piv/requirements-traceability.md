@@ -149,6 +149,12 @@ through an AI consultation service, and adds a PySide6 MVP chat screen available
 from manager, instructor, and customer navigation. The assistant remains
 read-only and currently answers from the base model only; approved-knowledge
 retrieval, role-filtered citations, and abstention behavior remain future work.
+Task 15 adds the approved-knowledge ingestion foundation for `FR-AI-07`: a
+PostgreSQL `knowledge_chunks` table using pgvector, an Ollama embedding client,
+a manager-only `POST /api/rag/knowledge` endpoint, chunking and hashing in an
+application service, and repository-layer persistence tests. Retrieval,
+role-filtered similarity search, citations, and insufficient-context abstention
+remain future work.
 
 Required course/PRD concept
 
