@@ -8,6 +8,7 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 BACKEND_ENV_PATH = BACKEND_DIR / ".env"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "llama3.1"
+DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text"
 
 
 def load_backend_env() -> None:
@@ -33,3 +34,9 @@ def get_ollama_model() -> str:
     """Return the configured Ollama model name for local generation."""
     load_backend_env()
     return os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL).strip()
+
+
+def get_ollama_embedding_model() -> str:
+    """Return the configured Ollama model name for local embeddings."""
+    load_backend_env()
+    return os.getenv("OLLAMA_EMBEDDING_MODEL", DEFAULT_OLLAMA_EMBEDDING_MODEL).strip()

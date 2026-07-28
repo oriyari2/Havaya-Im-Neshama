@@ -25,7 +25,7 @@ class OllamaLLMClientTests(unittest.TestCase):
                 "prompt": "What should I prepare?",
                 "stream": False,
             },
-            timeout=60.0,
+            timeout=120.0,
         )
 
     def test_generate_injects_future_rag_context_into_prompt(self) -> None:
