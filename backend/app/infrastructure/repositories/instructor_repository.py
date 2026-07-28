@@ -15,6 +15,15 @@ def list_instructors(cur, *, search, city, is_active, order_by, limit, offset):
     cur.execute(f"SELECT {COLUMNS} FROM instructors {where} ORDER BY {sort} LIMIT %s OFFSET %s;",[*params,limit,offset]); return list(cur.fetchall())
 
 def get_instructor(cur,instructor_id:UUID): cur.execute(f"SELECT {COLUMNS} FROM instructors WHERE id=%s;",(instructor_id,)); return cur.fetchone()
+def lock_instructor(cur,instructor_id:UUID): cur.execute(f"SELECT {COLUMNS} FROM instructors WHERE id=%s FOR UPDATE;",(instructor_id,)); return cur.fetchone()
+def instructor_delete_dependencies(cur,instructor_id:UUID):
+    cur.execute("""SELECT
+        EXISTS (SELECT 1 FROM users WHERE instructor_id=%s) AS has_user,
+        EXISTS (SELECT 1 FROM booking_instructors WHERE instructor_id=%s) AS has_assignment_history,
+        EXISTS (SELECT 1 FROM booking_events WHERE event_data ->> 'instructor_id'=%s) AS has_event_history;""",
+        (instructor_id,instructor_id,str(instructor_id)))
+    return cur.fetchone()
+def delete_instructor(cur,instructor_id:UUID): cur.execute("DELETE FROM instructors WHERE id=%s RETURNING id;",(instructor_id,)); return cur.fetchone() is not None
 def get_by_email(cur,email:str,exclude_id:UUID|None=None):
     sql=f"SELECT {COLUMNS} FROM instructors WHERE lower(email)=lower(%s)"; params=[email]
     if exclude_id: sql+=" AND id<>%s"; params.append(exclude_id)
@@ -23,4 +32,3 @@ def create_instructor(cur,data):
     cur.execute(f"INSERT INTO instructors (full_name,phone,email,city,notes,is_active) VALUES (%s,%s,%s,%s,%s,%s) RETURNING {COLUMNS};",tuple(data[x] for x in FIELDS)); return cur.fetchone()
 def update_instructor(cur,instructor_id,data):
     fields=[x for x in FIELDS if x in data]; cur.execute(f"UPDATE instructors SET {', '.join(f'{x}=%s' for x in fields)}, updated_at=now() WHERE id=%s RETURNING {COLUMNS};",[*[data[x] for x in fields],instructor_id]); return cur.fetchone()
-def deactivate_instructor(cur,instructor_id): return update_instructor(cur,instructor_id,{"is_active":False})

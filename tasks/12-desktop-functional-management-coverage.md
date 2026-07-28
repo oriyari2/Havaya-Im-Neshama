@@ -22,7 +22,7 @@ the Task 13 visual redesign or adding desktop media mutations.
 - Cloudinary upload/delete desktop UI
 - AI/RAG, password reset, or general account administration
 - system, database, schema, replay, or event-store administration UI
-- permanent customer/activity deletion or any booking deletion
+- permanent activity deletion or any booking deletion
 
 ## Roles and Planned Navigation
 
@@ -67,7 +67,7 @@ Implemented scope:
 
 - manager Customers navigation, list, detail, search, city/type/active filters,
   supported `name`/`created_at` ordering, and real limit/offset paging
-- create, edit, soft deactivate, and reactivate customer workflows
+- create, edit, and protected physical customer deletion workflows
 - compact nested contact management in Customer Details (create, edit, soft
   deactivate, reactivate); contacts are retained because they are the booking
   contact source represented by `primary_contact_id`
@@ -106,11 +106,11 @@ Activity endpoint coverage:
 ## Milestone 12D - Instructor Management and Profile
 
 - Manager directory: search, city/active filters, `full_name`/`created_at`
-  ordering, offset pagination, detail, create/edit, deactivate/reactivate.
+  ordering, offset pagination, detail, create/edit, and protected deletion.
 - Instructor-only read-only My Profile through `/instructors/me`.
 - Create manages a business profile only; it does not provision users.
-- Deactivation preserves login state and assignment history while the existing
-  booking rule prevents future assignment of inactive instructors.
+- Deletion is blocked when a login, active or removed assignment, or immutable
+  booking event references the instructor; no login or history is removed.
 - Customers and instructors are denied directory, other-detail, and mutations.
 
 | Endpoint | Task 12 classification |
@@ -120,7 +120,7 @@ Activity endpoint coverage:
 | `GET /instructors/me` | Exposed in instructor desktop |
 | `GET /instructors/{instructor_id}` | Exposed in manager desktop |
 | `PUT /instructors/{instructor_id}` | Exposed in manager desktop |
-| `DELETE /instructors/{instructor_id}` | Exposed as soft Deactivate |
+| `DELETE /instructors/{instructor_id}` | Protected physical Delete (manager) |
 
 ## Milestone 12E - Embedded Instructor Assignments
 
@@ -206,8 +206,8 @@ contains all 47 operations.
 | GET | `/customers` | Customer directory | M | Customers; booking selectors | Exposed in desktop | `CustomerService`, `CustomersPresenter` | Complete |
 | POST | `/customers` | Create customer | M | Customers dialog | Exposed in desktop | `CustomerService.create_customer` | Complete |
 | GET | `/customers/{customer_id}` | Customer detail | M; C own | Customers / My Profile | Exposed in desktop | `CustomerService.customer` | Complete |
-| PUT | `/customers/{customer_id}` | Update/reactivate customer | M | Customers dialog/action | Exposed in desktop | `CustomerService.update_customer` | Complete |
-| DELETE | `/customers/{customer_id}` | Soft-deactivate customer | M | Customers action | Exposed in desktop | `CustomerService.deactivate_customer` | Labeled Deactivate |
+| PUT | `/customers/{customer_id}` | Update customer | M | Customers dialog | Exposed in desktop | `CustomerService.update_customer` | Desktop does not mutate active state |
+| DELETE | `/customers/{customer_id}` | Protected physical delete | M | Customers action | Exposed in desktop | `CustomerService.delete_customer` | 204 or dependency 409 |
 | GET | `/customers/{customer_id}/contacts` | Nested contacts | M; C own | Customer Details / My Profile | Exposed in desktop | `CustomerService.contacts` | Complete |
 | POST | `/customers/{customer_id}/contacts` | Create nested contact | M | Customer Details dialog | Exposed in desktop | `CustomerService.create_contact` | Complete |
 | PUT | `/customer-contacts/{contact_id}` | Update/reactivate contact | M | Customer Details | Exposed in desktop | `CustomerService.update_contact` | Complete |
@@ -216,8 +216,8 @@ contains all 47 operations.
 | POST | `/instructors` | Create business profile | M | Instructors dialog | Exposed in desktop | `InstructorService.create_instructor` | No login account created |
 | GET | `/instructors/me` | Own instructor profile | I own | My Profile | Exposed in desktop | `InstructorProfilePresenter` | Complete |
 | GET | `/instructors/{instructor_id}` | Instructor detail | M | Instructors | Exposed in desktop | `InstructorService.instructor` | Complete |
-| PUT | `/instructors/{instructor_id}` | Update/reactivate profile | M | Instructors dialog/action | Exposed in desktop | `InstructorService.update_instructor` | Complete |
-| DELETE | `/instructors/{instructor_id}` | Soft-deactivate profile | M | Instructors action | Exposed in desktop | `InstructorService.deactivate_instructor` | Labeled Deactivate |
+| PUT | `/instructors/{instructor_id}` | Update profile | M | Instructors dialog | Exposed in desktop | `InstructorService.update_instructor` | Desktop does not mutate active state |
+| DELETE | `/instructors/{instructor_id}` | Protected physical delete | M | Instructors action | Exposed in desktop | `InstructorService.delete_instructor` | 204 or dependency 409 |
 | GET | `/activities` | Activity list/catalog/selectors | M/I/C; I/C active only | Activities; booking selectors | Exposed in desktop | `ActivityService.list_activities` | Complete |
 | POST | `/activities` | Create activity | M | Activities dialog | Exposed in desktop | `ActivityService.create_activity` | Complete |
 | GET | `/activities/{activity_id}` | Activity detail | M/I/C; I/C active only | Activities | Exposed in desktop | `ActivityService.activity` | Complete |
@@ -250,8 +250,8 @@ contains all 47 operations.
 | Screen/action | Manager | Instructor | Customer |
 |---|---|---|---|
 | Dashboard | Six counts, operational lists, all management shortcuts | Scoped upcoming/assigned/open work | Own booking summary/list |
-| Customers / contacts | Full directory and nested soft-deactivation CRUD | Unavailable; backend 403 | Own read-only profile only; directory unavailable |
-| Instructors | Full business-profile soft-deactivation CRUD | Own read-only profile only | Unavailable |
+| Customers / contacts | Directory CRUD with protected customer Delete; nested contacts retain soft deactivation | Unavailable; backend 403 | Own read-only profile only; directory unavailable |
+| Instructors | Business-profile CRUD with protected Delete | Own read-only profile only | Unavailable |
 | Activities | Full textual soft-deactivation CRUD | Active-only catalog | Active-only catalog |
 | Bookings | Full filters/details and event-sourced commands | Assigned My Events, safe fields | Own My Bookings/details |
 | History | Manager-only raw event history | Unavailable; backend 403 | Unavailable; backend 403 |
@@ -272,7 +272,21 @@ contains all 47 operations.
 
 Task 12 is complete with these documented limitations.
 
-Final acceptance evidence: 68 backend tests and 67 desktop tests passed with no
+### Post-closure customer/instructor deletion correction
+
+Customer and instructor manager workflows now use explicit physical Delete,
+not soft deactivate/reactivate. Each delete locks the selected profile and runs
+all checks and the DELETE in one transaction. Customer deletion returns 409 if
+a booking, immutable booking event, or login user references the customer;
+otherwise owned contacts are removed by `customer_contacts.customer_id ON
+DELETE CASCADE`. Instructor deletion returns 409 for any active or removed
+`booking_instructors` row, immutable instructor assignment/removal event, or
+linked login user. Login accounts and auditable booking/assignment history are
+never unlinked or deleted automatically. Success is HTTP 204; missing records
+are 404. Existing inactive records remain listable through manager filters,
+but the desktop no longer offers activation-state mutation for these profiles.
+
+Final acceptance evidence: 75 backend tests and 72 desktop tests passed with no
 skips; compileall, 47-operation OpenAPI inventory, role/schema/security scans,
 architecture-boundary tests, real-backend role walkthrough, and
 `git diff --check` passed. Closure records are inactive or terminal and have no

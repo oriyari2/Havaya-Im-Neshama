@@ -94,6 +94,35 @@ def get_customer(cur, customer_id: UUID) -> dict | None:
     return cur.fetchone()
 
 
+def lock_customer(cur, customer_id: UUID) -> dict | None:
+    cur.execute(
+        f"SELECT {CUSTOMER_COLUMNS} FROM customers WHERE id = %s FOR UPDATE;",
+        (customer_id,),
+    )
+    return cur.fetchone()
+
+
+def customer_delete_dependencies(cur, customer_id: UUID) -> dict:
+    cur.execute(
+        """
+        SELECT
+            EXISTS (SELECT 1 FROM users WHERE customer_id = %s) AS has_user,
+            EXISTS (SELECT 1 FROM bookings WHERE customer_id = %s) AS has_booking,
+            EXISTS (
+                SELECT 1 FROM booking_events
+                WHERE event_data ->> 'customer_id' = %s
+            ) AS has_event_history;
+        """,
+        (customer_id, customer_id, str(customer_id)),
+    )
+    return cur.fetchone()
+
+
+def delete_customer(cur, customer_id: UUID) -> bool:
+    cur.execute("DELETE FROM customers WHERE id = %s RETURNING id;", (customer_id,))
+    return cur.fetchone() is not None
+
+
 def create_customer(cur, data: dict) -> dict:
     cur.execute(
         f"""
@@ -128,19 +157,6 @@ def update_customer(cur, customer_id: UUID, data: dict) -> dict:
         RETURNING {CUSTOMER_COLUMNS};
         """,
         [*params, customer_id],
-    )
-    return cur.fetchone()
-
-
-def soft_delete_customer(cur, customer_id: UUID) -> dict:
-    cur.execute(
-        f"""
-        UPDATE customers
-        SET is_active = false, updated_at = now()
-        WHERE id = %s
-        RETURNING {CUSTOMER_COLUMNS};
-        """,
-        (customer_id,),
     )
     return cur.fetchone()
 

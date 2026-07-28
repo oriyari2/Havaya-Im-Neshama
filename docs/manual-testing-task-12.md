@@ -56,11 +56,12 @@ implemented and approved.
 1. Start the backend and desktop with the commands above.
 2. Sign in as manager and open **Customers**. Verify search, city/type/active
    filters, both supported sort choices, paging, selection, and detail loading.
-3. Create `Task 12B Test Customer` with a unique email, edit its notes, and add
-   `Task 12B Contact`. Edit the contact, deactivate/reactivate it, then
-   deactivate/reactivate the customer. Confirmation is required for each
-   deactivation; failed validation must leave the dialog values intact.
-4. Cleanup by leaving both Task 12B records deactivated. Never deactivate a
+3. Create `Task 12 Delete Customer` with a unique email, edit its notes, and add
+   `Task 12 Delete Contact`. Confirm Delete identifies the customer by name.
+   Delete it; expect HTTP 204 behavior, a refreshed list, cleared details, and
+   both customer and owned contact to be absent.
+4. Select a customer with booking history and attempt Delete. Expect 409 and a
+   clear dependency message; the selection and record remain. Never delete a
    deterministic demo customer.
 5. Sign in as customer. Open **My Profile** and verify only the authenticated
    customer's details and nested contacts are shown. Sign in as instructor and
@@ -100,8 +101,10 @@ active rows only and received 403 for direct creation attempts.
 2. Create `Task 12D Test Instructor` with a unique profile email and notes
    `Created for Task 12D manual verification`. No password is requested because
    this creates a business profile, not a login account.
-3. Edit, deactivate, find via Inactive, reactivate, then leave it inactive.
-   Never deactivate the deterministic demo instructor.
+3. Edit and Delete the unassigned temporary profile. Expect the list to refresh,
+   details to clear, and subsequent detail read to return 404. Attempt Delete on
+   an instructor with assignment history; expect 409 and no data change. Never
+   delete the deterministic demo instructor.
 4. As `instructor@example.com`, verify owned My Profile, no directory, and 403
    for direct directory and other-instructor detail calls.
 5. As `customer@example.com`, verify customer My Profile remains correct, no
@@ -151,7 +154,7 @@ Verified July 28, 2026 against a fresh backend process using all three seeded
 accounts and the shared HTTP/service contracts.
 
 Manager verification covered dashboard reads, entity filters and detail,
-customer/contact/activity/instructor create and update, soft deactivation,
+customer/contact/activity/instructor create and update, the then-current soft-deactivation checks,
 booking creation with a stable activity, all five granular edits, confirm,
 complete, assignment, duplicate rejection (400), stale version rejection (409),
 removal, raw history, Open Events, and safe detail. Closure record IDs:
@@ -160,8 +163,23 @@ removal, raw history, Open Events, and safe detail. Closure record IDs:
 - contact `014a9c9b-8f78-4018-9fa6-e34c630bb35e` — inactive
 - activity `fa849c9a-c448-448f-b574-329935b42731` — inactive
 - instructor `35c43871-1203-47b3-b84c-adf63f1796a3` — inactive
+
 - booking `e42c5210-ae48-46da-88a5-419e4a6b2025` — COMPLETED, version 15
 - booking activity `a1c6c9fa-7e1c-4bf8-b795-31ec5b449013`
+
+## Post-closure protected deletion verification
+
+Verified July 28, 2026 through the supported HTTP APIs only. Temporary customer
+`3bef7c04-c27b-45d9-baed-864fe10fdbfd`, owned contact
+`6b11a5a9-3f27-4f75-a83c-45a8aa657e4d`, and instructor
+`4e962c2f-971f-4c36-a8c2-9a5407b002ad` were created and physically removed by
+the new DELETE endpoints. Customer/instructor detail returned 404 and searched
+lists returned zero; updating the cascaded contact returned 404. Seeded linked
+profiles, and instructors discovered through both assigned and removed booking
+events, returned 409. Customer/instructor direct DELETE returned 403, both
+logins remained usable, and activity deactivate/reactivate was exercised with
+the activity restored to inactive. No direct SQL, init, seed, schema, replay,
+media, or user-administration mutation was used.
 
 The booking has no active assignment. Its immutable history contains the
 creation, assignment/removal, granular edits, confirmation, and completion.

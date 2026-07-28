@@ -64,7 +64,9 @@ Task 12 Milestone 12B implemented
 
 Manager customer/contact management and customer-owned read-only profile are
 implemented through `CustomerService`, role-specific presenters, and passive
-PySide6 views. Contacts remain nested in Customer Details.
+PySide6 views. Contacts remain nested in Customer Details. Manager customer
+Delete is physical only for profiles without booking/event/user dependencies;
+protected references return 409 and owned contacts alone cascade.
 
 Authentication and RBAC
 
@@ -109,7 +111,9 @@ FR-INS-01 to FR-INS-04
 Instructor CRUD/profile, assigned/open booking backend, and role UI implemented
 
 Task 12D implements `FR-INS-01` manager instructor profile CRUD and the
-instructor-owned read-only profile. `FR-INS-02` and `FR-INS-03` are visible in
+instructor-owned read-only profile. Manager Delete is physical only when no
+user, active/removed assignment, or immutable event references the profile;
+protected references return 409. `FR-INS-02` and `FR-INS-03` are visible in
 Task 10. Task 08 implements assignment/removal commands for `FR-INS-04`; its
 manager desktop assignment UI and focused role-safe read models are implemented
 in Task 12 Milestone 12E using the existing event-sourced commands.
@@ -401,6 +405,9 @@ Implemented across Milestones 12A-12G:
 - final hardening: SQL removed from system routers, raw history made
   manager-only, customer directory made manager-only, and both terminal booking
   statuses made immutable for operational commands
+- post-closure product correction: customer/instructor desktop lifecycle
+  controls use protected physical Delete (204) with dependency conflicts (409);
+  activity soft-deactivation remains unchanged
 
 Evidence: `tasks/12-desktop-functional-management-coverage.md`,
 `docs/piv/12-desktop-functional-management-coverage.md`, and

@@ -6,5 +6,4 @@ class InstructorService:
     def my_profile(self):return self.api_client.get("/instructors/me")
     def create_instructor(self,payload):return self.api_client.post("/instructors",payload)
     def update_instructor(self,instructor_id,payload):return self.api_client.put(f"/instructors/{instructor_id}",payload)
-    def deactivate_instructor(self,instructor_id):return self.api_client.delete(f"/instructors/{instructor_id}")
-    def reactivate_instructor(self,instructor_id):return self.update_instructor(instructor_id,{"is_active":True})
+    def delete_instructor(self,instructor_id):self.api_client.delete(f"/instructors/{instructor_id}")

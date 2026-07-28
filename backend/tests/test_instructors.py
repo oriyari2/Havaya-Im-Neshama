@@ -19,7 +19,18 @@ class InstructorTests(TestCase):
         with self.assertRaises(s.InstructorConflictError):s.create_instructor(InstructorCreate(full_name="A",email="a@example.com"))
         conn.rollback.assert_called_once()
     @patch.object(s,"get_connection")
-    def test_deactivate_updates_profile_only_and_preserves_assignments(self,get_conn):
-        conn=MagicMock();cur=MagicMock();get_conn.return_value.__enter__.return_value=conn;conn.cursor.return_value.__enter__.return_value=cur;cur.fetchone.side_effect=[{"id":uuid4()},{"id":uuid4(),"is_active":False}];s.deactivate_instructor(uuid4());sql=" ".join(x.args[0] for x in cur.execute.call_args_list);self.assertIn("UPDATE instructors",sql);self.assertNotIn("UPDATE users",sql);self.assertNotIn("booking_instructors",sql);conn.commit.assert_called_once()
+    def test_delete_is_physical_atomic_and_checks_all_history(self,get_conn):
+        instructor_id=uuid4();conn=MagicMock();cur=MagicMock();get_conn.return_value.__enter__.return_value=conn;conn.cursor.return_value.__enter__.return_value=cur
+        cur.fetchone.side_effect=[{"id":instructor_id},{"has_user":False,"has_assignment_history":False,"has_event_history":False},{"id":instructor_id}]
+        s.delete_instructor(instructor_id);sql=" ".join(x.args[0] for x in cur.execute.call_args_list)
+        self.assertIn("FOR UPDATE",sql);self.assertIn("booking_instructors",sql);self.assertIn("event_data",sql);self.assertIn("DELETE FROM instructors",sql);self.assertNotIn("UPDATE instructors",sql);conn.commit.assert_called_once()
+    @patch.object(s,"get_connection")
+    def test_delete_dependency_conflict_rolls_back_before_delete(self,get_conn):
+        for dependency in ("has_user","has_assignment_history","has_event_history"):
+            with self.subTest(dependency=dependency):
+                instructor_id=uuid4();conn=MagicMock();cur=MagicMock();get_conn.return_value.__enter__.return_value=conn;conn.cursor.return_value.__enter__.return_value=cur
+                flags={"has_user":False,"has_assignment_history":False,"has_event_history":False};flags[dependency]=True;cur.fetchone.side_effect=[{"id":instructor_id},flags]
+                with self.assertRaises(s.InstructorDeleteConflictError):s.delete_instructor(instructor_id)
+                sql=" ".join(x.args[0] for x in cur.execute.call_args_list);self.assertNotIn("DELETE FROM instructors",sql);conn.rollback.assert_called_once();conn.commit.assert_not_called()
     def test_response_schema_never_exposes_password(self):
         self.assertNotIn("password_hash",s.__dict__);self.assertNotIn("password_hash",InstructorCreate.model_fields);self.assertNotIn("password_hash",InstructorUpdate.model_fields)

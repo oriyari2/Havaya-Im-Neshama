@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Annotated, NoReturn
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from backend.app.application.services import customer_service
 from backend.app.core.auth import get_current_user, require_roles
@@ -116,16 +116,21 @@ def update_customer(
     return _customer_response(customer, contacts)
 
 
-@router.delete("/customers/{customer_id}", response_model=CustomerResponse)
-def delete_customer(customer_id: UUID, _current_user: dict = RequireManager) -> CustomerResponse:
+@router.delete(
+    "/customers/{customer_id}",
+    status_code=204,
+    responses={404: {"description": "Customer not found"}, 409: {"description": "Protected dependencies prevent deletion"}},
+)
+def delete_customer(customer_id: UUID, _current_user: dict = RequireManager) -> Response:
     try:
-        customer, contacts = customer_service.soft_delete_customer(customer_id)
+        customer_service.delete_customer(customer_id)
     except customer_service.CustomerNotFoundError as exc:
         _raise_not_found(exc)
+    except customer_service.CustomerDeleteConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not delete customer") from exc
-
-    return _customer_response(customer, contacts)
+    return Response(status_code=204)
 
 
 @router.get(

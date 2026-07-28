@@ -26,7 +26,7 @@ class CustomersViewPort(Protocol):
     def select_customer(self, customer_id: str) -> None: ...
     def open_customer_form(self, initial: dict | None, submit: Callable) -> None: ...
     def open_contact_form(self, initial: dict | None, submit: Callable) -> None: ...
-    def confirm_customer_deactivation(self, name: str) -> bool: ...
+    def confirm_customer_deletion(self, name: str) -> bool: ...
     def confirm_contact_deactivation(self, name: str) -> bool: ...
 
 
@@ -35,8 +35,7 @@ class CustomerServicePort(Protocol):
     def customer(self, customer_id: str) -> dict: ...
     def create_customer(self, payload: dict[str, object]) -> dict: ...
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict: ...
-    def deactivate_customer(self, customer_id: str) -> dict: ...
-    def reactivate_customer(self, customer_id: str) -> dict: ...
+    def delete_customer(self, customer_id: str) -> None: ...
     def contacts(self, customer_id: str, *, is_active: bool | None = None) -> list[dict]: ...
     def create_contact(self, customer_id: str, payload: dict[str, object]) -> dict: ...
     def update_contact(self, contact_id: str, payload: dict[str, object]) -> dict: ...
@@ -59,7 +58,6 @@ def validate_customer(values: dict[str, object]) -> dict[str, object]:
         "phone": str(values.get("phone") or "").strip() or None,
         "email": email,
         "notes": str(values.get("notes") or "").strip() or None,
-        "is_active": bool(values.get("is_active", True)),
     }
 
 
@@ -182,17 +180,36 @@ class CustomersPresenter:
             self._submitting = False
             form.set_submitting(False)
 
-    def deactivate(self) -> None:
+    def delete(self) -> None:
         customer = self.selected_customer
-        if not customer or not customer.get("is_active") or not self.view.confirm_customer_deactivation(str(customer["name"])):
+        if not customer or not self.view.confirm_customer_deletion(str(customer["name"])):
             return
-        self._mutate(lambda: self.service.deactivate_customer(str(customer["id"])), "הלקוח הושבת.")
-
-    def reactivate(self) -> None:
-        customer = self.selected_customer
-        if not customer or customer.get("is_active"):
+        if self._submitting:
             return
-        self._mutate(lambda: self.service.reactivate_customer(str(customer["id"])), "הלקוח הופעל מחדש.")
+        customer_id = str(customer["id"])
+        self._submitting = True
+        self.view.set_loading(True)
+        try:
+            self.service.delete_customer(customer_id)
+            self.selected_id = self.selected_customer = None
+            self.view.clear_details()
+            self.view.show_success("הלקוח נמחק בהצלחה.")
+            self.load()
+        except ApiError as exc:
+            if exc.kind == ApiErrorKind.NOT_FOUND:
+                self.selected_id = self.selected_customer = None
+                self.view.clear_details()
+                self.load()
+            elif exc.kind == ApiErrorKind.CONFLICT:
+                self.view.show_error(str(exc))
+                self.select(customer_id)
+            else:
+                self._show_error(exc)
+        except Exception as exc:
+            self._show_error(exc)
+        finally:
+            self._submitting = False
+            self.view.set_loading(False)
 
     def begin_contact_create(self) -> None:
         if self.selected_customer:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from uuid import UUID
+from psycopg import IntegrityError
 from psycopg.rows import dict_row
 from backend.app.db.connection import get_connection
 from backend.app.infrastructure.repositories import instructor_repository as repo
@@ -7,6 +8,7 @@ from backend.app.infrastructure.repositories import instructor_repository as rep
 class InstructorNotFoundError(Exception):pass
 class InstructorAccessDeniedError(Exception):pass
 class InstructorConflictError(Exception):pass
+class InstructorDeleteConflictError(Exception):pass
 
 def list_instructors(*,search,city,is_active,order_by,limit,offset,current_user):
     if current_user["role"]!="manager":raise InstructorAccessDeniedError
@@ -42,9 +44,15 @@ def update_instructor(instructor_id,payload):
                 item=repo.update_instructor(cur,instructor_id,data) if data else _require(cur,instructor_id)
             conn.commit(); return item
         except Exception:conn.rollback();raise
-def deactivate_instructor(instructor_id):
+def delete_instructor(instructor_id):
     with get_connection() as conn:
         try:
-            with conn.cursor(row_factory=dict_row) as cur:_require(cur,instructor_id); item=repo.deactivate_instructor(cur,instructor_id)
-            conn.commit();return item
+            with conn.cursor(row_factory=dict_row) as cur:
+                if not repo.lock_instructor(cur,instructor_id):raise InstructorNotFoundError
+                dependencies=repo.instructor_delete_dependencies(cur,instructor_id)
+                if any(dependencies.values()):raise InstructorDeleteConflictError("לא ניתן למחוק את המדריך משום שקיימים עבורו שיבוצים, רשומות היסטוריות או חשבון משתמש מקושר.")
+                if not repo.delete_instructor(cur,instructor_id):raise InstructorNotFoundError
+            conn.commit()
+        except IntegrityError as exc:
+            conn.rollback();raise InstructorDeleteConflictError("לא ניתן למחוק את המדריך משום שקיימות עבורו רשומות מקושרות.") from exc
         except Exception:conn.rollback();raise

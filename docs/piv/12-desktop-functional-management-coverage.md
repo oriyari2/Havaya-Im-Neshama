@@ -62,7 +62,7 @@ endpoint was called.
   customer-profile presenters.
 - Added a functional manager Customers screen with search, backend-supported
   filters/order, offset pagination, selection/detail, create/edit, and explicit
-  soft deactivate/reactivate actions.
+  protected physical Delete actions.
 - Retained contacts as a compact nested Customer Details section because the
   existing PRD, seed model, and booking `primary_contact_id` make them part of
   the current booking workflow. No Contacts navigation item was added.
@@ -99,7 +99,7 @@ verified customer-owned profile access, then soft-deactivated both records.
 Validation: 15 focused tests, 51 complete desktop tests, and 52 complete backend
 tests passed. Compileall and diff checks passed. Real-backend verification used
 activity `be2959ab-a12f-43b2-a2eb-6aaecf88616a`, confirmed filters, pagination,
-detail, create/edit/deactivate/reactivate, manager all-state visibility,
+detail, create/edit/protected deletion, manager all-state visibility,
 active-only instructor/customer reads, and direct mutation 403 responses. The
 record was left soft-deactivated.
 
@@ -111,7 +111,7 @@ database had six profiles with only one linked user. Profile and login email
 are separate fields. Create/update therefore manage business profiles only and
 never accept passwords, roles, or user fields.
 
-Soft deactivation updates only `instructors.is_active`; login state and all
+Physical deletion is blocked by linked login state and all
 assignment/history rows remain unchanged. Existing booking validation prevents
 new assignments to inactive instructors. `/instructors/me` uses only the
 authenticated user's stored instructor ID.
@@ -206,8 +206,8 @@ modules under `backend/app` or `desktop_client/app`.
 | GET | `/customers` | Customer directory | M | Customers/selectors | Exposed in desktop | `CustomerService.list_customers` | Complete |
 | POST | `/customers` | Create customer | M | Customers dialog | Exposed in desktop | `CustomerService.create_customer` | Complete |
 | GET | `/customers/{customer_id}` | Customer detail | M; C own | Customers/My Profile | Exposed in desktop | `CustomerService.customer` | Complete |
-| PUT | `/customers/{customer_id}` | Update/reactivate | M | Customers | Exposed in desktop | `CustomerService.update_customer` | Complete |
-| DELETE | `/customers/{customer_id}` | Soft deactivate | M | Customers | Exposed in desktop | `deactivate_customer` | Deactivate wording |
+| PUT | `/customers/{customer_id}` | Update | M | Customers | Exposed in desktop | `CustomerService.update_customer` | Desktop does not mutate active state |
+| DELETE | `/customers/{customer_id}` | Protected physical delete | M | Customers | Exposed in desktop | `delete_customer` | 204 or dependency 409 |
 | GET | `/customers/{customer_id}/contacts` | Nested contacts | M; C own | Customer details/profile | Exposed in desktop | `CustomerService.contacts` | Complete |
 | POST | `/customers/{customer_id}/contacts` | Create contact | M | Customer details | Exposed in desktop | `create_contact` | Complete |
 | PUT | `/customer-contacts/{contact_id}` | Update/reactivate contact | M | Customer details | Exposed in desktop | `update_contact` | Complete |
@@ -216,8 +216,8 @@ modules under `backend/app` or `desktop_client/app`.
 | POST | `/instructors` | Create profile | M | Instructors dialog | Exposed in desktop | `create_instructor` | No account provisioning |
 | GET | `/instructors/me` | Own profile | I own | My Profile | Exposed in desktop | `InstructorProfilePresenter` | Complete |
 | GET | `/instructors/{instructor_id}` | Profile detail | M | Instructors | Exposed in desktop | `InstructorService.instructor` | Complete |
-| PUT | `/instructors/{instructor_id}` | Update/reactivate | M | Instructors | Exposed in desktop | `update_instructor` | Complete |
-| DELETE | `/instructors/{instructor_id}` | Soft deactivate | M | Instructors | Exposed in desktop | `deactivate_instructor` | Deactivate wording |
+| PUT | `/instructors/{instructor_id}` | Update | M | Instructors | Exposed in desktop | `update_instructor` | Desktop does not mutate active state |
+| DELETE | `/instructors/{instructor_id}` | Protected physical delete | M | Instructors | Exposed in desktop | `delete_instructor` | 204 or dependency 409 |
 | GET | `/activities` | Catalog/list/selectors | M/I/C; I/C active | Activities/booking selectors | Exposed in desktop | `ActivityService.list_activities` | Complete |
 | POST | `/activities` | Create activity | M | Activities dialog | Exposed in desktop | `create_activity` | Complete |
 | GET | `/activities/{activity_id}` | Activity detail | M/I/C; I/C active | Activities | Exposed in desktop | `ActivityService.activity` | Complete |
@@ -261,8 +261,8 @@ modules under `backend/app` or `desktop_client/app`.
 | Workflow | Manager | Instructor | Customer |
 |---|---|---|---|
 | Dashboard | Six counts, operational lists, management drill-down | Scoped upcoming/assigned/open work | Own summary and bookings |
-| Customers/contacts | Full nested soft-deactivation CRUD | Denied | Own profile read only |
-| Instructors | Full profile soft-deactivation CRUD | Own profile read only | Denied |
+| Customers/contacts | Customer protected Delete; nested contact soft-deactivation CRUD | Denied | Own profile read only |
+| Instructors | Full profile CRUD with protected Delete | Own profile read only | Denied |
 | Activities | Full textual soft-deactivation CRUD | Active catalog | Active catalog |
 | Bookings | Full filters/details/commands | Assigned events and safe detail | Own bookings/detail |
 | Assignments | Embedded assign/remove | No controls/self-claim | Denied |
@@ -297,10 +297,31 @@ Task 12 is complete with documented limitations.
 
 ### Final validation evidence
 
-- `python -m unittest discover -s backend/tests -v`: 68 passed, none skipped.
-- `python -m unittest discover -s desktop_client/tests -v`: 67 passed, none skipped.
+- `python -m unittest discover -s backend/tests -v`: 75 passed, none skipped.
+- `python -m unittest discover -s desktop_client/tests -v`: 72 passed, none skipped.
 - `python -m compileall backend desktop_client`: passed.
 - OpenAPI: 47 unique operations; all classified above.
 - Router SQL, presenter PySide, view data-layer, sensitive-schema, tracked-env,
   role-navigation, and authorization scans: passed.
 - `git diff --check`: passed; only Git line-ending conversion warnings appeared.
+
+### Post-closure deletion behavior correction
+
+The customer and instructor desktop actions were changed from soft lifecycle
+switches to explicit manager-only Delete actions. Backend DELETE now physically
+removes only an unreferenced profile, in a single locked transaction. Customer
+bookings, customer IDs in immutable booking events, and linked users block with
+HTTP 409; customer-owned contacts alone cascade. Instructor active/removed
+assignment rows, instructor IDs in immutable booking events, and linked users
+block with HTTP 409. Constraint races are translated to the same non-technical
+409 contract; unexpected failures use the existing structured 500 transport
+handling. No login, booking, event, or assignment history is deleted or
+unlinked. Activity soft deactivate/reactivate remains unchanged.
+
+Real-backend evidence: an API-created customer/contact and instructor were
+deleted with 204; subsequent details, list searches, and the cascaded contact
+update proved absence (404/zero results). Seeded customer/instructor profiles
+and instructors referenced by assigned and removed events returned 409;
+non-manager DELETE returned 403; both linked logins still returned `/auth/me`;
+the activity lifecycle check ended in its original inactive state. Verification
+used supported APIs only.

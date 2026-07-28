@@ -19,11 +19,8 @@ class CustomerService:
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict:
         return self.api_client.put(f"/customers/{customer_id}", payload)
 
-    def deactivate_customer(self, customer_id: str) -> dict:
-        return self.api_client.delete(f"/customers/{customer_id}")
-
-    def reactivate_customer(self, customer_id: str) -> dict:
-        return self.update_customer(customer_id, {"is_active": True})
+    def delete_customer(self, customer_id: str) -> None:
+        self.api_client.delete(f"/customers/{customer_id}")
 
     def contacts(self, customer_id: str, *, is_active: bool | None = None) -> list[dict]:
         return self.api_client.get(f"/customers/{customer_id}/contacts", {"is_active": is_active})

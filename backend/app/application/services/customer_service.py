@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from psycopg import IntegrityError
 from psycopg.rows import dict_row
 
 from backend.app.db.connection import get_connection
@@ -23,6 +24,10 @@ class ContactNotFoundError(Exception):
 
 
 class CustomerAccessDeniedError(Exception):
+    pass
+
+
+class CustomerDeleteConflictError(Exception):
     pass
 
 
@@ -119,14 +124,29 @@ def update_customer(customer_id: UUID, payload: CustomerUpdate) -> tuple[dict, l
     return customer, contacts
 
 
-def soft_delete_customer(customer_id: UUID) -> tuple[dict, list[dict]]:
+def delete_customer(customer_id: UUID) -> None:
     with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            _require_customer(cur, customer_id)
-            customer = repo.soft_delete_customer(cur, customer_id)
-            contacts = repo.list_contacts(cur, customer_id)
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                customer = repo.lock_customer(cur, customer_id)
+                if customer is None:
+                    raise CustomerNotFoundError
+                dependencies = repo.customer_delete_dependencies(cur, customer_id)
+                if any(dependencies.values()):
+                    raise CustomerDeleteConflictError(
+                        "לא ניתן למחוק את הלקוח משום שקיימות עבורו הזמנות, רשומות היסטוריות או חשבון משתמש מקושר."
+                    )
+                if not repo.delete_customer(cur, customer_id):
+                    raise CustomerNotFoundError
             conn.commit()
-    return customer, contacts
+        except IntegrityError as exc:
+            conn.rollback()
+            raise CustomerDeleteConflictError(
+                "לא ניתן למחוק את הלקוח משום שקיימות עבורו רשומות מקושרות."
+            ) from exc
+        except Exception:
+            conn.rollback()
+            raise
 
 
 def list_customer_contacts(customer_id: UUID, is_active: bool | None) -> list[dict]:

@@ -81,13 +81,14 @@ Implemented so far:
 - Manager booking creation, confirmation, cancellation, and supported field
   edits through the event-sourced command API with optimistic concurrency.
 - Manager customer directory and nested contact management with search,
-  filters, pagination, and soft deactivate/reactivate; customer-owned read-only
-  profile access.
+  filters and pagination. Customers use protected physical deletion; linked
+  bookings/history/users return 409, while owned contacts cascade.
 - Manager textual activity management and an active-only read-only activity
   catalog for instructors/customers, including search, filters, pagination,
   detail, and soft deactivate/reactivate.
-- Manager instructor profile management with search/filter/page/detail and soft
-  deactivate/reactivate, plus an instructor-owned read-only profile.
+- Manager instructor profile management with search/filter/page/detail and
+  protected physical deletion, plus an instructor-owned read-only profile.
+  Assignment/history/user dependencies return 409.
 - Event-sourced instructor assignment/removal embedded in Booking Details and
   role-safe open-event detail for instructors.
 - Paged and named booking filters, readable customer/activity projections,

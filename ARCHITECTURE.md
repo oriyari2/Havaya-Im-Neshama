@@ -47,9 +47,12 @@ textual catalog milestone.
 Task 12D adds conventional instructor CRUD through `router -> application
 service -> repository -> PostgreSQL` and `InstructorService -> presenter ->
 passive view` on desktop. Instructor profiles and authentication users remain
-separate: profile creation does not provision a user, profile deactivation does
-not mutate login state, and `/instructors/me` resolves only the authenticated
-user's stored `instructor_id`.
+separate: profile creation does not provision a user, profile deletion is
+blocked while a login, assignment, or immutable booking event references it,
+and `/instructors/me` resolves only the authenticated user's stored
+`instructor_id`. Customer deletion follows the same transaction boundary:
+bookings, event history, and linked users block with HTTP 409; disposable owned
+contacts use the schema's `ON DELETE CASCADE`.
 
 Task 12E keeps assignment writes on `command handler -> aggregate -> immutable
 event -> projections`. Focused assignment queries serve the embedded Booking

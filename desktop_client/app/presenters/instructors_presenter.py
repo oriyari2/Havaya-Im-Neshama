@@ -8,7 +8,7 @@ def validate_instructor(values):
     if not name:raise ValueError("יש להזין שם מדריך.")
     email=str(values.get("email") or "").strip().lower() or None
     if email and not EMAIL.match(email):raise ValueError("כתובת הדוא״ל אינה תקינה.")
-    return {"full_name":name,"phone":str(values.get("phone") or "").strip() or None,"email":email,"city":str(values.get("city") or "").strip() or None,"notes":str(values.get("notes") or "").strip() or None,"is_active":bool(values.get("is_active",True))}
+    return {"full_name":name,"phone":str(values.get("phone") or "").strip() or None,"email":email,"city":str(values.get("city") or "").strip() or None,"notes":str(values.get("notes") or "").strip() or None}
 class InstructorsPresenter:
     def __init__(self,view,service,limit=25):self.view=view;self.service=service;self.filters={"search":None,"city":None,"is_active":None,"order_by":"full_name","limit":limit,"offset":0};self.selected_id=None;self.selected=None;self.loading=False;self.submitting=False
     def load(self):
@@ -47,10 +47,18 @@ class InstructorsPresenter:
             f.show_error(self.message(e))
             if isinstance(e,ApiError) and e.kind==ApiErrorKind.CONFLICT and self.selected_id:self.select(self.selected_id)
         finally:self.submitting=False;f.set_submitting(False)
-    def deactivate(self):
-        if self.selected and self.selected.get("is_active") and self.view.confirm_deactivation(self.selected["full_name"]):self._mutate(lambda:self.service.deactivate_instructor(self.selected_id),"המדריך הושבת.")
-    def reactivate(self):
-        if self.selected and not self.selected.get("is_active"):self._mutate(lambda:self.service.reactivate_instructor(self.selected_id),"המדריך הופעל מחדש.")
+    def delete(self):
+        if not self.selected or not self.view.confirm_deletion(self.selected["full_name"]):return
+        if self.submitting:return
+        instructor_id=self.selected_id;self.submitting=True;self.view.set_loading(True)
+        try:
+            self.service.delete_instructor(instructor_id);self.selected_id=self.selected=None;self.view.clear_details();self.view.show_success("המדריך נמחק בהצלחה.");self.load()
+        except ApiError as e:
+            if e.kind==ApiErrorKind.NOT_FOUND:self.selected_id=self.selected=None;self.view.clear_details();self.load()
+            elif e.kind==ApiErrorKind.CONFLICT:self.view.show_error(str(e));self.select(instructor_id)
+            else:self._error(e)
+        except Exception as e:self._error(e)
+        finally:self.submitting=False;self.view.set_loading(False)
     def _mutate(self,op,msg):
         if self.submitting:return
         self.submitting=True

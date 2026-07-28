@@ -19,9 +19,9 @@ class CustomerDialog(_BaseFormDialog):
         super().__init__("עריכת לקוח" if initial else "לקוח חדש", parent); initial = initial or {}; self.fields = {}
         for key, label in (("name", "שם *"), ("customer_type", "סוג"), ("city", "עיר"), ("address", "כתובת"), ("phone", "טלפון"), ("email", "דוא״ל")):
             self.fields[key] = QLineEdit(str(initial.get(key) or "")); self.form.addRow(label, self.fields[key])
-        self.notes = QPlainTextEdit(str(initial.get("notes") or "")); self.form.addRow("הערות", self.notes); self.active = QCheckBox("פעיל"); self.active.setChecked(bool(initial.get("is_active", True))); self.form.addRow(self.active)
+        self.notes = QPlainTextEdit(str(initial.get("notes") or "")); self.form.addRow("הערות", self.notes)
     def values(self) -> dict:
-        return {**{key: field.text() for key, field in self.fields.items()}, "notes": self.notes.toPlainText(), "is_active": self.active.isChecked()}
+        return {**{key: field.text() for key, field in self.fields.items()}, "notes": self.notes.toPlainText()}
 
 
 class ContactDialog(_BaseFormDialog):
