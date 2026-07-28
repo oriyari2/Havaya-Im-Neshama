@@ -26,7 +26,7 @@ class LLMClient(ABC):
 class OllamaLLMClient(LLMClient):
     model: str
     base_url: str | None = None
-    timeout_seconds: float = 60.0
+    timeout_seconds: float = 120.0
 
     def generate(self, prompt: str, context: Sequence[str] | None = None) -> str:
         user_prompt = self._build_prompt(prompt=prompt, context=context)

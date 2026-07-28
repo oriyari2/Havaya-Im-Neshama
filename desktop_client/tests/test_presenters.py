@@ -4,6 +4,7 @@ import unittest
 
 from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError
+from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, FormValidationError, validate_create_booking
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
@@ -35,6 +36,8 @@ class _View:
         self.success = ""
         self.create_values = None
         self.edit_values = None
+        self.messages = []
+        self.input_cleared = False
         self.cancellation_confirmed = True
         self.command_status = ""
 
@@ -66,6 +69,12 @@ class _View:
 
     def show_success(self, message):
         self.success = message
+
+    def append_message(self, sender, message):
+        self.messages.append((sender, message))
+
+    def clear_input(self):
+        self.input_cleared = True
 
     def collect_create_booking(self, customers, activities):
         return self.create_values
@@ -159,11 +168,39 @@ class _Service:
 
 class PresenterTests(unittest.TestCase):
     def test_role_navigation_contains_only_permitted_booking_modules(self) -> None:
-        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "activities", "bookings", "open_events"])
-        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "open_events", "my_profile"])
-        self.assertEqual([key for key, _ in navigation_for_role("customer")], ["dashboard", "activities", "my_bookings", "my_profile"])
-        self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["dashboard", "activities", "my_bookings"])
+        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "activities", "bookings", "open_events", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("customer")], ["dashboard", "activities", "my_bookings", "my_profile", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["dashboard", "activities", "my_bookings", "ai_chat"])
         self.assertEqual(navigation_for_role("unknown"), ())
+
+    def test_ai_chat_presenter_appends_conversation_and_loading(self) -> None:
+        view = _View()
+
+        class AIService:
+            def consult(self, prompt):
+                return f"תשובה עבור {prompt}"
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message(" שלום ")
+
+        self.assertEqual(view.loading, [True, False])
+        self.assertEqual(view.messages, [("את/ה", "שלום"), ("היועץ", "תשובה עבור שלום")])
+        self.assertTrue(view.input_cleared)
+
+    def test_ai_chat_presenter_handles_empty_prompt_and_errors(self) -> None:
+        view = _View()
+
+        class FailingAIService:
+            def consult(self, prompt):
+                raise RuntimeError("offline")
+
+        presenter = AIChatPresenter(view, FailingAIService())
+        presenter.send_message(" ")
+        self.assertIn("שאלה", view.error)
+        presenter.send_message("שלום")
+        self.assertEqual(view.error, "offline")
+        self.assertEqual(view.loading, [True, False])
 
     def test_login_presenter_validates_and_reports_loading(self) -> None:
         view = _View()

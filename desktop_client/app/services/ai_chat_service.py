@@ -1,0 +1,12 @@
+from __future__ import annotations
+
+from desktop_client.app.api.client import ApiClient
+
+
+class AIChatService:
+    def __init__(self, api_client: ApiClient) -> None:
+        self.api_client = api_client
+
+    def consult(self, prompt: str) -> str:
+        response = self.api_client.post("/api/ai/consult", {"prompt": prompt})
+        return str(response.get("answer", "")) if isinstance(response, dict) else ""
