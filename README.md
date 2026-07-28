@@ -21,6 +21,10 @@ tasks/              Implementation task files
 
 ## Setup
 
+**Prerequisites:**
+- Python 3.10+
+- Docker & Docker Compose (required for the local AI/Ollama server)
+
 Create a Python virtual environment from the repository root:
 
 ```powershell
@@ -44,6 +48,23 @@ Copy `backend\.env.example` to `backend\.env` when local backend
 configuration is needed. The backend reads configuration only from
 `backend\.env`, resolved from the backend source location, and real secrets
 must not be committed.
+
+## AI Server Setup (Ollama)
+
+The system uses a local Ollama server running inside a Docker container to power the AI consultation features (RAG).
+
+1. Ensure Docker Desktop is running, then navigate to the docker directory and start the container:
+```powershell
+cd docker
+docker-compose up -d
+```
+2. Download the Llama 3 model into the running container (this may take a few minutes as the model is ~4.7GB):
+```powershell
+docker exec -it ollama_server ollama run llama3
+```
+3. Once the download is complete, a prompt (`>>>`) will appear. Type `/bye` and press Enter to exit. The server will continue running in the background.
+
+*Note: The backend connects to this service automatically via the `OLLAMA_URL` environment variable in `backend\.env` (default: `http://localhost:11434`).*
 
 ## Run The Backend
 
@@ -96,7 +117,7 @@ Implemented so far:
 - Paged and named booking filters, readable customer/activity projections,
   manager completion, role-operational dashboard drill-down, and synchronized
   role navigation (Task 12F).
+- Local Ollama AI infrastructure integration via backend HTTP client (Task 13).
 
 Task 12 functional coverage and final acceptance are complete with documented
-limitations. Task 13 UI/UX redesign, AI/RAG, and activity image UI remain future
-work.
+limitations. Full RAG workflows, AI UI integration, and UI/UX redesign remain future work.

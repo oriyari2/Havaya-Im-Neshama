@@ -137,7 +137,13 @@ RAG AI assistant
 
 FR-AI-01 to FR-AI-06
 
-Not started
+Infrastructure started
+
+Task 13 adds local Ollama connection infrastructure: `OLLAMA_URL` configuration
+defaulting to `http://localhost:11434`, an importable `rag` package, an
+application-facing `LLMClient` interface, and an `OllamaLLMClient` that posts
+non-streaming generation requests to `/api/generate`. Retrieval, role-filtered
+knowledge access, citations, API endpoints, and desktop UI remain future tasks.
 
 Required course/PRD concept
 
@@ -145,9 +151,11 @@ Docker/Ollama
 
 Docker, AI service
 
-Not started
+Ollama client configuration implemented
 
-Needed for AI demo
+Docker setup and model download were handled manually outside this task. Task
+13 connects backend Python infrastructure to the expected local Ollama service
+at `http://localhost:11434`.
 
 PySide6 desktop MVP
 
@@ -413,10 +421,22 @@ Evidence: `tasks/12-desktop-functional-management-coverage.md`,
 `docs/piv/12-desktop-functional-management-coverage.md`, and
 `docs/manual-testing-task-12.md`.
 
-Task 13 - Desktop UI/UX Redesign
+Task 13 - Ollama RAG Infrastructure
 
-Deferred intentionally: final visual design, branding, typography, iconography,
-and layout polish. Functional workflows are already complete.
+Status: Implemented for Python backend infrastructure.
+
+Implemented:
+
+- `OLLAMA_URL` configuration in backend environment loading and env examples.
+- `rag.LLMClient` abstraction for future RAG orchestration.
+- `rag.OllamaLLMClient` using `httpx` against local `/api/generate`.
+- Optional context injection for future approved-knowledge snippets.
+- Focused mocked HTTP tests and PIV documentation.
+
+Deferred:
+
+- Retrieval, embeddings, approved knowledge ingestion, citations, FastAPI AI
+  endpoints, and desktop AI screens.
 
 Later tasks
 
