@@ -12,7 +12,7 @@ components.
 ## Implement
 
 - Added `psycopg[binary]` as the PostgreSQL driver.
-- Added `backend.app.db.connection` to load local `.env` files and open a
+- Added `backend.app.db.connection` to load backend configuration and open a
   PostgreSQL connection from `DATABASE_URL`.
 - Added `backend.app.db.schema` with the required UUID-based tables and indexes.
 - Added `backend.app.db.init_db` to run idempotent schema creation.
@@ -35,4 +35,5 @@ components.
   database endpoints will return a clear configuration error until the real
   Supabase PostgreSQL connection string is added locally.
 - Database-related environment variables are backend-only and are loaded from
-  `backend/.env`.
+  `backend/.env` through `backend.app.core.environment`, with the path resolved
+  from the backend source location rather than the current working directory.

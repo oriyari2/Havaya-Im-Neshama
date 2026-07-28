@@ -3,12 +3,12 @@ from __future__ import annotations
 import os
 
 from backend.app.application.gateways.image_gateway import ImageGatewayError, UploadedImage
-from backend.app.db.connection import load_local_env
+from backend.app.core.environment import load_backend_env
 
 
 class CloudinaryImageGateway:
     def __init__(self) -> None:
-        load_local_env()
+        load_backend_env()
         self.folder = os.getenv("CLOUDINARY_ACTIVITY_FOLDER", "havaya-im-neshama/activities")
 
     def _configure(self) -> None:

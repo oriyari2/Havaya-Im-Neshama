@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 
+from backend.app.core.environment import load_backend_env
 from backend.app.routers.activity_images import router as activity_images_router
 from backend.app.routers.activities import router as activities_router
 from backend.app.routers.auth import router as auth_router
@@ -7,6 +8,8 @@ from backend.app.routers.bookings import router as bookings_router
 from backend.app.routers.customers import router as customers_router
 from backend.app.routers.instructors import router as instructors_router
 from backend.app.routers.system import router as system_router
+
+load_backend_env()
 
 app = FastAPI(
     title="Havaya Im Neshama API",
