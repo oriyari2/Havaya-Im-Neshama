@@ -201,11 +201,16 @@ class BookingQueryTests(unittest.TestCase):
 
     def test_demo_booking_statuses_use_only_domain_values(self) -> None:
         supported_statuses = {status.value for status in BookingStatus}
-        seeded_statuses = {booking[10] for booking in BOOKINGS}
+        seeded_statuses = {booking.status for booking in BOOKINGS}
 
         self.assertEqual(
             seeded_statuses,
-            {BookingStatus.NEW.value, BookingStatus.CONFIRMED.value},
+            {
+                BookingStatus.NEW.value,
+                BookingStatus.CONFIRMED.value,
+                BookingStatus.COMPLETED.value,
+                BookingStatus.CANCELLED.value,
+            },
         )
         self.assertTrue(seeded_statuses <= supported_statuses)
 
