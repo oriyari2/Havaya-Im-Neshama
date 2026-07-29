@@ -123,13 +123,16 @@ class ViewTests(unittest.TestCase):
             def list_instructors(self, filters=None):
                 return {"items": [], "count": 0}
 
+            def list_sources(self):
+                return []
+
             def my_profile(self):
                 return {"id": "instructor-id", "full_name": "Instructor", "is_active": True, "created_at": "", "updated_at": ""}
 
         expected_pages = {
-            "manager": {"dashboard", "customers", "instructors", "activities", "bookings", "open_events"},
-            "instructor": {"dashboard", "activities", "bookings", "open_events", "my_profile"},
-            "customer": {"dashboard", "activities", "my_bookings", "my_profile"},
+            "manager": {"dashboard", "customers", "instructors", "activities", "bookings", "open_events", "knowledge", "ai_chat"},
+            "instructor": {"dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"},
+            "customer": {"dashboard", "activities", "my_bookings", "my_profile", "ai_chat"},
         }
         for role, pages in expected_pages.items():
             window = MainWindow(Api())
@@ -137,6 +140,7 @@ class ViewTests(unittest.TestCase):
             window.customer_service = Service()
             window.activity_service = Service()
             window.instructor_service = Service()
+            window.knowledge_service = Service()
             customer_id = "customer-id" if role == "customer" else None
             instructor_id = "instructor-id" if role == "instructor" else None
             window._show_workspace(Session("token", "id", f"{role}@example.com", role, customer_id=customer_id, instructor_id=instructor_id))

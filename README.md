@@ -8,7 +8,7 @@ PySide6 MVP layers, Supabase-compatible PostgreSQL persistence, Hebrew demo
 seed data, authentication/RBAC, customer/activity/instructor management,
 event-sourced booking workflows, role-aware desktop screens, local Ollama AI
 infrastructure, approved-knowledge RAG ingestion and retrieval, and grounded
-RAG-only AI consultation.
+RAG-only AI consultation with manager knowledge-source management.
 
 ## Project Structure
 
@@ -149,6 +149,9 @@ Implemented so far:
 - Manager-only approved-knowledge RAG ingestion infrastructure using Ollama
   embeddings, deterministic chunking, content hashes, and PostgreSQL pgvector
   storage in `knowledge_chunks` (Task 15).
+- Manager-only approved knowledge-source management for pasted text and
+  `.txt`/`.md` uploads, with logical source listing, replace/delete, and
+  configurable role visibility metadata (Task 18).
 
 Task 17 connects role-aware retrieval to `POST /api/ai/consult`. The endpoint
 retrieves approved chunks using only the authenticated role before generation,
@@ -198,6 +201,40 @@ RAG_RETRIEVAL_TOP_K = 5
 The search request rejects unexpected fields, so authorization metadata such as
 `role` cannot be supplied by the caller. The authenticated role comes only from
 the backend authentication context.
+
+Managers can also manage logical approved knowledge sources:
+
+```text
+POST   /api/rag/sources
+POST   /api/rag/sources/upload
+GET    /api/rag/sources
+GET    /api/rag/sources/{source_id}
+PUT    /api/rag/sources/{source_id}
+DELETE /api/rag/sources/{source_id}
+```
+
+One pasted or uploaded document is grouped by a stable `metadata.source_id`
+across all generated chunks. Source responses include title, optional
+filename/source URI, category, optional activity name, original content,
+allowed roles, and chunk counts, but never embeddings. Supported uploads are
+UTF-8 `.txt` and `.md` files up to `50,000 characters`; PDF, DOCX, and OCR are not part
+of the MVP. The `allowed_roles` list accepts only `manager`, `instructor`, and
+`customer`; `manager` is always retained. Replace/delete operations target only
+chunks with the selected source ID.
+
+The desktop app exposes a minimal `ניהול ידע` screen only for managers.
+
+If the database still contains disposable Task 16 demo chunks created before
+managed source IDs existed, run the one-time cleanup:
+
+```powershell
+.\.venv\Scripts\python.exe -m rag.cleanup_task16_demo_knowledge
+```
+
+The cleanup deletes only unmanaged `knowledge_chunks` rows that match known
+Task 16 demo identifiers, such as `demo://knowledge/...` URIs, known Task 16
+demo titles, or explicit Task 16 demo metadata markers. Managed sources and
+non-demo legacy sources are preserved.
 
 Authenticated users can ask the grounded AI consultation endpoint:
 

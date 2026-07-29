@@ -208,6 +208,25 @@ return `answer_basis="rag"` and only the cited source records used by the
 answer. The desktop chat minimally displays returned source titles and URIs
 under RAG answers. No AI endpoint mutates operational data.
 
+Task 18 implements manager-only approved knowledge-source management for
+`FR-AI-07`. Managers can create pasted-text sources, upload UTF-8 `.txt` and
+`.md` documents up to the shared `50,000` character source content limit, list
+logical sources, view original content, replace a source, and delete a source.
+A stable `metadata.source_id` groups all
+chunks for one document while preserving the existing `knowledge_chunks`
+retrieval path. Source metadata includes title, optional file/source URI,
+category, optional activity name, original content, and configurable
+`allowed_roles`; unknown roles are rejected and `manager` is always retained.
+Replacement and deletion target only chunks with the selected source ID.
+Management APIs are manager-only, do not expose embeddings, and do not weaken
+Task 16 role-aware retrieval or Task 17 RAG-only consultation. A minimal
+manager-only PySide6 MVP screen was added for this workflow. Task 18 final
+hardening adds a one-time cleanup for known disposable Task 16 demo rows without
+a valid managed `metadata.source_id`, preserves newly managed and non-demo
+legacy sources, and ensures
+desktop replacement reads selected `.txt`/`.md` file content and filename
+through shared validation before replacing the selected source.
+
 Required course/PRD concept
 
 Docker/Ollama
