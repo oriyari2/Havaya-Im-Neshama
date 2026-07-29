@@ -201,6 +201,47 @@ strings and distinct 768-dimensional vectors through both `OllamaEmbeddingClient
 and direct `/api/embed`; the earlier identical-vector observation is classified
 as a validation-script/input-encoding defect, not a client parsing defect.
 
+Task 16 keeps production ingestion and retrieval on the stable baseline used by
+the existing `knowledge_chunks` embeddings: production ingestion embeds the
+plain normalized chunk text, and production retrieval embeds the plain
+normalized query. The model-aware formatter in `rag/embedding_formatting.py` is
+currently used only by the isolated Hebrew model-evaluation flow. Its selected
+document formatting must not be applied to production until a model/threshold
+strategy is selected and all production knowledge is fully re-ingested.
+
+The Hebrew evaluation fixture is versioned at
+`rag/evaluation_fixture_task16_he.json`, and the live model comparison can be
+run with:
+
+```powershell
+.\.venv\Scripts\python.exe -m rag.evaluate_task16_live
+```
+
+The corrected live comparison found all requested models installed:
+`nomic-embed-text`, `nomic-embed-text-v2-moe`, and `bge-m3`. The evaluator
+inserts temporary `eval://task16-hebrew-model-comparison/...` rows, reuses the
+production retrieval repository, verifies authorization against returned
+`metadata.allowed_roles`, reports raw metrics before threshold filtering,
+evaluates explicit and generated threshold candidates, emits exact failure
+reports, and cleans up temporary rows with `try/finally`.
+
+With the expanded 44-case Hebrew fixture, `nomic-embed-text-v2-moe` is the
+corrected model candidate. It had raw Top-1 accuracy `0.963`, raw Top-3 recall
+`1.000`, no unauthorized retrieval, no forbidden-source retrieval, and better
+separation than `bge-m3`. A threshold around `0.69` accepted all relevant cases
+but also accepted 3 unrelated hard negatives, so it is not acceptable for
+RAG-only behavior. The best zero-false-positive candidate observed in the
+generated thresholds was around `0.581186`: 19/27 relevant cases accepted,
+17/17 unrelated cases rejected, accepted Top-1 accuracy `1.000`, wrong accepted
+Top-1 count `0`, forbidden accepted count `0`, and unauthorized accepted count
+`0`. No application model or threshold was changed in this pass.
+
+Existing application knowledge was not deleted or re-ingested. A future
+production formatting rollout requires selecting the model/threshold, embedding
+all approved knowledge with the selected formatter, replacing the old vectors in
+a controlled pass, and then revalidating role-aware retrieval before connecting
+retrieved context to generated AI answers.
+
 ## Validation
 
 Recent Task 15 validation:

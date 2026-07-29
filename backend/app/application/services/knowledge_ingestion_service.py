@@ -44,6 +44,7 @@ class KnowledgeIngestionService:
             with get_connection() as conn:
                 with conn.cursor(row_factory=dict_row) as cur:
                     for index, chunk in enumerate(chunks):
+                        embedding_model = getattr(self.embedding_client, "model", "unknown")
                         embedding = self.embedding_client.embed(chunk)
                         if not embedding:
                             raise KnowledgeIngestionError("Embedding service returned an empty vector")
@@ -54,7 +55,7 @@ class KnowledgeIngestionService:
                             chunk_index=index,
                             content=chunk,
                             metadata=payload.metadata,
-                            embedding_model=getattr(self.embedding_client, "model", "unknown"),
+                            embedding_model=embedding_model,
                             embedding=embedding,
                             content_hash=_content_hash(chunk),
                             created_by=created_by,

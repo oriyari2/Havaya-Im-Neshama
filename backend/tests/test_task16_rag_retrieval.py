@@ -15,10 +15,24 @@ from backend.app.infrastructure.repositories.knowledge_retrieval_repository impo
 from backend.app.main import app
 from backend.app.routers.knowledge import get_knowledge_retrieval_service
 from rag import EmbeddingClient, EmbeddingClientError
+from rag.embedding_formatting import (
+    KnowledgeDocumentText,
+    format_document_embedding_input,
+    format_query_embedding_input,
+)
+from rag.evaluation import (
+    EvaluationCase,
+    RetrievalHit,
+    calculate_failure_report,
+    calculate_raw_metrics,
+    calculate_threshold_metrics,
+    generate_candidate_thresholds,
+    load_evaluation_cases,
+)
 
 
 class _FakeEmbeddingClient(EmbeddingClient):
-    model = "fake-embed"
+    model = "nomic-embed-text"
 
     def __init__(self, embedding: list[float] | None = None, failure: Exception | None = None) -> None:
         self.embedding = [0.1, 0.2, 0.3] if embedding is None else embedding
@@ -62,20 +76,24 @@ class _RepositoryCursor:
     def execute(self, sql, params) -> None:
         self.executed_sql = sql
         self.executed_params = params
-        role = params[3]
         model = params[1]
         dimensions = params[2]
-        max_distance = params[6]
-        limit = params[8]
+        source_uri_prefix = params[3]
+        role = params[5]
+        max_distance = params[7]
+        limit = params[11]
         visible = []
         for row in self.rows:
             allowed_roles = row.get("metadata", {}).get("allowed_roles")
             is_authorized = role == "manager" or (isinstance(allowed_roles, list) and role in allowed_roles)
+            in_source_scope = source_uri_prefix is None or str(row.get("source_uri", "")).startswith(source_uri_prefix)
+            in_threshold = max_distance is None or row["distance"] <= max_distance
             if (
                 is_authorized
+                and in_source_scope
                 and row["embedding_model"] == model
                 and row["embedding_dimensions"] == dimensions
-                and row["distance"] <= max_distance
+                and in_threshold
             ):
                 visible.append(
                     {
@@ -99,7 +117,7 @@ def _row(
     title: str,
     distance: float,
     metadata: dict | None,
-    model: str = "fake-embed",
+    model: str = "nomic-embed-text",
     dimensions: int = 3,
 ) -> dict:
     return {
@@ -127,10 +145,10 @@ class KnowledgeRetrievalServiceTests(unittest.TestCase):
 
         self.assertEqual(client.texts, ["hello guide"])
         self.assertEqual(conn.cursor_obj.executed_params[0], "[0.1,0.2,0.3]")
-        self.assertEqual(conn.cursor_obj.executed_params[1], "fake-embed")
+        self.assertEqual(conn.cursor_obj.executed_params[1], "nomic-embed-text")
         self.assertEqual(conn.cursor_obj.executed_params[2], 3)
-        self.assertEqual(conn.cursor_obj.executed_params[3], "instructor")
-        self.assertEqual(conn.cursor_obj.executed_params[8], 4)
+        self.assertEqual(conn.cursor_obj.executed_params[5], "instructor")
+        self.assertEqual(conn.cursor_obj.executed_params[11], 4)
         self.assertEqual(result.query, "hello guide")
 
     def test_search_preserves_distance_order_and_calculates_score(self) -> None:
@@ -190,6 +208,66 @@ class KnowledgeRetrievalServiceTests(unittest.TestCase):
         self.assertEqual(result.results, [])
 
 
+class EmbeddingFormattingTests(unittest.TestCase):
+    def test_nomic_document_input_is_enriched_without_changing_visible_content(self) -> None:
+        document = KnowledgeDocumentText(
+            source_title=" מדריך ציוד ",
+            content="  טען יחידות אור  ",
+            metadata={"category": "equipment", "activity": "תפוס את האור"},
+        )
+
+        formatted = format_document_embedding_input(model="nomic-embed-text-v2-moe", document=document)
+
+        self.assertEqual(
+            formatted,
+            "search_document: כותרת: מדריך ציוד\nקטגוריה: equipment\nפעילות: תפוס את האור\nתוכן מקורי: טען יחידות אור",
+        )
+        self.assertEqual(document.content, "  טען יחידות אור  ")
+
+    def test_bge_m3_uses_plain_normalized_text_without_prefix(self) -> None:
+        document = KnowledgeDocumentText(
+            source_title="כותרת",
+            content="תוכן   מקורי",
+            metadata={"category": "preparation"},
+        )
+
+        self.assertEqual(format_query_embedding_input(model="bge-m3", query="  שלום   עולם "), "שלום עולם")
+        self.assertEqual(
+            format_document_embedding_input(model="bge-m3", document=document),
+            "כותרת: כותרת\nקטגוריה: preparation\nתוכן מקורי: תוכן מקורי",
+        )
+
+    def test_document_enrichment_omits_empty_metadata_values(self) -> None:
+        cases = [
+            ({}, "קטגוריה:"),
+            ({"category": None}, "קטגוריה: None"),
+            ({"category": ""}, "קטגוריה:"),
+            ({"category": "   "}, "קטגוריה:"),
+            ({"activity": None}, "פעילות: None"),
+            ({"activity": ""}, "פעילות:"),
+            ({"activity": "   "}, "פעילות:"),
+        ]
+
+        for metadata, forbidden in cases:
+            with self.subTest(metadata=metadata):
+                formatted = format_document_embedding_input(
+                    model="bge-m3",
+                    document=KnowledgeDocumentText(source_title="Guide", content="Body", metadata=metadata),
+                )
+                self.assertNotIn(forbidden, formatted)
+
+        formatted = format_document_embedding_input(
+            model="bge-m3",
+            document=KnowledgeDocumentText(
+                source_title="Guide",
+                content="Body",
+                metadata={"category": " equipment ", "activity": " Catch the Light "},
+            ),
+        )
+        self.assertIn("קטגוריה: equipment", formatted)
+        self.assertIn("פעילות: Catch the Light", formatted)
+
+
 class KnowledgeRetrievalRepositoryTests(unittest.TestCase):
     def test_sql_uses_pgvector_cosine_distance_and_parameters(self) -> None:
         cur = _RepositoryCursor([])
@@ -198,7 +276,7 @@ class KnowledgeRetrievalRepositoryTests(unittest.TestCase):
             cur,
             query_embedding=[1, 0, 0],
             authenticated_role="manager",
-            embedding_model="fake-embed",
+            embedding_model="nomic-embed-text",
             embedding_dimensions=3,
             limit=5,
             max_cosine_distance=0.45,
@@ -208,7 +286,7 @@ class KnowledgeRetrievalRepositoryTests(unittest.TestCase):
         self.assertIn("jsonb_typeof(metadata -> 'allowed_roles') = 'array'", cur.executed_sql)
         self.assertIn("LIMIT %s", cur.executed_sql)
         self.assertEqual(cur.executed_params[0], "[1.0,0.0,0.0]")
-        self.assertEqual(cur.executed_params[6], 0.45)
+        self.assertEqual(cur.executed_params[7], 0.45)
 
     def test_repository_filters_orders_and_bounds_results(self) -> None:
         rows = [
@@ -224,7 +302,7 @@ class KnowledgeRetrievalRepositoryTests(unittest.TestCase):
             cur,
             query_embedding=[1, 0, 0],
             authenticated_role="manager",
-            embedding_model="fake-embed",
+            embedding_model="nomic-embed-text",
             embedding_dimensions=3,
             limit=1,
             max_cosine_distance=0.45,
@@ -259,7 +337,7 @@ class KnowledgeRetrievalRepositoryTests(unittest.TestCase):
             cur,
             query_embedding=[1, 0, 0],
             authenticated_role=role,
-            embedding_model="fake-embed",
+            embedding_model="nomic-embed-text",
             embedding_dimensions=3,
             limit=10,
             max_cosine_distance=0.45,
@@ -338,6 +416,120 @@ class KnowledgeRetrievalApiTests(unittest.TestCase):
         self.assertEqual(body["results"][0]["chunk_id"], str(chunk_id))
         self.assertEqual(body["results"][0]["score"], 0.82)
         self.assertNotIn("embedding", body["results"][0])
+
+
+class Task16EvaluationTests(unittest.TestCase):
+    def test_fixture_parses_required_hebrew_cases(self) -> None:
+        cases = load_evaluation_cases("rag/evaluation_fixture_task16_he.json")
+
+        self.assertGreaterEqual(len(cases), 30)
+        self.assertLessEqual(len(cases), 50)
+        self.assertTrue(any(case.authenticated_role == "manager" for case in cases))
+        self.assertTrue(any(case.authenticated_role == "instructor" for case in cases))
+        self.assertTrue(any(case.authenticated_role == "customer" for case in cases))
+        self.assertTrue(any(not case.should_retrieve for case in cases))
+
+    def test_metrics_include_accuracy_rejection_margins_and_unauthorized_count(self) -> None:
+        cases = [
+            EvaluationCase("ציוד", "instructor", True, expected_category="equipment"),
+            EvaluationCase("חללית", "customer", False),
+            EvaluationCase("מחיר פנימי", "customer", False),
+        ]
+        results = [
+            (
+                cases[0],
+                [
+                    RetrievalHit("Guide", "equipment", 0.1, authorized=True),
+                    RetrievalHit("Other", "arrival", 0.3, authorized=True),
+                ],
+            ),
+            (cases[1], []),
+            (cases[2], [RetrievalHit("Internal", "pricing", 0.2, authorized=False)]),
+        ]
+        raw_metrics = calculate_raw_metrics(results)
+        threshold_metrics = calculate_threshold_metrics(results, 0.15)
+
+        self.assertEqual(raw_metrics.top_1_accuracy, 1.0)
+        self.assertEqual(raw_metrics.top_3_recall, 1.0)
+        self.assertEqual(raw_metrics.relevant_distance_range, (0.1, 0.1))
+        self.assertEqual(raw_metrics.unrelated_first_result_distance_range, (0.2, 0.2))
+        self.assertEqual(raw_metrics.first_to_second_margin_range, (0.19999999999999998, 0.19999999999999998))
+        self.assertEqual(raw_metrics.unauthorized_retrieval_count, 1)
+        self.assertEqual(threshold_metrics.relevant_queries_accepted, 1)
+        self.assertEqual(threshold_metrics.unrelated_queries_accepted, 0)
+        self.assertEqual(threshold_metrics.unrelated_rejection_rate, 1.0)
+        self.assertEqual(threshold_metrics.accepted_top_1_accuracy, 1.0)
+        self.assertEqual(threshold_metrics.wrong_top_1_accepted_count, 0)
+
+    def test_authorization_metric_detects_unauthorized_hit(self) -> None:
+        case = EvaluationCase("מחיר פנימי", "customer", False, forbidden_sources=("Internal",))
+        metrics = calculate_raw_metrics(
+            [
+                (case, [RetrievalHit("Internal", "pricing", 0.2, authorized=False)]),
+            ]
+        )
+
+        self.assertEqual(metrics.unauthorized_retrieval_count, 1)
+        self.assertEqual(metrics.forbidden_retrieval_count, 1)
+
+    def test_threshold_metrics_require_expected_source_for_relevant_acceptance(self) -> None:
+        case = EvaluationCase("ציוד", "instructor", True, expected_sources=("Expected",))
+        results = [
+            (
+                case,
+                [
+                    RetrievalHit("Wrong", "equipment", 0.1, authorized=True),
+                    RetrievalHit("Expected", "equipment", 0.2, authorized=True),
+                ],
+            )
+        ]
+
+        low_threshold = calculate_threshold_metrics(results, 0.15)
+        high_threshold = calculate_threshold_metrics(results, 0.25)
+
+        self.assertEqual(low_threshold.relevant_queries_accepted, 0)
+        self.assertEqual(low_threshold.relevant_queries_rejected, 1)
+        self.assertEqual(high_threshold.relevant_queries_accepted, 1)
+        self.assertEqual(high_threshold.accepted_top_1_accuracy, 0.0)
+        self.assertEqual(high_threshold.wrong_top_1_accepted_count, 1)
+
+    def test_candidate_thresholds_include_expected_source_distances_and_midpoints(self) -> None:
+        relevant = EvaluationCase("ציוד", "instructor", True, expected_sources=("Expected",))
+        unrelated = EvaluationCase("חללית", "customer", False)
+        thresholds = generate_candidate_thresholds(
+            [
+                (
+                    relevant,
+                    [
+                        RetrievalHit("Wrong", "equipment", 0.1, authorized=True),
+                        RetrievalHit("Expected", "equipment", 0.3, authorized=True),
+                    ],
+                ),
+                (unrelated, [RetrievalHit("Other", "arrival", 0.5, authorized=True)]),
+            ]
+        )
+
+        self.assertIn(0.1, thresholds)
+        self.assertIn(0.3, thresholds)
+        self.assertIn(0.4, thresholds)
+        self.assertIn(0.5, thresholds)
+
+    def test_failure_report_lists_exact_threshold_failures(self) -> None:
+        relevant = EvaluationCase("ציוד", "instructor", True, expected_sources=("Expected",))
+        unrelated = EvaluationCase("חללית", "customer", False, forbidden_sources=("Forbidden",))
+        failures = calculate_failure_report(
+            [
+                (relevant, [RetrievalHit("Wrong", "equipment", 0.1, authorized=True)]),
+                (unrelated, [RetrievalHit("Forbidden", "pricing", 0.1, authorized=False)]),
+            ],
+            0.2,
+        )
+
+        self.assertEqual(len(failures), 2)
+        self.assertIn("expected source did not pass threshold", failures[0].failure_reason)
+        self.assertIn("unrelated query had accepted retrieval", failures[1].failure_reason)
+        self.assertIn("forbidden source passed threshold", failures[1].failure_reason)
+        self.assertIn("unauthorized result passed threshold", failures[1].failure_reason)
 
 
 if __name__ == "__main__":

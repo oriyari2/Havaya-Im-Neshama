@@ -17,7 +17,7 @@ from rag.embedding_client import EmbeddingClient, EmbeddingClientError, OllamaEm
 
 
 class _FakeEmbeddingClient(EmbeddingClient):
-    model = "fake-embed"
+    model = "nomic-embed-text"
 
     def __init__(self) -> None:
         self.texts: list[str] = []
@@ -160,7 +160,13 @@ class KnowledgeIngestionTests(unittest.TestCase):
 
         self.assertEqual(result.source_title, "Guide")
         self.assertEqual(result.chunk_count, 2)
-        self.assertEqual(fake_client.texts, ["one two three four", "four five six"])
+        self.assertEqual(
+            fake_client.texts,
+            [
+                "one two three four",
+                "four five six",
+            ],
+        )
         self.assertTrue(fake_conn.committed)
 
     def test_repository_inserts_pgvector_embedding_parameterized(self) -> None:

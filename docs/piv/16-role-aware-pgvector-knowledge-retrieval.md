@@ -194,10 +194,69 @@ parsing. The remaining issue is unresolved Hebrew retrieval reliability, not a
 completed AI-chat grounding result. The retrieval threshold was not changed and
 the embedding model was not switched in this correction pass.
 
-## Next Task
+## Corrected Continuation: Task 16 Evaluation
 
-Task 16.1 - Investigate and validate Hebrew embedding quality.
+Plan: keep production retrieval compatible with existing `knowledge_chunks`, do not delete or re-ingest production knowledge, correct the isolated Hebrew evaluation fixture and metrics, compare thresholds before recommending any model, and keep `/api/ai/consult` blocked.
 
-Task 17 remains blocked until the Hebrew retrieval issue is resolved or an
-evidence-based mitigation is selected. Do not immediately integrate retrieval
-into `/api/ai/consult`.
+Implementation corrections:
+
+- `rag/evaluation_fixture_task16_he.json` now contains 44 demo-only Hebrew cases: 27 relevant cases and 17 unrelated cases.
+- Added hard negatives for cancellation policy, transportation, food inclusion, installments, instructor count, age-three suitability, rain plan, and insurance. All use `should_retrieve: false`.
+- `rag/evaluation.py` now reports relevant accepted/rejected, unrelated accepted/rejected, precision, recall, false-positive rate, unrelated rejection rate, accepted Top-1 accuracy, wrong Top-1 accepted count, forbidden-source accepted count, unauthorized retrieval count, and first accepted expected-source count.
+- A relevant case is accepted only when an expected source passes the threshold.
+- The evaluator separately reports exact failures with query, authenticated role, expected sources, forbidden sources, returned titles, returned distances, threshold pass booleans, and failure reason.
+- Threshold candidates now include explicit thresholds, every first-result distance, every expected-source distance, and midpoints between relevant and unrelated distances.
+- The isolated evaluator still inserts only temporary `eval://task16-hebrew-model-comparison/...` rows and cleans them up in `try/finally`.
+
+Production/evaluation isolation remains unchanged:
+
+- Production ingestion embeds plain chunk text.
+- Production retrieval embeds the plain normalized query.
+- `OLLAMA_EMBEDDING_MODEL` and `RAG_MAX_COSINE_DISTANCE = 0.45` were not changed.
+- Existing production knowledge was not deleted or re-ingested.
+
+Corrected raw metrics:
+
+| Model | Dims | Raw Top-1 | Raw Top-3 | Relevant first distance | Unrelated first distance | Relevant expected-source range | Unrelated result range | Unauthorized | Forbidden |
+|---|---:|---:|---:|---|---|---|---|---:|---:|
+| `nomic-embed-text` | 768 | 0.407 | 0.704 | 0.285-0.362 | 0.309-0.369 | 0.285-0.366 | 0.309-0.386 | 0 | 0 |
+| `nomic-embed-text-v2-moe` | 768 | 0.963 | 1.000 | 0.345-0.649 | 0.592-0.914 | 0.345-0.683 | 0.592-0.966 | 0 | 0 |
+| `bge-m3` | 1024 | 0.926 | 1.000 | 0.259-0.506 | 0.454-0.775 | 0.259-0.506 | 0.454-0.785 | 0 | 0 |
+
+Explicit `nomic-embed-text-v2-moe` thresholds from `0.60` through `0.73`:
+
+| Threshold | Relevant accepted/rejected | Unrelated accepted/rejected | Precision | Recall | FPR | Unrelated rejection | Accepted Top-1 | Wrong accepted Top-1 | Forbidden accepted | Unauthorized |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.60 | 19 / 8 | 1 / 16 | 0.950 | 0.704 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.61 | 19 / 8 | 1 / 16 | 0.950 | 0.704 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.62 | 21 / 6 | 1 / 16 | 0.955 | 0.778 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.63 | 21 / 6 | 2 / 15 | 0.913 | 0.778 | 0.118 | 0.882 | 1.000 | 0 | 0 | 0 |
+| 0.64 | 26 / 1 | 2 / 15 | 0.929 | 0.963 | 0.118 | 0.882 | 0.962 | 1 | 0 | 0 |
+| 0.65 | 27 / 0 | 2 / 15 | 0.931 | 1.000 | 0.118 | 0.882 | 0.963 | 1 | 0 | 0 |
+| 0.66 | 27 / 0 | 2 / 15 | 0.931 | 1.000 | 0.118 | 0.882 | 0.963 | 1 | 0 | 0 |
+| 0.67 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.68 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.69 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.70 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.71 | 27 / 0 | 4 / 13 | 0.871 | 1.000 | 0.235 | 0.765 | 0.963 | 1 | 0 | 0 |
+| 0.72 | 27 / 0 | 5 / 12 | 0.844 | 1.000 | 0.294 | 0.706 | 0.963 | 1 | 0 | 0 |
+| 0.73 | 27 / 0 | 5 / 12 | 0.844 | 1.000 | 0.294 | 0.706 | 0.963 | 1 | 0 | 0 |
+
+A threshold around `0.69` accepts all 27 relevant cases but also accepts 3 of 17 unrelated hard negatives, so it is not acceptable for RAG-only behavior.
+
+Recommended model candidate: `nomic-embed-text-v2-moe`. It has the strongest raw Top-1 accuracy, full raw Top-3 recall, zero unauthorized retrieval, zero forbidden retrieval, and better corrected separation than `bge-m3`.
+
+Recommended threshold candidate for a future production experiment: generated threshold `0.581186`. It accepts 19/27 relevant cases, rejects 17/17 unrelated cases, has precision `1.000`, recall `0.704`, false-positive rate `0.000`, unrelated rejection `1.000`, accepted Top-1 accuracy `1.000`, wrong accepted Top-1 count `0`, forbidden accepted count `0`, and unauthorized accepted count `0`. This was not applied to production.
+
+Exact failure summary at explicit threshold `0.55`: 11 relevant cases were rejected because their expected source did not pass the threshold. No unrelated, forbidden, or unauthorized case passed at `0.55`.
+
+Exact failure summary at threshold `0.69`: 4 cases failed. One relevant case, `?? ????? ????? ????????`, accepted `Task16 Eval Preparation` before the expected `Task16 Eval Activity`. Three unrelated hard negatives were accepted: transportation, food-in-price, and instructor-count questions.
+
+Validation results:
+
+- `.\.venv\Scripts\python.exe -m unittest backend.tests.test_task15_rag_ingestion -v`: 11 passed.
+- `.\.venv\Scripts\python.exe -m unittest backend.tests.test_task16_rag_retrieval -v`: 23 passed.
+- Live `.\.venv\Scripts\python.exe -m rag.evaluate_task16_live`: completed after enabling UTF-8 console output.
+- Cleanup verification for `source_uri LIKE 'eval://task16-hebrew-model-comparison/%'`: `0`.
+
+Next work should continue Task 16 by deciding whether to adjust the fixture, add retrieval mitigation such as abstention/reranking/hybrid search, or run a controlled production-formatting experiment. Do not create Task 16.1 and do not begin Task 17 yet.

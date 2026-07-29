@@ -352,6 +352,73 @@ RAG_MAX_COSINE_DISTANCE = 0.45
 RAG_RETRIEVAL_TOP_K = 5
 ```
 
+---
+
+# Corrected Continuation: Hebrew Model Evaluation Isolation
+
+This pass corrects the existing Task 16 evaluation before selecting a model or changing production knowledge.
+
+## Plan
+
+Keep production ingestion/retrieval on the stable Task 16 baseline, do not delete or re-ingest production knowledge, expand the controlled Hebrew fixture with hard negatives, correct threshold metrics, generate thresholds from first-result distances, expected-source distances, and relevant/unrelated midpoints, and recommend a model only after the corrected live run.
+
+## Implemented Corrections
+
+- Production ingestion still embeds plain chunk text.
+- Production retrieval still embeds the normalized user query without model-specific prefixes.
+- Existing `knowledge_chunks` data was not deleted or re-ingested.
+- `RAG_MAX_COSINE_DISTANCE`, `RAG_RETRIEVAL_TOP_K`, and the production embedding model were not changed.
+- The isolated evaluator inserts only temporary `eval://task16-hebrew-model-comparison/...` rows and cleans them up in `try/finally`.
+- The evaluator reuses `knowledge_retrieval_repository.search_knowledge_chunks` with optional source-prefix scope and `max_cosine_distance=None` for raw ranking.
+- A relevant case is accepted only when an expected source passes the threshold.
+- Threshold metrics now include relevant accepted/rejected, unrelated accepted/rejected, precision, recall, false-positive rate, unrelated rejection rate, accepted Top-1 accuracy, wrong accepted Top-1 count, forbidden-source accepted count, unauthorized retrieval count, and first accepted expected-source count.
+- Exact failure reports include query, authenticated role, expected sources, forbidden sources, returned source titles, returned distances, threshold-pass flags, and failure reason.
+- Threshold candidates include every first-result distance, every expected-source distance, and midpoints between relevant and unrelated distances.
+
+## Corrected Fixture
+
+`rag/evaluation_fixture_task16_he.json` contains 44 Hebrew demo cases: 27 relevant cases and 17 unrelated cases. Added hard negatives for cancellation policy, transportation, food inclusion, installments, instructor count, age-three suitability, rain plan, and insurance. These use `should_retrieve: false`.
+
+## Corrected Live Results
+
+Raw metrics:
+
+| Model | Dims | Raw Top-1 | Raw Top-3 | Relevant first | Unrelated first | Relevant expected-source range | Unrelated result range | Unauthorized | Forbidden |
+|---|---:|---:|---:|---|---|---|---|---:|---:|
+| `nomic-embed-text` | 768 | 0.407 | 0.704 | 0.285-0.362 | 0.309-0.369 | 0.285-0.366 | 0.309-0.386 | 0 | 0 |
+| `nomic-embed-text-v2-moe` | 768 | 0.963 | 1.000 | 0.345-0.649 | 0.592-0.914 | 0.345-0.683 | 0.592-0.966 | 0 | 0 |
+| `bge-m3` | 1024 | 0.926 | 1.000 | 0.259-0.506 | 0.454-0.775 | 0.259-0.506 | 0.454-0.785 | 0 | 0 |
+
+`nomic-embed-text-v2-moe` explicit threshold results from `0.60` through `0.73`:
+
+| Threshold | Relevant accepted/rejected | Unrelated accepted/rejected | Precision | Recall | FPR | Unrelated rejection | Accepted Top-1 | Wrong Top-1 accepted | Forbidden | Unauthorized |
+|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 0.60 | 19 / 8 | 1 / 16 | 0.950 | 0.704 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.61 | 19 / 8 | 1 / 16 | 0.950 | 0.704 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.62 | 21 / 6 | 1 / 16 | 0.955 | 0.778 | 0.059 | 0.941 | 1.000 | 0 | 0 | 0 |
+| 0.63 | 21 / 6 | 2 / 15 | 0.913 | 0.778 | 0.118 | 0.882 | 1.000 | 0 | 0 | 0 |
+| 0.64 | 26 / 1 | 2 / 15 | 0.929 | 0.963 | 0.118 | 0.882 | 0.962 | 1 | 0 | 0 |
+| 0.65 | 27 / 0 | 2 / 15 | 0.931 | 1.000 | 0.118 | 0.882 | 0.963 | 1 | 0 | 0 |
+| 0.66 | 27 / 0 | 2 / 15 | 0.931 | 1.000 | 0.118 | 0.882 | 0.963 | 1 | 0 | 0 |
+| 0.67 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.68 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.69 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.70 | 27 / 0 | 3 / 14 | 0.900 | 1.000 | 0.176 | 0.824 | 0.963 | 1 | 0 | 0 |
+| 0.71 | 27 / 0 | 4 / 13 | 0.871 | 1.000 | 0.235 | 0.765 | 0.963 | 1 | 0 | 0 |
+| 0.72 | 27 / 0 | 5 / 12 | 0.844 | 1.000 | 0.294 | 0.706 | 0.963 | 1 | 0 | 0 |
+| 0.73 | 27 / 0 | 5 / 12 | 0.844 | 1.000 | 0.294 | 0.706 | 0.963 | 1 | 0 | 0 |
+
+A threshold around `0.69` accepts all relevant cases but also accepts 3 unrelated hard negatives, so it does not satisfy RAG-only behavior.
+
+Recommendation: `nomic-embed-text-v2-moe` is the corrected model candidate. A generated threshold around `0.581186` is the corrected zero-false-positive threshold candidate for future production experimentation: 19/27 relevant accepted, 17/17 unrelated rejected, accepted Top-1 accuracy `1.000`, wrong accepted Top-1 `0`, forbidden accepted `0`, unauthorized accepted `0`. Neither the model nor threshold was applied to production in this pass.
+
+## Validation
+
+- Focused Task 15 tests: 11 passed.
+- Focused Task 16 tests: 23 passed.
+- Live three-model evaluation completed with UTF-8 console output enabled.
+- Temporary-row cleanup verification returned `0` rows for `source_uri LIKE 'eval://task16-hebrew-model-comparison/%'`.
+
 They must be defined in:
 
 ```text
@@ -723,3 +790,5 @@ Report:
 16. PIV documentation created or updated
 17. limitations and follow-up recommendations
 18. confirmation that no commit or push was performed
+
+---

@@ -9,7 +9,8 @@ def search_knowledge_chunks(
     embedding_model: str,
     embedding_dimensions: int,
     limit: int,
-    max_cosine_distance: float,
+    max_cosine_distance: float | None,
+    source_uri_prefix: str | None = None,
 ) -> list[dict]:
     embedding_literal = "[" + ",".join(str(float(value)) for value in query_embedding) + "]"
     bounded_limit = max(1, min(int(limit), 10))
@@ -25,6 +26,7 @@ def search_knowledge_chunks(
         FROM knowledge_chunks
         WHERE embedding_model = %s
             AND embedding_dimensions = %s
+            AND (%s::text IS NULL OR source_uri LIKE %s::text)
             AND (
                 %s = 'manager'
                 OR (
@@ -32,7 +34,7 @@ def search_knowledge_chunks(
                     AND metadata -> 'allowed_roles' ? %s
                 )
             )
-            AND embedding <=> %s::vector <= %s
+            AND (%s::double precision IS NULL OR embedding <=> %s::vector <= %s::double precision)
         ORDER BY embedding <=> %s::vector ASC
         LIMIT %s;
         """,
@@ -40,8 +42,11 @@ def search_knowledge_chunks(
             embedding_literal,
             embedding_model,
             embedding_dimensions,
+            source_uri_prefix,
+            f"{source_uri_prefix}%" if source_uri_prefix is not None else None,
             authenticated_role,
             authenticated_role,
+            max_cosine_distance,
             embedding_literal,
             max_cosine_distance,
             embedding_literal,

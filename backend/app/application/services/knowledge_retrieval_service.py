@@ -42,6 +42,7 @@ class KnowledgeRetrievalService:
         normalized_query = query.strip()
         if not normalized_query:
             raise ValueError("Query must not be empty")
+        embedding_model = getattr(self.embedding_client, "model", None) or get_ollama_embedding_model()
         try:
             embedding = self.embedding_client.embed(normalized_query)
         except EmbeddingClientError as exc:
@@ -50,7 +51,6 @@ class KnowledgeRetrievalService:
             raise KnowledgeRetrievalError("Embedding service returned an empty vector")
 
         embedding_dimensions = len(embedding)
-        embedding_model = getattr(self.embedding_client, "model", None) or get_ollama_embedding_model()
         with get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 rows = knowledge_retrieval_repository.search_knowledge_chunks(
