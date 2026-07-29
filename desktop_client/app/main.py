@@ -14,6 +14,7 @@ from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
 from desktop_client.app.presenters.instructors_presenter import InstructorProfilePresenter, InstructorsPresenter
+from desktop_client.app.presenters.knowledge_presenter import KnowledgeManagementPresenter
 from desktop_client.app.presenters.customers_presenter import CustomerProfilePresenter, CustomersPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
 from desktop_client.app.presenters.open_events_presenter import OpenEventsPresenter
@@ -24,6 +25,7 @@ from desktop_client.app.services.activity_service import ActivityService
 from desktop_client.app.services.ai_chat_service import AIChatService
 from desktop_client.app.services.customer_service import CustomerService
 from desktop_client.app.services.instructor_service import InstructorService
+from desktop_client.app.services.knowledge_service import KnowledgeService
 from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.activities_view import ActivitiesView
 from desktop_client.app.views.ai_chat_view import AIChatView
@@ -31,6 +33,7 @@ from desktop_client.app.views.dashboard_view import DashboardView
 from desktop_client.app.views.customer_profile_view import CustomerProfileView
 from desktop_client.app.views.customers_view import CustomersView
 from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
+from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.login_view import LoginView
 from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.shell_view import ShellView
@@ -66,6 +69,7 @@ class MainWindow(QMainWindow):
         self.ai_chat_service = AIChatService(self.api_client)
         self.customer_service = CustomerService(self.api_client)
         self.instructor_service = InstructorService(self.api_client)
+        self.knowledge_service = KnowledgeService(self.api_client)
         self._presenters: dict[str, object] = {}
         self._show_login()
 
@@ -137,6 +141,16 @@ class MainWindow(QMainWindow):
             customers_view.contact_reactivate_requested.connect(customers_presenter.reactivate_contact)
             self.shell.add_page("customers", customers_view)
             self._presenters["customers"] = customers_presenter
+
+            knowledge_view = KnowledgeManagementView()
+            knowledge_presenter = KnowledgeManagementPresenter(knowledge_view, self.knowledge_service)
+            knowledge_view.save_requested.connect(knowledge_presenter.save)
+            knowledge_view.replace_requested.connect(knowledge_presenter.replace)
+            knowledge_view.delete_requested.connect(knowledge_presenter.delete)
+            knowledge_view.source_selected.connect(knowledge_presenter.select_source)
+            knowledge_view.retry_requested.connect(knowledge_presenter.load)
+            self.shell.add_page("knowledge", knowledge_view)
+            self._presenters["knowledge"] = knowledge_presenter
         elif session.role == "customer" and session.customer_id:
             profile_view = CustomerProfileView()
             profile_presenter = CustomerProfilePresenter(profile_view, self.customer_service, session.customer_id)

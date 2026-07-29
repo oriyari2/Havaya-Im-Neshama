@@ -4,6 +4,30 @@ import json
 from uuid import UUID
 
 
+MANAGED_SOURCE_ID_SQL = """
+jsonb_typeof(metadata -> 'source_id') = 'string'
+AND (metadata ->> 'source_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+"""
+
+TASK16_DEMO_KNOWLEDGE_SQL = """
+(
+    source_uri LIKE 'demo://knowledge/%'
+    OR source_title IN (
+        'Task16 Demo Equipment',
+        'Task16 Demo Preparation',
+        'Task16 Demo Arrival',
+        'Task16 Demo Pricing',
+        'Task16 Demo Activity',
+        'Task16 Demo Proposal',
+        'Task16 Demo Policy',
+        'Task16 Demo Instructor Internal'
+    )
+    OR metadata ->> 'demo_task' = 'task16'
+    OR metadata ->> 'task16_demo' = 'true'
+)
+"""
+
+
 def insert_knowledge_chunk(
     cur,
     *,
@@ -50,3 +74,74 @@ def insert_knowledge_chunk(
         ),
     )
     return cur.fetchone()
+
+
+def list_logical_sources(cur) -> list[dict]:
+    cur.execute(
+        f"""
+        SELECT (metadata ->> 'source_id')::uuid AS source_id,
+            max(source_title) AS title,
+            max(source_uri) AS source_uri,
+            max(metadata ->> 'category') AS category,
+            max(metadata ->> 'activity_name') AS activity_name,
+            (array_agg(metadata -> 'allowed_roles' ORDER BY chunk_index))[1] AS allowed_roles,
+            count(*)::integer AS chunk_count,
+            (array_agg(created_by ORDER BY chunk_index))[1] AS created_by,
+            min(created_at) AS created_at,
+            max(created_at) AS updated_at
+        FROM knowledge_chunks
+        WHERE {MANAGED_SOURCE_ID_SQL}
+        GROUP BY metadata ->> 'source_id'
+        ORDER BY max(created_at) DESC;
+        """,
+        (),
+    )
+    return list(cur.fetchall())
+
+
+def get_logical_source(cur, *, source_id: UUID) -> dict | None:
+    cur.execute(
+        """
+        SELECT (metadata ->> 'source_id')::uuid AS source_id,
+            max(source_title) AS title,
+            max(source_uri) AS source_uri,
+            max(metadata ->> 'category') AS category,
+            max(metadata ->> 'activity_name') AS activity_name,
+            (array_agg(metadata -> 'allowed_roles' ORDER BY chunk_index))[1] AS allowed_roles,
+            count(*)::integer AS chunk_count,
+            (array_agg(created_by ORDER BY chunk_index))[1] AS created_by,
+            min(created_at) AS created_at,
+            max(created_at) AS updated_at,
+            max(metadata ->> 'original_content') AS content
+        FROM knowledge_chunks
+        WHERE metadata ->> 'source_id' = %s
+        GROUP BY metadata ->> 'source_id';
+        """,
+        (str(source_id),),
+    )
+    return cur.fetchone()
+
+
+def delete_source_chunks(cur, *, source_id: UUID) -> list[dict]:
+    cur.execute(
+        """
+        DELETE FROM knowledge_chunks
+        WHERE metadata ->> 'source_id' = %s
+        RETURNING id;
+        """,
+        (str(source_id),),
+    )
+    return list(cur.fetchall())
+
+
+def delete_task16_demo_chunks(cur) -> list[dict]:
+    cur.execute(
+        f"""
+        DELETE FROM knowledge_chunks
+        WHERE ({MANAGED_SOURCE_ID_SQL}) IS NOT TRUE
+        AND {TASK16_DEMO_KNOWLEDGE_SQL}
+        RETURNING id;
+        """,
+        (),
+    )
+    return list(cur.fetchall())

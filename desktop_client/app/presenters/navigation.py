@@ -9,6 +9,7 @@ NAVIGATION_BY_ROLE = {
         ("activities", "פעילויות"),
         ("bookings", "הזמנות"),
         ("open_events", "אירועים פתוחים"),
+        ("knowledge", "ניהול ידע"),
     ),
     "instructor": (
         ("dashboard", "לוח בקרה"),

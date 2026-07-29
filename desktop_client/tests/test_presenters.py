@@ -168,7 +168,7 @@ class _Service:
 
 class PresenterTests(unittest.TestCase):
     def test_role_navigation_contains_only_permitted_booking_modules(self) -> None:
-        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "activities", "bookings", "open_events", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "activities", "bookings", "open_events", "knowledge", "ai_chat"])
         self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"])
         self.assertEqual([key for key, _ in navigation_for_role("customer")], ["dashboard", "activities", "my_bookings", "my_profile", "ai_chat"])
         self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["dashboard", "activities", "my_bookings", "ai_chat"])
