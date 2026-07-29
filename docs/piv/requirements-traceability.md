@@ -155,6 +155,28 @@ a manager-only `POST /api/rag/knowledge` endpoint, chunking and hashing in an
 application service, and repository-layer persistence tests. Retrieval,
 role-filtered similarity search, citations, and insufficient-context abstention
 remain future work.
+Task 16 implements standalone role-aware semantic retrieval for `FR-AI-02`,
+`FR-AI-05`, and `FR-AI-07`: authenticated `POST /api/rag/search` embeds the
+query with the existing Ollama embedding client, searches `knowledge_chunks`
+with pgvector cosine distance, filters by embedding model/dimensions and
+authenticated role inside the repository SQL, excludes weak matches using the
+code-level cosine-distance threshold constant in
+`backend/app/core/environment.py`, and returns ordered approved chunks without
+exposing embeddings. The request schema rejects unexpected authorization fields,
+and temporary Task 16 live-validation rows must be cleaned up after validation.
+Focused Task 16 tests passed at 14 tests and the full backend suite passed at
+141 tests. Hebrew unrelated-query validation showed very low cosine distances
+for unrelated text, so Task 16 is completed retrieval infrastructure rather than
+proof of reliable Hebrew semantic retrieval. A controlled diagnostic verified
+that the two Hebrew paraphrase queries produce different outgoing request text
+and different vectors through both `OllamaEmbeddingClient` and direct
+`POST /api/embed`; the earlier identical-vector observation is classified as a
+validation-script/input-encoding defect. Retrieved context is not yet integrated
+into the AI consultation prompt, so AI citations and abstention during answer
+generation remain future work. Next recommended task: Task 16.1, investigate and
+validate Hebrew embedding quality. Task 17 remains blocked until Hebrew
+retrieval quality is understood or corrected, or an evidence-based mitigation is
+selected.
 
 Required course/PRD concept
 

@@ -9,6 +9,8 @@ BACKEND_ENV_PATH = BACKEND_DIR / ".env"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "llama3.1"
 DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text"
+RAG_MAX_COSINE_DISTANCE = 0.45
+RAG_RETRIEVAL_TOP_K = 5
 
 
 def load_backend_env() -> None:
@@ -40,3 +42,13 @@ def get_ollama_embedding_model() -> str:
     """Return the configured Ollama model name for local embeddings."""
     load_backend_env()
     return os.getenv("OLLAMA_EMBEDDING_MODEL", DEFAULT_OLLAMA_EMBEDDING_MODEL).strip()
+
+
+def get_rag_max_cosine_distance() -> float:
+    """Return the maximum accepted pgvector cosine distance for retrieval."""
+    return RAG_MAX_COSINE_DISTANCE
+
+
+def get_rag_retrieval_top_k() -> int:
+    """Return the default number of RAG retrieval results."""
+    return RAG_RETRIEVAL_TOP_K

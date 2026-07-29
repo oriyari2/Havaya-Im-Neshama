@@ -148,9 +148,11 @@ Implemented so far:
   embeddings, deterministic chunking, content hashes, and PostgreSQL pgvector
   storage in `knowledge_chunks` (Task 15).
 
-Task 15 is the current completed slice. Retrieval over `knowledge_chunks`,
-role-filtered citations, abstention behavior for missing approved knowledge,
-desktop knowledge-source management, and UI/UX redesign remain future work.
+Task 16 retrieval infrastructure is the current completed slice. Retrieved
+context is not yet integrated into the AI consultation prompt; role-filtered
+citations, abstention behavior in generated answers, desktop knowledge-source
+management, and UI/UX redesign remain future work. Task 17 is blocked until
+Hebrew embedding/retrieval quality is understood or corrected.
 
 ## RAG Knowledge Ingestion
 
@@ -163,6 +165,41 @@ POST /api/rag/knowledge
 The endpoint chunks the submitted text, calls Ollama embeddings, and stores the
 approved chunks in PostgreSQL for a future retrieval task. The AI consultation
 flow remains read-only for operational data.
+
+Authenticated users can search approved knowledge independently of AI answer
+generation:
+
+```text
+POST /api/rag/search
+```
+
+The endpoint embeds the normalized query with `OLLAMA_EMBEDDING_MODEL`, searches
+`knowledge_chunks` with pgvector cosine distance, filters by the authenticated
+role in the database query, and returns ordered chunks without exposing stored
+embeddings. Managers can retrieve all chunks. Instructors and customers only see
+chunks whose structured `metadata.allowed_roles` array includes their role;
+missing or malformed role metadata is treated as manager-only.
+
+Retrieval defaults are code-level application constants in
+`backend/app/core/environment.py`, not deployment `.env` settings:
+
+```python
+RAG_MAX_COSINE_DISTANCE = 0.45
+RAG_RETRIEVAL_TOP_K = 5
+```
+
+The search request rejects unexpected fields, so authorization metadata such as
+`role` cannot be supplied by the caller. The authenticated role comes only from
+the backend authentication context.
+
+Controlled Task 16 Hebrew validation currently shows a retrieval-quality
+limitation: unrelated Hebrew queries can receive very low cosine distances with
+`nomic-embed-text`. Treat Task 16 as retrieval infrastructure; do not connect it
+to grounded AI answers until that behavior is understood. A follow-up diagnostic
+verified that two Hebrew paraphrase queries produce distinct outgoing request
+strings and distinct 768-dimensional vectors through both `OllamaEmbeddingClient`
+and direct `/api/embed`; the earlier identical-vector observation is classified
+as a validation-script/input-encoding defect, not a client parsing defect.
 
 ## Validation
 
