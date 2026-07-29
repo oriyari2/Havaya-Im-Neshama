@@ -5,6 +5,7 @@ from uuid import UUID
 
 from psycopg.rows import dict_row
 from rag import EmbeddingClient, EmbeddingClientError
+from rag.embedding_formatting import format_query_embedding_input
 
 from backend.app.core.environment import get_ollama_embedding_model, get_rag_max_cosine_distance
 from backend.app.db.connection import get_connection
@@ -44,7 +45,8 @@ class KnowledgeRetrievalService:
             raise ValueError("Query must not be empty")
         embedding_model = getattr(self.embedding_client, "model", None) or get_ollama_embedding_model()
         try:
-            embedding = self.embedding_client.embed(normalized_query)
+            embedding_input = format_query_embedding_input(model=embedding_model, query=normalized_query)
+            embedding = self.embedding_client.embed(embedding_input)
         except EmbeddingClientError as exc:
             raise KnowledgeRetrievalError("Embedding service is unavailable") from exc
         if not embedding:

@@ -143,7 +143,7 @@ class KnowledgeRetrievalServiceTests(unittest.TestCase):
         with patch("backend.app.application.services.knowledge_retrieval_service.get_connection", return_value=conn):
             result = service.search(query="  hello guide  ", authenticated_role="instructor", limit=4)
 
-        self.assertEqual(client.texts, ["hello guide"])
+        self.assertEqual(client.texts, ["search_query: hello guide"])
         self.assertEqual(conn.cursor_obj.executed_params[0], "[0.1,0.2,0.3]")
         self.assertEqual(conn.cursor_obj.executed_params[1], "nomic-embed-text")
         self.assertEqual(conn.cursor_obj.executed_params[2], 3)

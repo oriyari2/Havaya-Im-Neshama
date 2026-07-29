@@ -260,3 +260,80 @@ Validation results:
 - Cleanup verification for `source_uri LIKE 'eval://task16-hebrew-model-comparison/%'`: `0`.
 
 Next work should continue Task 16 by deciding whether to adjust the fixture, add retrieval mitigation such as abstention/reranking/hybrid search, or run a controlled production-formatting experiment. Do not create Task 16.1 and do not begin Task 17 yet.
+
+## Production Formatter Activation and Demo Reingestion
+
+Plan: activate the selected model-aware formatter in production ingestion and
+retrieval, replace the disposable demo `knowledge_chunks` rows only, and
+revalidate retrieval quality and role isolation before any AI-consult
+integration.
+
+Implementation:
+
+- Production ingestion now embeds `format_document_embedding_input(...)` while
+  storing the original chunk content and metadata unchanged.
+- Production retrieval now embeds `format_query_embedding_input(...)`.
+- The active production configuration is `nomic-embed-text-v2-moe`,
+  `RAG_MAX_COSINE_DISTANCE = 0.58`, and `RAG_RETRIEVAL_TOP_K = 5`.
+- For the active model, document embeddings use `search_document:` and query
+  embeddings use `search_query:`.
+- Added `rag/reset_task16_demo_knowledge.py` as a repeatable, scoped procedure
+  that deletes only `knowledge_chunks`, reingests the approved Task 16 demo
+  knowledge through the production ingestion service, validates model/dimension
+  counts, runs Hebrew retrieval probes, and compares unrelated table counts.
+
+Files changed in this continuation:
+
+- `backend/app/application/services/knowledge_ingestion_service.py`
+- `backend/app/application/services/knowledge_retrieval_service.py`
+- `backend/tests/test_task15_rag_ingestion.py`
+- `backend/tests/test_task16_rag_retrieval.py`
+- `rag/reset_task16_demo_knowledge.py`
+- `README.md`
+- `docs/piv/16-role-aware-pgvector-knowledge-retrieval.md`
+- `docs/piv/requirements-traceability.md`
+
+Live reset/reingestion validation:
+
+- rows deleted from `knowledge_chunks`: `8`
+- rows recreated in `knowledge_chunks`: `8`
+- model/dimension check: `8` rows with `embedding_model =
+  nomic-embed-text-v2-moe` and `embedding_dimensions = 768`
+- unrelated table counts before/after were unchanged for `users`,
+  `customers`, `activities`, `bookings`, and `booking_events`
+- repeatable procedure confirmation: rerunning the script again deleted the
+  prior `8` demo rows and recreated `8` replacement rows
+
+Live relevant Hebrew query results at threshold `0.58`:
+
+| Role | Query | Result | Distance |
+|---|---|---|---:|
+| instructor | `מה צריך לבדוק לפני פעילות תפוס את האור?` | `Task16 Demo Equipment` | `0.341262` |
+| customer | `מה ההורים צריכים להכין לפני סדנת תיקים?` | `Task16 Demo Preparation` | `0.508741` |
+| manager | `מה חשוב לכתוב בהצעת מחיר?` | `Task16 Demo Proposal` | `0.519968` |
+
+Unsupported-query validation at threshold `0.58`:
+
+- customer query `איך מתקנים מדפסת לייזר במשרד?`: no results
+- manager query `האם אפשר לשלם בתשלומים?`: no results
+
+Authorization validation at threshold `0.58`:
+
+- manager query `מחירי הדמו אינם מאושרים מסחרית`: retrieved
+  `Task16 Demo Pricing` at distance `0.497447`
+- instructor query `מחירי הדמו אינם מאושרים מסחרית`: no results
+- customer query `הוראות מדריך פנימיות`: no results
+
+Validation commands:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest backend.tests.test_task15_rag_ingestion -v
+.\.venv\Scripts\python.exe -m unittest backend.tests.test_task16_rag_retrieval -v
+.\.venv\Scripts\python.exe -m rag.reset_task16_demo_knowledge
+.\.venv\Scripts\python.exe -m unittest discover -s backend/tests -v
+.\.venv\Scripts\python.exe -m compileall backend desktop_client
+git diff --check
+```
+
+Next task should keep `/api/ai/consult` separate until the project explicitly
+asks for grounded answer generation with citations and abstention behavior.

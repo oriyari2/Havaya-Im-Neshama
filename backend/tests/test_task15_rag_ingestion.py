@@ -14,6 +14,7 @@ from backend.app.main import app
 from backend.app.routers.knowledge import get_knowledge_ingestion_service
 from backend.app.schemas.knowledge import KnowledgeIngestRequest
 from rag.embedding_client import EmbeddingClient, EmbeddingClientError, OllamaEmbeddingClient
+from rag.embedding_formatting import KnowledgeDocumentText, format_document_embedding_input
 
 
 class _FakeEmbeddingClient(EmbeddingClient):
@@ -163,10 +164,25 @@ class KnowledgeIngestionTests(unittest.TestCase):
         self.assertEqual(
             fake_client.texts,
             [
-                "one two three four",
-                "four five six",
+                format_document_embedding_input(
+                    model=fake_client.model,
+                    document=KnowledgeDocumentText(
+                        source_title="Guide",
+                        content="one two three four",
+                        metadata={},
+                    ),
+                ),
+                format_document_embedding_input(
+                    model=fake_client.model,
+                    document=KnowledgeDocumentText(
+                        source_title="Guide",
+                        content="four five six",
+                        metadata={},
+                    ),
+                ),
             ],
         )
+        self.assertEqual(fake_conn.cursor_obj.executed_params[4], "{}")
         self.assertTrue(fake_conn.committed)
 
     def test_repository_inserts_pgvector_embedding_parameterized(self) -> None:

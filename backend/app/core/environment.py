@@ -8,10 +8,10 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 BACKEND_ENV_PATH = BACKEND_DIR / ".env"
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "llama3.1"
-DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text"
-DEFAULT_RAG_MAX_COSINE_DISTANCE = 0.45
-DEFAULT_RAG_RETRIEVAL_TOP_K = 5
+DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text-v2-moe"
 
+RAG_MAX_COSINE_DISTANCE = 0.58
+RAG_RETRIEVAL_TOP_K = 5
 
 def load_backend_env() -> None:
     """Load backend/.env without depending on the process working directory."""
@@ -46,25 +46,9 @@ def get_ollama_embedding_model() -> str:
 
 def get_rag_max_cosine_distance() -> float:
     """Return the maximum accepted pgvector cosine distance for retrieval."""
-    load_backend_env()
-    raw_value = os.getenv("RAG_MAX_COSINE_DISTANCE", str(DEFAULT_RAG_MAX_COSINE_DISTANCE)).strip()
-    try:
-        value = float(raw_value)
-    except ValueError as exc:
-        raise ValueError("RAG_MAX_COSINE_DISTANCE must be numeric") from exc
-    if value < 0 or value > 2:
-        raise ValueError("RAG_MAX_COSINE_DISTANCE must be between 0 and 2")
-    return value
+    return RAG_MAX_COSINE_DISTANCE
 
 
 def get_rag_retrieval_top_k() -> int:
     """Return the default number of RAG retrieval results."""
-    load_backend_env()
-    raw_value = os.getenv("RAG_RETRIEVAL_TOP_K", str(DEFAULT_RAG_RETRIEVAL_TOP_K)).strip()
-    try:
-        value = int(raw_value)
-    except ValueError as exc:
-        raise ValueError("RAG_RETRIEVAL_TOP_K must be an integer") from exc
-    if value < 1 or value > 10:
-        raise ValueError("RAG_RETRIEVAL_TOP_K must be between 1 and 10")
-    return value
+    return RAG_RETRIEVAL_TOP_K

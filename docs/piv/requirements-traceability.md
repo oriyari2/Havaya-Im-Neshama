@@ -178,26 +178,22 @@ investigate Hebrew retrieval quality and mitigation before Task 17. Task 17
 remains blocked until Hebrew retrieval quality is understood or corrected, or an
 evidence-based mitigation is selected.
 
-Task 16 corrected continuation keeps production ingestion/retrieval compatible
-with the existing `knowledge_chunks` embeddings: production still embeds plain
-chunk text and plain normalized queries. Model-aware formatting is isolated to
-temporary evaluation rows only and must not be applied to production until a
-model/threshold is selected and all approved knowledge is fully re-ingested.
-The corrected fixture `rag/evaluation_fixture_task16_he.json` contains 44
-Hebrew demo cases, including 8 realistic domain-adjacent hard negatives with
-`should_retrieve: false`. The evaluator now reuses
-`knowledge_retrieval_repository`, calculates authorization from returned
-`metadata.allowed_roles`, separates raw metrics from threshold metrics, reports
-accepted Top-1 accuracy and exact threshold failures, and cleans up temporary
-`eval://task16-hebrew-model-comparison/...` rows. Live comparison confirmed
-`nomic-embed-text`, `nomic-embed-text-v2-moe`, and `bge-m3` are installed; all
-configurations had unauthorized retrieval count 0 and forbidden-source accepted
-count 0 at the recommended candidate threshold. Corrected evidence makes
-`nomic-embed-text-v2-moe` the model candidate. A threshold around `0.69` accepts
-all relevant cases but also accepts 3 unrelated hard negatives, so the current
-zero-false-positive threshold candidate is the generated `0.581186` value. No
-application model or threshold switch was implemented and no production
-knowledge was deleted or re-ingested.
+Task 16 continuation activates the selected production embedding strategy:
+ingestion embeds enriched document text through
+`format_document_embedding_input` while preserving original chunk content and
+metadata in `knowledge_chunks`; retrieval embeds queries through
+`format_query_embedding_input`. The active defaults are
+`nomic-embed-text-v2-moe`, `RAG_MAX_COSINE_DISTANCE = 0.58`, and
+`RAG_RETRIEVAL_TOP_K = 5`. The repeatable
+`rag/reset_task16_demo_knowledge.py` procedure deletes only disposable
+`knowledge_chunks` rows, reingests the approved demo knowledge, verifies 768
+dimensions, runs Hebrew relevant/unsupported probes, checks fail-closed
+authorization, and compares unrelated table counts before and after reset. Live
+validation deleted 8 rows, recreated 8 rows, confirmed all rows use
+`nomic-embed-text-v2-moe` with 768 dimensions, retrieved expected Hebrew demo
+sources, returned no unsupported-query results at threshold `0.58`, and left
+`users`, `customers`, `activities`, `bookings`, and `booking_events` counts
+unchanged. Retrieved context is still not integrated into `/api/ai/consult`.
 
 Required course/PRD concept
 

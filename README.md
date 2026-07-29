@@ -68,14 +68,14 @@ docker exec ollama_server ollama pull llama3
 ```
 3. Once the download is complete, a prompt (`>>>`) will appear. Type `/bye`
    and press Enter to exit. The server will continue running in the background.
-4. Download the embedding model used by Task 15 RAG ingestion:
+4. Download the embedding model used by Task 16 RAG ingestion and retrieval:
 ```powershell
-docker exec ollama_server ollama pull nomic-embed-text
+docker exec ollama_server ollama pull nomic-embed-text-v2-moe
 ```
 
 *Note: The backend connects to this service via `OLLAMA_URL` in `backend\.env`
 (default: `http://localhost:11434`). Embeddings use `OLLAMA_EMBEDDING_MODEL`
-(default: `nomic-embed-text`).*
+(default: `nomic-embed-text-v2-moe`).*
 
 ## Initialize The Database
 
@@ -162,9 +162,10 @@ After the backend is running, managers can ingest approved internal knowledge:
 POST /api/rag/knowledge
 ```
 
-The endpoint chunks the submitted text, calls Ollama embeddings, and stores the
-approved chunks in PostgreSQL for a future retrieval task. The AI consultation
-flow remains read-only for operational data.
+The endpoint chunks the submitted text, preserves the original chunk content and
+metadata in PostgreSQL, and embeds an enriched document input through
+`format_document_embedding_input`. For `nomic-embed-text-v2-moe`, document
+embedding input is prefixed with `search_document:`.
 
 Authenticated users can search approved knowledge independently of AI answer
 generation:
@@ -173,18 +174,21 @@ generation:
 POST /api/rag/search
 ```
 
-The endpoint embeds the normalized query with `OLLAMA_EMBEDDING_MODEL`, searches
-`knowledge_chunks` with pgvector cosine distance, filters by the authenticated
-role in the database query, and returns ordered chunks without exposing stored
-embeddings. Managers can retrieve all chunks. Instructors and customers only see
-chunks whose structured `metadata.allowed_roles` array includes their role;
-missing or malformed role metadata is treated as manager-only.
+The endpoint embeds the normalized query with `format_query_embedding_input`,
+searches `knowledge_chunks` with pgvector cosine distance, filters by the
+authenticated role in the database query, and returns ordered chunks without
+exposing stored embeddings. For `nomic-embed-text-v2-moe`, query embedding input
+is prefixed with `search_query:`. Managers can retrieve all chunks. Instructors
+and customers only see chunks whose structured `metadata.allowed_roles` array
+includes their role; missing or malformed role metadata is treated as
+manager-only.
 
 Retrieval defaults are code-level application constants in
 `backend/app/core/environment.py`, not deployment `.env` settings:
 
 ```python
-RAG_MAX_COSINE_DISTANCE = 0.45
+DEFAULT_OLLAMA_EMBEDDING_MODEL = "nomic-embed-text-v2-moe"
+RAG_MAX_COSINE_DISTANCE = 0.58
 RAG_RETRIEVAL_TOP_K = 5
 ```
 
@@ -192,22 +196,10 @@ The search request rejects unexpected fields, so authorization metadata such as
 `role` cannot be supplied by the caller. The authenticated role comes only from
 the backend authentication context.
 
-Controlled Task 16 Hebrew validation currently shows a retrieval-quality
-limitation: unrelated Hebrew queries can receive very low cosine distances with
-`nomic-embed-text`. Treat Task 16 as retrieval infrastructure; do not connect it
-to grounded AI answers until that behavior is understood. A follow-up diagnostic
-verified that two Hebrew paraphrase queries produce distinct outgoing request
-strings and distinct 768-dimensional vectors through both `OllamaEmbeddingClient`
-and direct `/api/embed`; the earlier identical-vector observation is classified
-as a validation-script/input-encoding defect, not a client parsing defect.
-
-Task 16 keeps production ingestion and retrieval on the stable baseline used by
-the existing `knowledge_chunks` embeddings: production ingestion embeds the
-plain normalized chunk text, and production retrieval embeds the plain
-normalized query. The model-aware formatter in `rag/embedding_formatting.py` is
-currently used only by the isolated Hebrew model-evaluation flow. Its selected
-document formatting must not be applied to production until a model/threshold
-strategy is selected and all production knowledge is fully re-ingested.
+Task 16 now uses the selected production embedding strategy:
+`nomic-embed-text-v2-moe`, 768 dimensions, `search_document:` for stored
+knowledge embeddings, `search_query:` for retrieval embeddings, and threshold
+`0.58`.
 
 The Hebrew evaluation fixture is versioned at
 `rag/evaluation_fixture_task16_he.json`, and the live model comparison can be
@@ -225,22 +217,17 @@ production retrieval repository, verifies authorization against returned
 evaluates explicit and generated threshold candidates, emits exact failure
 reports, and cleans up temporary rows with `try/finally`.
 
-With the expanded 44-case Hebrew fixture, `nomic-embed-text-v2-moe` is the
-corrected model candidate. It had raw Top-1 accuracy `0.963`, raw Top-3 recall
-`1.000`, no unauthorized retrieval, no forbidden-source retrieval, and better
-separation than `bge-m3`. A threshold around `0.69` accepted all relevant cases
-but also accepted 3 unrelated hard negatives, so it is not acceptable for
-RAG-only behavior. The best zero-false-positive candidate observed in the
-generated thresholds was around `0.581186`: 19/27 relevant cases accepted,
-17/17 unrelated cases rejected, accepted Top-1 accuracy `1.000`, wrong accepted
-Top-1 count `0`, forbidden accepted count `0`, and unauthorized accepted count
-`0`. No application model or threshold was changed in this pass.
+Use the repeatable Task 16 reset only for the disposable demo knowledge rows:
 
-Existing application knowledge was not deleted or re-ingested. A future
-production formatting rollout requires selecting the model/threshold, embedding
-all approved knowledge with the selected formatter, replacing the old vectors in
-a controlled pass, and then revalidating role-aware retrieval before connecting
-retrieved context to generated AI answers.
+```powershell
+.\.venv\Scripts\python.exe -m rag.reset_task16_demo_knowledge
+```
+
+The script deletes only `knowledge_chunks`, reingests the approved demo
+knowledge through the production ingestion service, verifies all rows use
+`nomic-embed-text-v2-moe` with 768 dimensions, runs Hebrew relevant and
+unsupported searches at threshold `0.58`, checks fail-closed role authorization,
+and snapshots unrelated table counts before and after the reset.
 
 ## Validation
 
