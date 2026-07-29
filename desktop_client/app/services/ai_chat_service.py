@@ -7,6 +7,6 @@ class AIChatService:
     def __init__(self, api_client: ApiClient) -> None:
         self.api_client = api_client
 
-    def consult(self, prompt: str) -> str:
+    def consult(self, prompt: str) -> dict:
         response = self.api_client.post("/api/ai/consult", {"prompt": prompt})
-        return str(response.get("answer", "")) if isinstance(response, dict) else ""
+        return response if isinstance(response, dict) else {"answer": ""}

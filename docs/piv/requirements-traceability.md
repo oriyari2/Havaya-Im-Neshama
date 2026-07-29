@@ -193,7 +193,20 @@ validation deleted 8 rows, recreated 8 rows, confirmed all rows use
 `nomic-embed-text-v2-moe` with 768 dimensions, retrieved expected Hebrew demo
 sources, returned no unsupported-query results at threshold `0.58`, and left
 `users`, `customers`, `activities`, `bookings`, and `booking_events` counts
-unchanged. Retrieved context is still not integrated into `/api/ai/consult`.
+unchanged.
+
+Task 17 connects the existing role-aware retrieval service to authenticated
+`POST /api/ai/consult` for `FR-AI-01` through `FR-AI-06`. The AI consultation
+service now retrieves approved chunks using only the authenticated role before
+calling the LLM. Empty retrieval results return the fixed no-information answer
+with `answer_basis="none"` and skip generation. Retrieved chunks are numbered
+inside a strict prompt that forbids general knowledge, web knowledge, guessing,
+and unsupported details, requires inline `[n]` citations, and requires the exact
+`INSUFFICIENT_CONTEXT` sentinel when evidence is insufficient. Sentinel
+responses and uncited answers are treated as no answer. Successful RAG answers
+return `answer_basis="rag"` and only the cited source records used by the
+answer. The desktop chat minimally displays returned source titles and URIs
+under RAG answers. No AI endpoint mutates operational data.
 
 Required course/PRD concept
 

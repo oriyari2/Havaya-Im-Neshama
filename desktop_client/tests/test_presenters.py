@@ -188,6 +188,25 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(view.messages, [("את/ה", "שלום"), ("היועץ", "תשובה עבור שלום")])
         self.assertTrue(view.input_cleared)
 
+    def test_ai_chat_presenter_displays_rag_sources(self) -> None:
+        view = _View()
+
+        class AIService:
+            def consult(self, prompt):
+                return {
+                    "answer": "Grounded answer [1].",
+                    "answer_basis": "rag",
+                    "sources": [{"source_title": "Task17 Equipment", "source_uri": "demo://equipment"}],
+                }
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message("hello")
+
+        self.assertIn("Grounded answer [1].", view.messages[-1][1])
+        self.assertIn("מקורות:", view.messages[-1][1])
+        self.assertIn("Task17 Equipment", view.messages[-1][1])
+        self.assertIn("demo://equipment", view.messages[-1][1])
+
     def test_ai_chat_presenter_handles_empty_prompt_and_errors(self) -> None:
         view = _View()
 

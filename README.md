@@ -7,7 +7,8 @@ The project will become the Havaya Im Neshama management system described in
 PySide6 MVP layers, Supabase-compatible PostgreSQL persistence, Hebrew demo
 seed data, authentication/RBAC, customer/activity/instructor management,
 event-sourced booking workflows, role-aware desktop screens, local Ollama AI
-infrastructure, and the first approved-knowledge RAG ingestion slice.
+infrastructure, approved-knowledge RAG ingestion and retrieval, and grounded
+RAG-only AI consultation.
 
 ## Project Structure
 
@@ -143,16 +144,18 @@ Implemented so far:
   role navigation (Task 12F).
 - Local Ollama AI infrastructure integration via backend HTTP client (Task 13).
 - Authenticated read-only AI consultation endpoint and PySide6 chat screen
-  backed by the Ollama generation client (Task 14).
+  backed by approved retrieved knowledge and the Ollama generation client
+  (Tasks 14 and 17).
 - Manager-only approved-knowledge RAG ingestion infrastructure using Ollama
   embeddings, deterministic chunking, content hashes, and PostgreSQL pgvector
   storage in `knowledge_chunks` (Task 15).
 
-Task 16 retrieval infrastructure is the current completed slice. Retrieved
-context is not yet integrated into the AI consultation prompt; role-filtered
-citations, abstention behavior in generated answers, desktop knowledge-source
-management, and UI/UX redesign remain future work. Task 17 is blocked until
-Hebrew embedding/retrieval quality is understood or corrected.
+Task 17 connects role-aware retrieval to `POST /api/ai/consult`. The endpoint
+retrieves approved chunks using only the authenticated role before generation,
+answers only from those chunks, requires inline `[n]` citations, returns
+`answer_basis="rag"` with used sources, and abstains with `answer_basis="none"`
+without calling the LLM when reliable context is unavailable. There is no
+general-knowledge or web fallback.
 
 ## RAG Knowledge Ingestion
 
@@ -196,6 +199,27 @@ The search request rejects unexpected fields, so authorization metadata such as
 `role` cannot be supplied by the caller. The authenticated role comes only from
 the backend authentication context.
 
+Authenticated users can ask the grounded AI consultation endpoint:
+
+```text
+POST /api/ai/consult
+```
+
+The backend first calls the same role-aware retrieval service. If no chunks are
+found, it returns:
+
+```json
+{
+  "answer": "לא נמצא במאגר הידע המאושר מידע מספיק כדי לענות על השאלה.",
+  "answer_basis": "none",
+  "sources": []
+}
+```
+
+When chunks are found, the LLM receives only numbered retrieved context and a
+strict instruction to cite sources as `[1]`, `[2]`, etc. The desktop chat shows
+returned source titles and URIs under RAG answers.
+
 Task 16 now uses the selected production embedding strategy:
 `nomic-embed-text-v2-moe`, 768 dimensions, `search_document:` for stored
 knowledge embeddings, `search_query:` for retrieval embeddings, and threshold
@@ -231,14 +255,17 @@ and snapshots unrelated table counts before and after the reset.
 
 ## Validation
 
-Recent Task 15 validation:
+Recent Task 17 validation:
 
 ```powershell
+.\.venv\Scripts\python.exe -m unittest backend.tests.test_ai_consult_api -v
+.\.venv\Scripts\python.exe -m unittest desktop_client.tests.test_services desktop_client.tests.test_presenters -v
 .\.venv\Scripts\python.exe -m unittest backend.tests.test_task15_rag_ingestion
 .\.venv\Scripts\python.exe -m unittest discover backend/tests
 .\.venv\Scripts\python.exe -m compileall backend desktop_client
+git diff --check
 ```
 
-Expected results from the latest documented pass: Task 15 tests passed, the
-full backend unittest suite passed, and compile validation passed for both
-backend and desktop client.
+Expected results from the latest documented pass: focused AI/desktop tests,
+the full backend unittest suite, compile validation, and whitespace validation
+passed.
