@@ -6,6 +6,7 @@ from uuid import UUID
 
 from psycopg.rows import dict_row
 from rag import EmbeddingClient, EmbeddingClientError, OllamaEmbeddingClient
+from rag.embedding_formatting import KnowledgeDocumentText, format_document_embedding_input
 
 from backend.app.core.environment import get_ollama_embedding_model
 from backend.app.db.connection import get_connection
@@ -44,7 +45,16 @@ class KnowledgeIngestionService:
             with get_connection() as conn:
                 with conn.cursor(row_factory=dict_row) as cur:
                     for index, chunk in enumerate(chunks):
-                        embedding = self.embedding_client.embed(chunk)
+                        embedding_model = getattr(self.embedding_client, "model", "unknown")
+                        embedding_input = format_document_embedding_input(
+                            model=embedding_model,
+                            document=KnowledgeDocumentText(
+                                source_title=payload.source_title,
+                                content=chunk,
+                                metadata=payload.metadata,
+                            ),
+                        )
+                        embedding = self.embedding_client.embed(embedding_input)
                         if not embedding:
                             raise KnowledgeIngestionError("Embedding service returned an empty vector")
                         row = knowledge_repository.insert_knowledge_chunk(
@@ -54,7 +64,7 @@ class KnowledgeIngestionService:
                             chunk_index=index,
                             content=chunk,
                             metadata=payload.metadata,
-                            embedding_model=getattr(self.embedding_client, "model", "unknown"),
+                            embedding_model=embedding_model,
                             embedding=embedding,
                             content_hash=_content_hash(chunk),
                             created_by=created_by,

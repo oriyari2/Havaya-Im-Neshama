@@ -32,10 +32,34 @@ class AIChatPresenter:
         self.view.append_message("את/ה", clean_prompt)
         self.view.clear_input()
         try:
-            answer = self.service.consult(clean_prompt)
+            answer = self._format_answer(self.service.consult(clean_prompt))
             self.view.append_message("היועץ", answer or "לא התקבלה תשובה מהשירות.")
         except Exception as exc:
             self.view.show_error(str(exc))
         finally:
             self._loading = False
             self.view.set_loading(False)
+
+    @staticmethod
+    def _format_answer(response) -> str:
+        if not isinstance(response, dict):
+            return str(response or "")
+        answer = str(response.get("answer", ""))
+        if response.get("answer_basis") != "rag":
+            return answer
+        sources = response.get("sources")
+        if not isinstance(sources, list) or not sources:
+            return answer
+        source_lines = []
+        for source in sources:
+            if not isinstance(source, dict):
+                continue
+            title = str(source.get("source_title", "")).strip()
+            uri = str(source.get("source_uri", "") or "").strip()
+            if title and uri:
+                source_lines.append(f"- {title} ({uri})")
+            elif title:
+                source_lines.append(f"- {title}")
+        if not source_lines:
+            return answer
+        return f"{answer}\n\nמקורות:\n" + "\n".join(source_lines)

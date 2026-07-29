@@ -7,8 +7,9 @@ from desktop_client.app.services.ai_chat_service import AIChatService
 
 
 class _ApiClient:
-    def __init__(self) -> None:
+    def __init__(self, post_response=None) -> None:
         self.calls = []
+        self.post_response = post_response or {"id": "booking-id", "version": 1}
 
     def get(self, path, params=None):
         self.calls.append((path, params))
@@ -16,7 +17,7 @@ class _ApiClient:
 
     def post(self, path, payload):
         self.calls.append(("POST", path, payload))
-        return {"id": "booking-id", "version": 1}
+        return self.post_response
 
     def patch(self, path, payload):
         self.calls.append(("PATCH", path, payload))
@@ -25,12 +26,17 @@ class _ApiClient:
 
 class BookingServiceTests(unittest.TestCase):
     def test_ai_chat_service_uses_consult_endpoint(self) -> None:
-        client = _ApiClient()
+        ai_response = {
+            "answer": "Grounded answer [1].",
+            "answer_basis": "rag",
+            "sources": [{"chunk_id": "c1", "source_title": "Task17 Equipment", "source_uri": "demo://equipment"}],
+        }
+        client = _ApiClient(post_response=ai_response)
         service = AIChatService(client)
 
         answer = service.consult("שלום")
 
-        self.assertEqual(answer, "")
+        self.assertEqual(answer, ai_response)
         self.assertEqual(client.calls, [("POST", "/api/ai/consult", {"prompt": "שלום"})])
 
     def test_booking_service_uses_completed_task_09_endpoints(self) -> None:

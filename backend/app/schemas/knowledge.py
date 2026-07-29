@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class KnowledgeIngestRequest(BaseModel):
@@ -32,3 +32,34 @@ class KnowledgeIngestResponse(BaseModel):
     source_title: str
     chunk_count: int
     chunk_ids: list[UUID]
+
+
+class KnowledgeSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(..., min_length=1)
+    limit: int | None = Field(default=None, ge=1, le=10)
+
+    @field_validator("query")
+    @classmethod
+    def clean_query(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("Query must not be empty")
+        return cleaned
+
+
+class KnowledgeSearchResult(BaseModel):
+    chunk_id: UUID
+    source_title: str
+    source_uri: str | None
+    chunk_index: int
+    content: str
+    metadata: dict
+    distance: float
+    score: float
+
+
+class KnowledgeSearchResponse(BaseModel):
+    query: str
+    results: list[KnowledgeSearchResult]

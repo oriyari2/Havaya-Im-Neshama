@@ -1,0 +1,324 @@
+[
+    {
+        "query":  "מה צריך לבדוק לפני פעילות תפוס את האור?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment"
+                             ]
+    },
+    {
+        "query":  "איך מכינים את ציוד האורות לפני האירוע?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment",
+                                 "Task16 Eval Instructor Internal"
+                             ]
+    },
+    {
+        "query":  "האם צריך להטעין את יחידות האור?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment"
+                             ]
+    },
+    {
+        "query":  "ציוד תפוס תאור לפני פעילות",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment"
+                             ]
+    },
+    {
+        "query":  "האם יש מטענים וסוללות גיבוי?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment",
+                                 "Task16 Eval Instructor Internal"
+                             ]
+    },
+    {
+        "query":  "מה עושים אם חסרה ערכת ציוד לפני יציאה?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Instructor Internal"
+                             ],
+        "forbidden_sources":  [
+                                  "Task16 Eval Pricing"
+                              ]
+    },
+    {
+        "query":  "מה ההורים צריכים להכין לפני סדנת תיקים?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Preparation"
+                             ]
+    },
+    {
+        "query":  "הכנה לפני סדנת סוכה",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Preparation"
+                             ]
+    },
+    {
+        "query":  "האם צריך שולחנות עבודה?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Preparation"
+                             ]
+    },
+    {
+        "query":  "מה להביא לסדנת חנוכיות?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Activity"
+                             ]
+    },
+    {
+        "query":  "אילו חומרי יצירה צריך להכין לסדנת תיקים או סוכה?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Preparation"
+                             ]
+    },
+    {
+        "query":  "מתי כדאי להגיע למקום הפעילות?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Arrival"
+                             ]
+    },
+    {
+        "query":  "כמה זמן לפני האירוע מגיע מדריך?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Arrival"
+                             ]
+    },
+    {
+        "query":  "מה עושים בהגעה לבית הספר?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Arrival"
+                             ]
+    },
+    {
+        "query":  "מה מחיר בסיס לתפוס את האור?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Pricing"
+                             ]
+    },
+    {
+        "query":  "כמה עולה פעילות ל-70 משתתפים?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Pricing"
+                             ]
+    },
+    {
+        "query":  "האם המחירים בדמו מאושרים סופית?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Pricing"
+                             ]
+    },
+    {
+        "query":  "האם לקוח יכול לראות מחיר פנימי?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Policy"
+                             ],
+        "forbidden_sources":  [
+                                  "Task16 Eval Pricing",
+                                  "Task16 Eval Proposal"
+                              ]
+    },
+    {
+        "query":  "מחיר פנימי למנהל בלבד",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  false,
+        "forbidden_sources":  [
+                                  "Task16 Eval Pricing",
+                                  "Task16 Eval Proposal"
+                              ]
+    },
+    {
+        "query":  "מחיר פנימי למנהל בלבד",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false,
+        "forbidden_sources":  [
+                                  "Task16 Eval Pricing",
+                                  "Task16 Eval Proposal"
+                              ]
+    },
+    {
+        "query":  "איזו פעילות מתאימה לקבוצה גדולה?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Activity"
+                             ]
+    },
+    {
+        "query":  "פעילות לחנוכה עם יצירה",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Activity"
+                             ]
+    },
+    {
+        "query":  "איזו פעילות אפשר להציע לפי גיל עונה ותקציב?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Activity"
+                             ]
+    },
+    {
+        "query":  "מה חשוב לכתוב בהצעת מחיר?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Proposal"
+                             ]
+    },
+    {
+        "query":  "נוסח הצעה להורים אחרי פעילות",
+        "authenticated_role":  "manager",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Proposal"
+                             ]
+    },
+    {
+        "query":  "האם מדריך רשאי לשנות מחיר ללקוח?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Policy"
+                             ]
+    },
+    {
+        "query":  "מה לקוח רואה במערכת?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Policy"
+                             ]
+    },
+    {
+        "query":  "האם מדריך יכול לראות ציוד פנימי?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Instructor Internal"
+                             ]
+    },
+    {
+        "query":  "הוראות מדריך פנימיות",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false,
+        "forbidden_sources":  [
+                                  "Task16 Eval Instructor Internal",
+                                  "Task16 Eval Pricing"
+                              ]
+    },
+    {
+        "query":  "שגיאת כתיב: תפוס את האור מתענים ויחידות אור",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  true,
+        "expected_sources":  [
+                                 "Task16 Eval Equipment"
+                             ]
+    },
+    {
+        "query":  "איזה מסלול חללית מתאים למחקר על כוכבי לכת רחוקים?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "איך מתקנים מדפסת לייזר במשרד?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "מה מזג האוויר בירושלים מחר?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "מתכון לעוגת גבינה ללא אפייה",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "מי זכה במונדיאל האחרון?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "איך מחליפים גלגל ברכב?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "מה מדיניות הביטולים?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "האם יש הסעות לפעילות?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "האם המחיר כולל אוכל?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "האם אפשר לשלם בתשלומים?",
+        "authenticated_role":  "manager",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "כמה מדריכים מגיעים לכל אירוע?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "האם הפעילות מתאימה לילדים בני שלוש?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "מה עושים במקרה של גשם?",
+        "authenticated_role":  "instructor",
+        "should_retrieve":  false
+    },
+    {
+        "query":  "האם יש ביטוח לפעילות?",
+        "authenticated_role":  "customer",
+        "should_retrieve":  false
+    }
+]

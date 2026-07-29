@@ -155,6 +155,58 @@ a manager-only `POST /api/rag/knowledge` endpoint, chunking and hashing in an
 application service, and repository-layer persistence tests. Retrieval,
 role-filtered similarity search, citations, and insufficient-context abstention
 remain future work.
+Task 16 implements standalone role-aware semantic retrieval for `FR-AI-02`,
+`FR-AI-05`, and `FR-AI-07`: authenticated `POST /api/rag/search` embeds the
+query with the existing Ollama embedding client, searches `knowledge_chunks`
+with pgvector cosine distance, filters by embedding model/dimensions and
+authenticated role inside the repository SQL, excludes weak matches using the
+code-level cosine-distance threshold constant in
+`backend/app/core/environment.py`, and returns ordered approved chunks without
+exposing embeddings. The request schema rejects unexpected authorization fields,
+and temporary Task 16 live-validation rows must be cleaned up after validation.
+Focused Task 16 tests passed at 14 tests and the full backend suite passed at
+141 tests. Hebrew unrelated-query validation showed very low cosine distances
+for unrelated text, so Task 16 is completed retrieval infrastructure rather than
+proof of reliable Hebrew semantic retrieval. A controlled diagnostic verified
+that the two Hebrew paraphrase queries produce different outgoing request text
+and different vectors through both `OllamaEmbeddingClient` and direct
+`POST /api/embed`; the earlier identical-vector observation is classified as a
+validation-script/input-encoding defect. Retrieved context is not yet integrated
+into the AI consultation prompt, so AI citations and abstention during answer
+generation remain future work. Continue Task 16 rather than creating a new task:
+investigate Hebrew retrieval quality and mitigation before Task 17. Task 17
+remains blocked until Hebrew retrieval quality is understood or corrected, or an
+evidence-based mitigation is selected.
+
+Task 16 continuation activates the selected production embedding strategy:
+ingestion embeds enriched document text through
+`format_document_embedding_input` while preserving original chunk content and
+metadata in `knowledge_chunks`; retrieval embeds queries through
+`format_query_embedding_input`. The active defaults are
+`nomic-embed-text-v2-moe`, `RAG_MAX_COSINE_DISTANCE = 0.58`, and
+`RAG_RETRIEVAL_TOP_K = 5`. The repeatable
+`rag/reset_task16_demo_knowledge.py` procedure deletes only disposable
+`knowledge_chunks` rows, reingests the approved demo knowledge, verifies 768
+dimensions, runs Hebrew relevant/unsupported probes, checks fail-closed
+authorization, and compares unrelated table counts before and after reset. Live
+validation deleted 8 rows, recreated 8 rows, confirmed all rows use
+`nomic-embed-text-v2-moe` with 768 dimensions, retrieved expected Hebrew demo
+sources, returned no unsupported-query results at threshold `0.58`, and left
+`users`, `customers`, `activities`, `bookings`, and `booking_events` counts
+unchanged.
+
+Task 17 connects the existing role-aware retrieval service to authenticated
+`POST /api/ai/consult` for `FR-AI-01` through `FR-AI-06`. The AI consultation
+service now retrieves approved chunks using only the authenticated role before
+calling the LLM. Empty retrieval results return the fixed no-information answer
+with `answer_basis="none"` and skip generation. Retrieved chunks are numbered
+inside a strict prompt that forbids general knowledge, web knowledge, guessing,
+and unsupported details, requires inline `[n]` citations, and requires the exact
+`INSUFFICIENT_CONTEXT` sentinel when evidence is insufficient. Sentinel
+responses and uncited answers are treated as no answer. Successful RAG answers
+return `answer_basis="rag"` and only the cited source records used by the
+answer. The desktop chat minimally displays returned source titles and URIs
+under RAG answers. No AI endpoint mutates operational data.
 
 Required course/PRD concept
 
