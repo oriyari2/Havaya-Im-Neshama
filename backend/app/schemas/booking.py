@@ -16,13 +16,13 @@ def _clean_optional_text(value: str | None) -> str | None:
 
 
 class BookingCreate(BaseModel):
-    customer_id: UUID
+    customer_id: UUID | None = None
     activity_id: UUID
     event_at: datetime
     city: str | None = None
     venue: str | None = None
     participant_count: int = Field(gt=0)
-    agreed_price: Decimal = Field(ge=0)
+    agreed_price: Decimal = Field(default=Decimal("0"), ge=0)
     status: str = "NEW"
     requires_instructor: bool = False
     notes: str | None = None

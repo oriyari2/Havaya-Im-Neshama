@@ -127,6 +127,16 @@ tasks to opt into the foundation deliberately. Request identities currently
 protect synchronous/reentrant Customer selection and session invalidation; they
 do not claim the Task 22 background-execution guarantee.
 
+### Task 24 role-aware Booking creation
+
+Booking creation follows `Passive View -> Qt-free BookingsPresenter ->
+BookingService -> ApiClient -> FastAPI -> CreateBookingCommand ->
+BookingAggregate -> immutable BookingCreated -> transactional projection`.
+Managers supply an active Customer. For Customers, FastAPI derives the linked
+Customer identity and controls initial administrative fields. Instructors are
+denied before command dispatch. Activities and Bookings reuse the same
+Presenter/form workflow.
+
 ### Task 22 desktop execution boundary
 
 Task 22 adds a bounded scheduling boundary without changing MVP ownership.

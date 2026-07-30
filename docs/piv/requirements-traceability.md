@@ -624,12 +624,21 @@ Task 23 implementation evidence
   secrets, AI consultations, mutation payloads, errors, and preview bytes are
   not cached or persisted. A new identity/role and logout/401 clear all entries.
 
+Task 24 implementation evidence
+
+- `FR-BKG-01`: Manager creation remains on the existing event-sourced command.
+- `FR-BKG-01A`: Customers request only for their authenticated linked Customer;
+  the server controls ownership, `NEW`, zero price, and instructor requirement.
+  Instructors are denied before command dispatch.
+- Activities and Bookings share the Presenter workflow and retain Task 22/23
+  execution, cache, session, and teardown guarantees.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request
   coalescing, refresh reduction, bounded session caching, and latest-intent
-  behavior are implemented. Task 24 retains reliability, security,
-  observability, and measurable performance closure.
+  behavior are implemented. The role-aware Booking request/creation workflow is
+  implemented by Task 24.
 - Phase 3 / Tasks 25–28: Desktop visual design, UI consistency, UX,
   accessibility, responsive layouts, and professional presentation.
 - Phase 4 / Tasks 29–30: remaining Ollama readiness, RAG/semantic-search quality,

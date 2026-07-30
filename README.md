@@ -142,8 +142,11 @@ Implemented so far:
 - PySide6 login and role-based desktop shell using MVP boundaries.
 - Role-aware dashboard, bookings, booking details/history, open events, and
   customer my-bookings screens backed by the FastAPI API.
-- Manager booking creation, confirmation, cancellation, and supported field
-  edits through the event-sourced command API with optimistic concurrency.
+- Manager booking creation and Customer self-service Booking requests from
+  Bookings or a selected Activity, plus Manager confirmation, cancellation, and
+  supported field edits through the event-sourced command API. Customer
+  ownership and initial administrative fields are server-controlled;
+  Instructors cannot create.
 - Manager customer directory with a single Contact-person name/phone workflow,
   search, filters, pagination, and readable details. Historical contact rows
   remain stored without a normal multi-contact UI. Customers use protected physical deletion; linked

@@ -94,7 +94,11 @@ class BookingsView(StatefulWidget):
         self.complete_button.clicked.connect(self.complete_requested.emit)
         for button in (self.create_button, self.edit_button, self.confirm_button, self.complete_button, self.cancel_button):
             command_layout.addWidget(button)
-        self.command_panel.setVisible(role == "manager")
+        self.command_panel.setVisible(role in {"manager", "customer"})
+        for button in (self.edit_button, self.confirm_button, self.cancel_button, self.complete_button):
+            button.setVisible(role == "manager")
+        if role == "customer":
+            self.create_button.setText("בקשת הזמנה חדשה")
         self._set_selection_commands_enabled(False)
         layout.addWidget(self.command_panel)
 
@@ -222,11 +226,11 @@ class BookingsView(StatefulWidget):
         self._selector=InstructorSelectorDialog(activity,query_handler,choose_handler,self);self._selector.open();return self._selector
     def confirm_assignment_removal(self,instructor_name,activity_name):return confirm_action(self,"הסרת שיוך",f"להסיר את {instructor_name} מהפעילות {activity_name}? היסטוריית האירועים תישמר והמדריך עצמו לא יימחק.")
 
-    def collect_create_booking(self, customers: list[dict], activities: list[dict]) -> dict[str, object] | None:
-        if not customers or not activities:
-            self.show_error("נדרשים לקוח ופעילות פעילים כדי ליצור הזמנה.")
+    def collect_create_booking(self, customers: list[dict], activities: list[dict], *, role="manager", preselected_activity_id=None) -> dict[str, object] | None:
+        if (role == "manager" and not customers) or not activities:
+            self.show_error("נדרשים לקוח ופעילות פעילים כדי ליצור הזמנה." if role == "manager" else "נדרשת פעילות פעילה כדי לשלוח בקשת הזמנה.")
             return None
-        dialog = BookingFormDialog(customers=customers, activities=activities, parent=self)
+        dialog = BookingFormDialog(customers=customers, activities=activities, role=role, preselected_activity_id=preselected_activity_id, parent=self)
         return dialog.values() if dialog.exec() == dialog.DialogCode.Accepted else None
 
     def collect_booking_changes(self, booking: dict) -> dict[str, object] | None:

@@ -203,8 +203,10 @@ class MainWindow(QMainWindow):
         bookings_view.filters_requested.connect(bookings_presenter.load)
         bookings_view.booking_selected.connect(bookings_presenter.select_booking)
         bookings_view.page_requested.connect(bookings_presenter.page)
-        if session.role == "manager":
+        if session.role in {"manager", "customer"}:
             bookings_view.create_requested.connect(bookings_presenter.begin_create)
+            activities_view.booking_requested.connect(bookings_presenter.begin_create)
+        if session.role == "manager":
             bookings_view.edit_requested.connect(bookings_presenter.begin_edit)
             bookings_view.confirm_requested.connect(bookings_presenter.confirm)
             bookings_view.cancel_requested.connect(bookings_presenter.cancel)

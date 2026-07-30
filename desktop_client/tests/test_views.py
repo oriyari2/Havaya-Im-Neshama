@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtWidgets import QApplication
 
 from desktop_client.app.main import MainWindow
@@ -21,6 +22,13 @@ class ViewTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
+
+    def tearDown(self) -> None:
+        for widget in list(QApplication.topLevelWidgets()):
+            widget.close()
+            widget.deleteLater()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        self.app.processEvents()
 
     def test_manager_has_related_filters_and_customer_has_status_only(self) -> None:
         customer = BookingsView("customer")
@@ -48,13 +56,30 @@ class ViewTests(unittest.TestCase):
         self.assertFalse(manager.cancel_button.isEnabled())
         customer = BookingsView("customer")
         customer.show()
-        self.assertFalse(customer.command_panel.isVisible())
+        self.assertTrue(customer.command_panel.isVisible())
+        self.assertTrue(customer.create_button.isVisible())
+        self.assertFalse(customer.edit_button.isVisible())
         instructor = BookingsView("instructor")
         instructor.show()
         self.assertFalse(instructor.command_panel.isVisible())
         manager.close()
         customer.close()
         instructor.close()
+
+    def test_customer_booking_dialog_hides_identity_and_admin_fields(self) -> None:
+        dialog = BookingFormDialog(
+            activities=[{"id": "activity-1", "name": "פעילות"}],
+            role="customer",
+            preselected_activity_id="activity-1",
+        )
+        dialog.show()
+        self.assertFalse(dialog.customer.isVisible())
+        self.assertFalse(dialog.price.isVisible())
+        self.assertFalse(dialog.requires_instructor.isVisible())
+        self.assertEqual(dialog.activity.currentData(), "activity-1")
+        self.assertFalse(dialog.activity.isEnabled())
+        self.assertNotIn("customer_id", dialog.values())
+        dialog.close()
 
     def test_booking_dialog_returns_backend_shaped_values(self) -> None:
         dialog = BookingFormDialog(

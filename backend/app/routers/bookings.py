@@ -45,6 +45,7 @@ from backend.app.schemas.booking_assignment import BookingAssignmentsResponse,Op
 
 router = APIRouter(tags=["bookings"])
 RequireManager = Depends(require_roles("manager"))
+RequireBookingCreator = Depends(require_roles("manager", "customer"))
 
 
 def _raise_command_error(exc: Exception) -> NoReturn:
@@ -68,10 +69,25 @@ def _raise_query_error(exc: Exception) -> NoReturn:
 
 
 @router.post("/bookings", response_model=BookingResponse, status_code=201)
-def create_booking(payload: BookingCreate, current_user: dict = RequireManager) -> BookingResponse:
+def create_booking(payload: BookingCreate, current_user: dict = RequireBookingCreator) -> BookingResponse:
     try:
+        data = payload.model_dump()
+        if current_user["role"] == "customer":
+            owned_customer_id = current_user.get("customer_id")
+            if owned_customer_id is None:
+                raise HTTPException(status_code=403, detail="Customer account is not linked")
+            if payload.customer_id is not None and payload.customer_id != owned_customer_id:
+                raise HTTPException(status_code=403, detail="Cannot create a booking for another customer")
+            data.update(
+                customer_id=owned_customer_id,
+                agreed_price=0,
+                status="NEW",
+                requires_instructor=False,
+            )
+        elif payload.customer_id is None:
+            raise HTTPException(status_code=422, detail="customer_id is required for managers")
         booking = command_handlers.create_booking(
-            CreateBookingCommand(actor_user_id=current_user["id"], **payload.model_dump())
+            CreateBookingCommand(actor_user_id=current_user["id"], **data)
         )
     except Exception as exc:
         _raise_command_error(exc)

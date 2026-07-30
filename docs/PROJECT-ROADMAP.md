@@ -40,7 +40,7 @@ audit, commit, and push.
 | 01–21 | 1 | Core/backend/desktop/CQRS/Event Sourcing/User Administration baseline | Committed and pushed | Complete | Complete | Approved | Complete |
 | 22 | 2 | Desktop Background Execution and Non-Blocking UI | Complete | Approved | Complete | Complete | Complete |
 | 23 | 2 | API Performance, Refresh Reduction, and Safe Local Caching | Committed and pushed | Approved | Complete | Complete | Complete |
-| 24 | 2 | Reliability, Security, Observability, and Performance Closure | Planned | Not started | Not started | Not started | Not started |
+| 24 | 2 | End-to-End Booking Request and Creation Workflow | Committed and pushed | Approved | Complete | Complete | Complete |
 | 25 | 3 | Desktop Visual Design System and UI/UX Cohesion | Planned | Not started | Not started | Not started | Not started |
 | 26 | 3 | Shell, Login, Navigation, and Dashboard Experience | Planned | Not started | Not started | Not started | Not started |
 | 27 | 3 | Manager Operational Screens UI/UX Completion | Planned | Not started | Not started | Not started | Not started |
@@ -163,12 +163,12 @@ Task/PIV 23 contain policies, matrices, evidence, and the native-run limitation.
 
 Dependency: Task 22 lifecycle contract.
 
-### Task 24 — Reliability, Security, Observability, and Performance Closure
+### Task 24 — End-to-End Booking Request and Creation Workflow
 
-Close remaining API reliability, idempotency, safe-error, correlation/logging,
-rate-limit, and measurable performance gaps. Preserve booking Event Sourcing,
-CQRS, Gateway boundaries, and secret-safe logging. This task establishes the
-stable platform required before visual redesign and remaining AI expansion.
+Complete role-aware Booking creation through the existing event-sourced command:
+Customer self-service requests, Manager creation for a selected Customer,
+Instructor denial, shared Activity/Bookings entry points, targeted cache
+reconciliation, and native lifecycle safety.
 
 Dependency: Tasks 22–23.
 
@@ -262,7 +262,7 @@ Task 22 Desktop Background Execution / Non-Blocking UI
         v
 Task 23 API Performance / Refresh / Safe Caching
         v
-Task 24 Reliability / Security / Performance Closure
+Task 24 Role-Aware Booking Request / Creation
         |
         v
 Task 25 Visual System / UI-UX Cohesion
@@ -308,6 +308,6 @@ Task 33 Final Audit
 
 ## 7. Immediate next action
 
-Task 23 is implemented, validated, committed, and pushed. Task 24 — Reliability,
-Security, Observability, and Performance Closure — is the next unfinished task.
-Do not begin Task 24 until a separate design/audit prompt is approved.
+Task 24 is implemented, validated, committed, and pushed. Task 25 is the next
+unfinished task. Do not begin Task 25 until a separate design/audit prompt is
+approved.

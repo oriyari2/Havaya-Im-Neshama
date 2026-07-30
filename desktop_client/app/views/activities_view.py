@@ -33,6 +33,7 @@ class ActivitiesView(StatefulWidget):
     filters_requested = Signal(dict); page_requested = Signal(int, int); activity_selected = Signal(str); retry_requested = Signal()
     create_requested = Signal(); edit_requested = Signal(); deactivate_requested = Signal(); reactivate_requested = Signal()
     image_selected = Signal(str); upload_image_requested = Signal(str); delete_image_requested = Signal(); preview_retry_requested = Signal()
+    booking_requested = Signal(str)
     def __init__(self, role: str) -> None:
         super().__init__(); self.role = role; root = QVBoxLayout(self); title = QLabel("ניהול פעילויות" if role == "manager" else "קטלוג פעילויות"); title.setObjectName("screenTitle"); root.addWidget(title); self.retry_state = RetryState(); self.retry_state.hide(); self.retry_state.retry_requested.connect(self.retry_requested); root.addWidget(self.retry_state); root.addWidget(self.state_label)
         self.toolbar = SearchToolbar(placeholder="חיפוש בשם או בתוכן הפעילות"); self.toolbar.search_requested.connect(lambda search, _sort: self.filters_requested.emit({"search": search or None})); self.toolbar.refresh_requested.connect(self.retry_requested); root.addWidget(self.toolbar)
@@ -42,6 +43,9 @@ class ActivitiesView(StatefulWidget):
         for button, signal in ((self.create_button,self.create_requested),(self.edit_button,self.edit_requested),(self.deactivate_button,self.deactivate_requested),(self.reactivate_button,self.reactivate_requested)): button.clicked.connect(signal); actions.addWidget(button)
         root.addWidget(self.actions); split = QSplitter(); columns = ["שם", "קהל יעד", "משך", "קיבולת", "עונה", "תמחור"] + (["מצב"] if role == "manager" else []); self.table = QTableWidget(0,len(columns)); self.table.setHorizontalHeaderLabels(columns); self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows); self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers); self.table.itemSelectionChanged.connect(self._select); split.addWidget(self.table)
         detail_panel = QWidget(); detail_layout = QVBoxLayout(detail_panel); group = QGroupBox("פרטי פעילות"); self.details = QFormLayout(group); detail_layout.addWidget(group)
+        self.booking_button = QPushButton("יצירת הזמנה" if role == "manager" else "בקשת הזמנה")
+        self.booking_button.setVisible(role in {"manager", "customer"}); self.booking_button.setEnabled(False)
+        self.booking_button.clicked.connect(self._request_booking); detail_layout.addWidget(self.booking_button)
         self.media_group = QGroupBox("תמונות פעילות"); media = QVBoxLayout(self.media_group); self.preview = QLabel("אין תמונות להצגה."); self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter); self.preview.setMinimumSize(260,160); self.preview.setWordWrap(True); media.addWidget(self.preview)
         self.image_list = QListWidget(); self.image_list.setMaximumHeight(110); self.image_list.currentItemChanged.connect(self._image_changed); media.addWidget(self.image_list)
         self.preview_retry = QPushButton("נסו שוב להציג תמונה"); self.preview_retry.clicked.connect(self.preview_retry_requested); self.preview_retry.hide(); media.addWidget(self.preview_retry)
@@ -55,7 +59,12 @@ class ActivitiesView(StatefulWidget):
         self.filters_requested.emit(values)
     def _select(self) -> None:
         rows = self.table.selectionModel().selectedRows()
-        if rows: self.activity_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)))
+        if rows:
+            self.booking_button.setEnabled(self.role in {"manager", "customer"})
+            self.activity_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)))
+    def _request_booking(self) -> None:
+        rows = self.table.selectionModel().selectedRows()
+        if rows: self.booking_requested.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)))
     def set_loading(self, value: bool) -> None: super().set_loading(value); self.toolbar.setEnabled(not value); self.footer.setEnabled(not value)
     def show_error(self, message: str, *, retriable=False, permission=False) -> None: self.retry_state.show_message(message, retriable=retriable)
     def show_success(self, message: str) -> None: self.state_label.setText(message); self.state_label.show()
@@ -78,6 +87,7 @@ class ActivitiesView(StatefulWidget):
             button=getattr(self,name,None)
             if button: button.setEnabled(False)
         if getattr(self,"image_list",None) is not None: self.clear_media()
+        if getattr(self,"booking_button",None) is not None: self.booking_button.setEnabled(False)
     def select_activity(self, activity_id: str) -> None:
         for r in range(self.table.rowCount()):
             if str(self.table.item(r,0).data(Qt.ItemDataRole.UserRole))==activity_id: self.table.selectRow(r); break

@@ -24,6 +24,8 @@ class BookingFormDialog(QDialog):
         customers: list[dict] | None = None,
         activities: list[dict] | None = None,
         booking: dict | None = None,
+        role: str = "manager",
+        preselected_activity_id: str | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
@@ -53,6 +55,12 @@ class BookingFormDialog(QDialog):
                 str(item["id"]),
             )
 
+        if preselected_activity_id:
+            index = self.activity.findData(str(preselected_activity_id))
+            if index >= 0:
+                self.activity.setCurrentIndex(index)
+                self.activity.setEnabled(False)
+
         self.event_at = QDateTimeEdit(QDateTime.currentDateTime().addDays(1))
         self.event_at.setCalendarPopup(True)
         self.event_at.setDisplayFormat("dd/MM/yyyy HH:mm")
@@ -71,14 +79,16 @@ class BookingFormDialog(QDialog):
         self.notes = QTextEdit()
 
         if booking is None:
-            form.addRow("לקוח", self.customer)
+            if role == "manager":
+                form.addRow("לקוח", self.customer)
             form.addRow("פעילות", self.activity)
             form.addRow("מועד", self.event_at)
             form.addRow("עיר", self.city)
             form.addRow("מקום", self.venue)
             form.addRow("מספר משתתפים", self.participants)
-            form.addRow("מחיר מוסכם", self.price)
-            form.addRow("", self.requires_instructor)
+            if role == "manager":
+                form.addRow("מחיר מוסכם", self.price)
+                form.addRow("", self.requires_instructor)
             form.addRow("הערות", self.notes)
         else:
             form.addRow("מועד", self.event_at)
@@ -111,7 +121,7 @@ class BookingFormDialog(QDialog):
 
         self.buttons.button(
             QDialogButtonBox.StandardButton.Save
-        ).setText("שמירה")
+        ).setText("שליחת בקשה" if role == "customer" else "שמירה")
 
         self.buttons.button(
             QDialogButtonBox.StandardButton.Cancel
@@ -132,13 +142,9 @@ class BookingFormDialog(QDialog):
                 )
                 return
 
-            if self.activity.currentData() is None:
-                QMessageBox.warning(
-                    self,
-                    "שגיאה",
-                    "יש לבחור פעילות.",
-                )
-                return
+        if self.activity.currentData() is None:
+            QMessageBox.warning(self, "שגיאה", "יש לבחור פעילות.")
+            return
 
         super().accept()
 
@@ -154,15 +160,13 @@ class BookingFormDialog(QDialog):
             "notes": self.notes.toPlainText(),
         }
 
-        if (
-            self.customer.currentData() is not None
-            and self.activity.currentData() is not None
-        ):
+        if self.activity.currentData() is not None:
             values.update(
-                customer_id=self.customer.currentData(),
                 activity_id=self.activity.currentData(),
                 status="NEW",
                 requires_instructor=self.requires_instructor.isChecked(),
             )
+            if self.customer.currentData() is not None:
+                values["customer_id"] = self.customer.currentData()
 
         return values

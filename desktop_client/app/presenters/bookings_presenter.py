@@ -49,7 +49,7 @@ def _required(value: object, label: str) -> str:
     return cleaned
 
 
-def validate_create_booking(values: dict[str, object]) -> dict[str, object]:
+def validate_create_booking(values: dict[str, object], *, require_customer: bool = True) -> dict[str, object]:
     event_at = _required(values.get("event_at"), "מועד אירוע")
     try:
         datetime.fromisoformat(event_at.replace("Z", "+00:00"))
@@ -67,8 +67,7 @@ def validate_create_booking(values: dict[str, object]) -> dict[str, object]:
         raise FormValidationError("המחיר המוסכם אינו תקין.") from exc
     if agreed_price < 0:
         raise FormValidationError("המחיר המוסכם אינו יכול להיות שלילי.")
-    return {
-        "customer_id": _required(values.get("customer_id"), "לקוח"),
+    result = {
         "activity_id": _required(values.get("activity_id"), "פעילות"),
         "event_at": event_at,
         "city": str(values.get("city") or "").strip() or None,
@@ -79,6 +78,9 @@ def validate_create_booking(values: dict[str, object]) -> dict[str, object]:
         "requires_instructor": bool(values.get("requires_instructor")),
         "notes": str(values.get("notes") or "").strip() or None,
     }
+    if require_customer:
+        result["customer_id"] = _required(values.get("customer_id"), "לקוח")
+    return result
 
 
 class BookingsPresenter:
@@ -93,6 +95,7 @@ class BookingsPresenter:
         self._filter_options_loaded = False
         self._operations = PresenterOperations(executor, "bookings")
         self._last_list_render = None
+        self._create_activity_id = None
 
     def invalidate_requests(self):
         self._operations.invalidate()
@@ -221,9 +224,10 @@ class BookingsPresenter:
 
         self._operations.executor.submit(context, operation, success, failure, finished)
 
-    def begin_create(self):
-        if self.role != "manager" or self._submitting:
+    def begin_create(self, activity_id=None):
+        if self.role not in {"manager", "customer"} or self._submitting:
             return
+        self._create_activity_id = str(activity_id) if activity_id else None
         context = self._operations.begin("form_options")
         if context is None:
             return
@@ -232,7 +236,7 @@ class BookingsPresenter:
         def success(options):
             if not self._operations.is_current(context):
                 return
-            values = self.view.collect_create_booking(*options)
+            values = self.view.collect_create_booking(*options, role=self.role, preselected_activity_id=self._create_activity_id)
             if values is not None:
                 self.create(values)
 
@@ -244,13 +248,15 @@ class BookingsPresenter:
             if self._operations.finish(context):
                 self.view.set_loading(False)
 
-        self._operations.executor.submit(context, self.service.booking_form_options, success, failure, finished)
+        self._operations.executor.submit(context, lambda: self.service.booking_form_options(include_customers=self.role == "manager"), success, failure, finished)
 
     def create(self, values):
-        if self.role != "manager" or self._submitting:
+        if self.role not in {"manager", "customer"} or self._submitting:
             return
+        if self.role == "customer":
+            values = {**values, "agreed_price": "0", "status": "NEW", "requires_instructor": False}
         try:
-            payload = validate_create_booking(values)
+            payload = validate_create_booking(values, require_customer=self.role == "manager")
         except FormValidationError as exc:
             self.view.show_error(str(exc))
             return

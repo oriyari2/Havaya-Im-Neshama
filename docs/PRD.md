@@ -217,6 +217,7 @@ Requirements use the priority labels Must, Should, and Could.
 | ID | Requirement | Priority | Acceptance criterion |
 |---|---|---|---|
 | FR-BKG-01 | Managers shall create a booking with customer, activity, event date/time, location, participant count, agreed price, status, instructor requirement, and notes. | Must | A valid command appends `BookingCreated` and produces a readable booking projection |
+| FR-BKG-01A | Customers shall request a booking for their authenticated Customer identity with activity, event date/time, location, participant count, and notes; initial administrative fields remain server-controlled. | Must | Ownership is derived server-side, initial status is `NEW`, and tampering or Instructor creation is denied |
 | FR-BKG-02 | The system shall support booking statuses `NEW`, `CONFIRMED`, `COMPLETED`, and `CANCELLED`. | Must | Invalid transitions are rejected by domain rules |
 | FR-BKG-03 | Supported changes shall append immutable domain events rather than overwrite event history. | Must | Event rows cannot be updated or deleted through application APIs |
 | FR-BKG-04 | The system shall show a chronological booking history. | Must | UI displays event type, timestamp, actor, and human-readable change summary |

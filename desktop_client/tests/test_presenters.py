@@ -81,7 +81,7 @@ class _View:
     def clear_input(self):
         self.input_cleared = True
 
-    def collect_create_booking(self, customers, activities):
+    def collect_create_booking(self, customers, activities, **kwargs):
         return self.create_values
 
     def collect_booking_changes(self, booking):
@@ -136,8 +136,8 @@ class _Service:
         self.calls.append(("history", booking_id))
         return [{"event_type": "BookingCreated", "event_data": BOOKING, "occurred_at": BOOKING["event_at"], "actor_user_id": "user-1"}]
 
-    def booking_form_options(self):
-        self.calls.append(("options",))
+    def booking_form_options(self, *, include_customers=True):
+        self.calls.append(("options", include_customers))
         return ([{"id": "customer-1", "name": "לקוח"}], [{"id": "activity-1", "name": "פעילות"}])
 
     def create_booking(self, payload):
@@ -333,6 +333,26 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(refreshed, [True])
         self.assertEqual(view.loading[0], True)
         self.assertEqual(view.loading[-1], False)
+
+    def test_customer_creation_infers_identity_and_forces_request_fields(self) -> None:
+        view, service = _View(), _Service()
+        presenter = BookingsPresenter(view, service, "customer")
+        presenter.create({
+            "activity_id": "activity-1", "event_at": "2027-01-02T10:00:00+00:00",
+            "participant_count": 8, "agreed_price": "999", "status": "CONFIRMED",
+            "requires_instructor": True,
+        })
+        payload = next(call[1] for call in service.calls if call[0] == "create")
+        self.assertNotIn("customer_id", payload)
+        self.assertEqual(payload["agreed_price"], "0")
+        self.assertEqual(payload["status"], "NEW")
+        self.assertFalse(payload["requires_instructor"])
+
+    def test_customer_form_loads_activities_without_customer_options(self) -> None:
+        view, service = _View(), _Service()
+        view.create_values = None
+        BookingsPresenter(view, service, "customer").begin_create("activity-1")
+        self.assertIn(("options", False), service.calls)
 
     def test_manager_confirm_and_cancel_use_current_version(self) -> None:
         view, service = _View(), _Service()
