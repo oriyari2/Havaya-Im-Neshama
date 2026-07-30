@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Protocol
 
+from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.formatting import booking_row
 
 
@@ -21,12 +22,16 @@ class DashboardServicePort(Protocol):
 
 
 class DashboardPresenter:
-    def __init__(self, view: DashboardViewPort, service: DashboardServicePort, role: str, navigate=lambda _key, _filters=None: None, create_booking=lambda: None) -> None:
+    def __init__(self, view: DashboardViewPort, service: DashboardServicePort, role: str, navigate=lambda _key, _filters=None: None, create_booking=lambda: None, executor: OperationExecutor | None = None) -> None:
         self.view = view
         self.service = service
         self.role = role
         self.navigate = navigate
         self.create_booking = create_booking
+        self._operations = PresenterOperations(executor, "dashboard")
+
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
 
     def drill_down(self, target: str) -> None:
         status_filters = {"pending_count": "NEW", "confirmed_count": "CONFIRMED", "cancelled_count": "CANCELLED"}
@@ -41,35 +46,51 @@ class DashboardPresenter:
             self.navigate(target, None)
 
     def load(self) -> None:
+        context = self._operations.replace("load")
         self.view.set_loading(True)
-        errors = []
-        summary = {}
-        first_title = second_title = ""
-        first = second = []
-        try:
-            summary = self.service.dashboard()
-        except Exception as exc:
-            errors.append(str(exc))
-        try:
-            if self.role == "customer":
-                mine = self.service.my_bookings(limit=10, offset=0)["items"]
-                first_title, first = "ההזמנות הקרובות שלי", mine
-                second_title, second = "", []
-            elif self.role == "instructor":
-                assigned = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
-                opened = self.service.open_events()
-                first_title, first = "אירועים משויכים", assigned
-                second_title, second = "אירועים פתוחים", opened
-            else:
-                upcoming = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
-                opened = self.service.open_events()
-                first_title, first = "הזמנות קרובות", upcoming
-                second_title, second = "דורשים שיבוץ", opened
-        except Exception as exc:
-            errors.append(str(exc))
-        if summary:
-            self.view.show_summary(summary)
-        self.view.show_sections(first_title, [booking_row(item) for item in first], second_title, [booking_row(item) for item in second])
-        if errors:
-            self.view.show_error(" | ".join(errors))
-        self.view.set_loading(False)
+
+        def operation():
+            errors: list[str] = []
+            summary: dict = {}
+            first_title = second_title = ""
+            first: list[dict] = []
+            second: list[dict] = []
+            try:
+                summary = self.service.dashboard()
+            except Exception:
+                errors.append("לא ניתן לטעון את נתוני הסיכום.")
+            try:
+                if self.role == "customer":
+                    first = self.service.my_bookings(limit=10, offset=0)["items"]
+                    first_title = "ההזמנות הקרובות שלי"
+                elif self.role == "instructor":
+                    first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
+                    second = self.service.open_events()
+                    first_title, second_title = "אירועים משויכים", "אירועים פתוחים"
+                else:
+                    first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
+                    second = self.service.open_events()
+                    first_title, second_title = "הזמנות קרובות", "דורשים שיבוץ"
+            except Exception:
+                errors.append("לא ניתן לטעון את רשימות לוח הבקרה.")
+            return summary, first_title, first, second_title, second, errors
+
+        def succeeded(result) -> None:
+            if not self._operations.is_current(context):
+                return
+            summary, first_title, first, second_title, second, errors = result
+            if summary:
+                self.view.show_summary(summary)
+            self.view.show_sections(first_title, [booking_row(item) for item in first], second_title, [booking_row(item) for item in second])
+            if errors:
+                self.view.show_error(" | ".join(errors))
+
+        def failed(_exc: Exception) -> None:
+            if self._operations.is_current(context):
+                self.view.show_error("לא ניתן לטעון את לוח הבקרה. נסו שוב.")
+
+        def finished() -> None:
+            if self._operations.finish(context):
+                self.view.set_loading(False)
+
+        self._operations.executor.submit(context, operation, succeeded, failed, finished)

@@ -2,10 +2,11 @@
 
 ## Status
 
-**PLANNING AUDIT COMPLETE — DESIGN NOT STARTED — IMPLEMENTATION NOT STARTED**
+**DESIGN APPROVED — IMPLEMENTATION COMPLETE — VALIDATION COMPLETE**
 
-This document identifies and bounds the first performance task after Task 21.
-It is not an implementation specification and authorizes no code or test change.
+This document records the approved boundary and completed implementation of the
+first performance task after Task 21. Commit and push evidence are recorded in
+the Task 22 PIV.
 
 ## Why Task 22 is next
 
@@ -185,7 +186,58 @@ pilot and deferring API/query/refresh/cache optimization to Task 23.
 - Windows packaging or release preparation;
 - unbounded conversion of every synchronous call.
 
-## Approval gate
+## Implemented pilot
 
-The next activity is a complete Task 22 design proposal. No implementation may
-begin until ChatGPT and product-owner approval is recorded.
+The bounded pilot moves the following operations behind the shared execution
+boundary:
+
+- authentication login;
+- Dashboard summary and role-specific section loading;
+- Customer directory list, detail, create/edit with primary-contact update,
+  delete, and owned Customer profile loading;
+- Instructor directory list, detail, create/edit, delete, and owned Instructor
+  profile loading;
+- manager User Administration list, detail, create, email update, password
+  reset, activation, and deactivation.
+
+Searches in this pilot are explicit-submit searches, so no keystroke debounce is
+needed. Broader refresh/query optimization and caching remain Task 23.
+
+## Implemented execution and lifecycle rules
+
+- Production composition owns one `QtOperationExecutor` with four workers and a
+  maximum of 32 active/queued operations.
+- Presenters depend only on the plain `OperationExecutor` contract. Their unit
+  tests use `ImmediateOperationExecutor`; no Presenter imports Qt.
+- Worker results and errors are delivered on the UI thread. Workers never hold
+  or manipulate widgets.
+- Presenter operation identity rejects stale list/detail completion and blocks
+  duplicate conflicting mutations.
+- Page changes invalidate work owned by the previous pilot Presenter. Logout,
+  session expiry, and application close invalidate all Presenter identities and
+  executor callbacks.
+- Cancellation is cooperative result suppression. A request already accepted by
+  FastAPI may still finish server-side; the obsolete desktop result is ignored.
+- Capacity errors and service failures remain friendly and do not expose
+  credentials, tokens, SQL, response bodies, or implementation diagnostics.
+
+## Measurement evidence
+
+A deterministic representative 200 ms service call was used because test and
+CI environments do not provide stable production network latency:
+
+| Measurement | Before | After |
+|---|---:|---:|
+| UI-thread occupation by simulated call | approximately 200 ms | operation submission under 50 ms |
+| 20 ms Qt UI heartbeat during call | blocked until completion | fired while work was running |
+| result callback thread | UI thread only because call was synchronous | explicitly dispatched to UI thread |
+
+The test verifies behavior rather than claiming network/API acceleration. Task
+22 removes UI-thread waiting; Task 23 owns request-count, query, and cache work.
+
+## Validation gate
+
+Implementation is complete only with focused lifecycle and presenter tests,
+full desktop/backend suites, compileall, architecture/security scans,
+whitespace validation, and manual Windows responsiveness evidence. Final
+results are recorded in `docs/piv/22-desktop-background-execution-non-blocking-ui.md`.

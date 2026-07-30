@@ -4,6 +4,7 @@ import logging
 import re
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
+from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,7 @@ def _password(value: object, confirmation: object) -> str:
 
 
 class UsersPresenter:
-    def __init__(self, view, service, *, current_user_id: str, session_role: str, limit: int = 25) -> None:
+    def __init__(self, view, service, *, current_user_id: str, session_role: str, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view = view
         self.service = service
         self.current_user_id = current_user_id
@@ -37,7 +38,11 @@ class UsersPresenter:
         self.selected: dict | None = None
         self.loading = False
         self.submitting = False
-        self.generation = 0
+        self._operations = PresenterOperations(executor, "users")
+
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
+        self.loading = self.submitting = False
 
     def _allowed(self) -> bool:
         if self.session_role == "manager":
@@ -46,29 +51,33 @@ class UsersPresenter:
         return False
 
     def load(self) -> None:
-        if not self._allowed() or self.loading:
+        if not self._allowed():
             return
+        context = self._operations.replace("list")
+        filters = dict(self.filters)
         self.loading = True
-        self.generation += 1
-        generation = self.generation
         self.view.set_loading(True)
-        try:
-            payload = self.service.list_users(dict(self.filters))
-            if generation != self.generation:
+        def success(payload):
+            if not self._operations.is_current(context):
                 return
             items = payload["items"]
-            self.view.show_users(items, offset=self.filters["offset"], count=len(items), filtered=any(self.filters[key] not in (None, "") for key in ("search", "role", "is_active")))
+            self.view.show_users(items, offset=filters["offset"], count=len(items), filtered=any(filters[key] not in (None, "") for key in ("search", "role", "is_active")))
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
                 self.view.select_user(self.selected_id)
             elif self.selected_id:
                 self.selected_id = self.selected = None
                 self.view.clear_details()
-        except Exception as exc:
-            self._error(exc)
-        finally:
-            self.loading = False
-            self.view.set_loading(False)
+        def failure(exc):
+            if self._operations.is_current(context):
+                self._error(exc)
+
+        def finished():
+            if self._operations.finish(context):
+                self.loading = False
+                self.view.set_loading(False)
+
+        self._operations.executor.submit(context, lambda: self.service.list_users(filters), success, failure, finished)
 
     def apply_filters(self, values: dict) -> None:
         self.filters.update({key: values.get(key) for key in ("search", "role", "is_active") if key in values})
@@ -86,27 +95,32 @@ class UsersPresenter:
         if not self._allowed():
             return
         self.selected_id = user_id
-        self.generation += 1
-        generation = self.generation
+        context = self._operations.replace("detail")
         self.view.set_detail_loading(True)
-        try:
-            user = self.service.user(user_id)
-            if generation != self.generation or self.selected_id != user_id:
+
+        def success(user):
+            if not self._operations.is_current(context):
+                return
+            if self.selected_id != user_id:
                 return
             self.selected = user
             self.view.show_details(user, current_user_id=self.current_user_id)
-        except ApiError as exc:
-            if exc.kind == ApiErrorKind.NOT_FOUND:
+        def failure(exc):
+            if not self._operations.is_current(context):
+                return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = self.selected = None
                 self.view.clear_details()
                 self.view.show_error("המשתמש שנבחר אינו קיים עוד.")
                 self.load()
             else:
                 self._error(exc)
-        except Exception as exc:
-            self._error(exc)
-        finally:
-            self.view.set_detail_loading(False)
+
+        def finished():
+            if self._operations.finish(context):
+                self.view.set_detail_loading(False)
+
+        self._operations.executor.submit(context, lambda: self.service.user(user_id), success, failure, finished)
 
     def begin_create(self) -> None:
         if not self._allowed() or self.submitting:
@@ -193,10 +207,15 @@ class UsersPresenter:
     def _submit(self, form, operation, message: str) -> None:
         if self.submitting:
             return
+        context = self._operations.begin("submit")
+        if context is None:
+            return
         self.submitting = True
         form.set_submitting(True)
-        try:
-            result = operation()
+
+        def success(result):
+            if not self._operations.is_current(context):
+                return
             if result and result.get("id"):
                 self.selected_id = str(result["id"])
             form.close_success()
@@ -204,29 +223,44 @@ class UsersPresenter:
             self.load()
             if self.selected_id:
                 self.select(self.selected_id)
-        except Exception as exc:
-            form.show_error(self.message(exc))
-        finally:
-            self.submitting = False
-            form.set_submitting(False)
+        def failure(exc):
+            if self._operations.is_current(context):
+                form.show_error(self.message(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                form.set_submitting(False)
+
+        self._operations.executor.submit(context, operation, success, failure, finished)
 
     def _mutate(self, operation, message: str) -> None:
         if self.submitting:
             return
+        context = self._operations.begin("mutate")
+        if context is None:
+            return
         self.submitting = True
         self.view.set_loading(True)
-        try:
-            result = operation()
+
+        def success(result):
+            if not self._operations.is_current(context):
+                return
             self.selected_id = str(result["id"])
             self.selected = result
             self.view.show_success(message)
             self.load()
             self.select(self.selected_id)
-        except Exception as exc:
-            self._error(exc)
-        finally:
-            self.submitting = False
-            self.view.set_loading(False)
+        def failure(exc):
+            if self._operations.is_current(context):
+                self._error(exc)
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                self.view.set_loading(False)
+
+        self._operations.executor.submit(context, operation, success, failure, finished)
 
     def _error(self, exc: Exception) -> None:
         if not isinstance(exc, ApiError):

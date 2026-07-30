@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QTimer, Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QApplication, QMainWindow
 
 from desktop_client.app.api.client import ApiClient
+from desktop_client.app.infrastructure.qt_operations import QtOperationExecutor
 from desktop_client.app.models.session import Session
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter
 from desktop_client.app.presenters.booking_assignments_presenter import BookingAssignmentsPresenter
@@ -47,6 +48,8 @@ APP_STYLE = build_neutral_stylesheet()
 
 
 class MainWindow(QMainWindow):
+    session_expired = Signal()
+
     def __init__(self, api_client: ApiClient | None = None) -> None:
         super().__init__()
         self.setWindowTitle("חוויה עם נשמה — מערכת ניהול")
@@ -54,8 +57,10 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1024, 640)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.api_client = api_client or ApiClient()
+        self.operation_executor = QtOperationExecutor(parent=self)
         self.auth_service = AuthService(self.api_client)
         self.api_client.set_unauthorized_handler(self._handle_unauthorized)
+        self.session_expired.connect(self._complete_session_expiry)
         self.booking_service = BookingService(self.api_client)
         self.assignment_service = AssignmentService(self.api_client)
         self.activity_service = ActivityService(self.api_client)
@@ -65,11 +70,13 @@ class MainWindow(QMainWindow):
         self.knowledge_service = KnowledgeService(self.api_client)
         self.user_service = UserService(self.api_client)
         self._presenters: dict[str, object] = {}
+        self._active_page: str | None = None
         self._show_login()
 
     def _show_login(self, message: str | None = None) -> None:
+        self._active_page = None
         self.login_view = LoginView()
-        self.login_presenter = LoginPresenter(self.login_view, self.auth_service, self._show_workspace)
+        self.login_presenter = LoginPresenter(self.login_view, self.auth_service, self._show_workspace, self.operation_executor)
         self.login_view.login_requested.connect(self.login_presenter.login)
         self.setCentralWidget(self.login_view)
         if message:
@@ -77,10 +84,11 @@ class MainWindow(QMainWindow):
 
     def _handle_unauthorized(self) -> None:
         self.auth_service.expire_session()
-        QTimer.singleShot(0, self._complete_session_expiry)
+        self.session_expired.emit()
 
     def _complete_session_expiry(self) -> None:
         self._invalidate_presenter_requests()
+        self.operation_executor.invalidate_session()
         self._clear_preview_caches()
         self._presenters.clear()
         self._show_login("פג תוקף ההתחברות. יש להתחבר מחדש.")
@@ -94,7 +102,7 @@ class MainWindow(QMainWindow):
         self.shell.logout_requested.connect(self._logout)
 
         dashboard_view = DashboardView(session.role)
-        dashboard_presenter = DashboardPresenter(dashboard_view, self.booking_service, session.role, self._navigate_with_filters)
+        dashboard_presenter = DashboardPresenter(dashboard_view, self.booking_service, session.role, self._navigate_with_filters, executor=self.operation_executor)
         dashboard_view.drill_down_requested.connect(dashboard_presenter.drill_down)
         dashboard_view.shortcut_requested.connect(dashboard_presenter.drill_down)
         self.shell.add_page("dashboard", dashboard_view)
@@ -119,15 +127,15 @@ class MainWindow(QMainWindow):
         self._presenters["activities"] = activities_presenter
 
         if session.role == "manager":
-            instructors_view=InstructorsView(); instructors_presenter=InstructorsPresenter(instructors_view,self.instructor_service)
+            instructors_view=InstructorsView(); instructors_presenter=InstructorsPresenter(instructors_view,self.instructor_service,executor=self.operation_executor)
             instructors_view.filters_requested.connect(instructors_presenter.apply_filters);instructors_view.page_requested.connect(instructors_presenter.page);instructors_view.instructor_selected.connect(instructors_presenter.select);instructors_view.retry_requested.connect(instructors_presenter.retry);instructors_view.create_requested.connect(instructors_presenter.begin_create);instructors_view.edit_requested.connect(instructors_presenter.begin_edit);instructors_view.delete_requested.connect(instructors_presenter.delete)
             self.shell.add_page("instructors",instructors_view);self._presenters["instructors"]=instructors_presenter
         elif session.role == "instructor" and session.instructor_id:
-            instructor_profile=InstructorProfileView();instructor_profile_presenter=InstructorProfilePresenter(instructor_profile,self.instructor_service);instructor_profile.retry_requested.connect(instructor_profile_presenter.retry);self.shell.add_page("my_profile",instructor_profile);self._presenters["my_profile"]=instructor_profile_presenter
+            instructor_profile=InstructorProfileView();instructor_profile_presenter=InstructorProfilePresenter(instructor_profile,self.instructor_service,executor=self.operation_executor);instructor_profile.retry_requested.connect(instructor_profile_presenter.retry);self.shell.add_page("my_profile",instructor_profile);self._presenters["my_profile"]=instructor_profile_presenter
 
         if session.role == "manager":
             users_view = UsersView()
-            users_presenter = UsersPresenter(users_view, self.user_service, current_user_id=session.user_id, session_role=session.role)
+            users_presenter = UsersPresenter(users_view, self.user_service, current_user_id=session.user_id, session_role=session.role, executor=self.operation_executor)
             users_view.filters_requested.connect(users_presenter.apply_filters)
             users_view.page_requested.connect(users_presenter.page)
             users_view.user_selected.connect(users_presenter.select)
@@ -141,7 +149,7 @@ class MainWindow(QMainWindow):
             self._presenters["users"] = users_presenter
 
             customers_view = CustomersView()
-            customers_presenter = CustomersPresenter(customers_view, self.customer_service)
+            customers_presenter = CustomersPresenter(customers_view, self.customer_service, executor=self.operation_executor)
             customers_view.filters_requested.connect(customers_presenter.apply_filters)
             customers_view.page_requested.connect(customers_presenter.page)
             customers_view.customer_selected.connect(customers_presenter.select)
@@ -163,7 +171,7 @@ class MainWindow(QMainWindow):
             self._presenters["knowledge"] = knowledge_presenter
         elif session.role == "customer" and session.customer_id:
             profile_view = CustomerProfileView()
-            profile_presenter = CustomerProfilePresenter(profile_view, self.customer_service, session.customer_id)
+            profile_presenter = CustomerProfilePresenter(profile_view, self.customer_service, session.customer_id, self.operation_executor)
             profile_view.retry_requested.connect(profile_presenter.retry)
             self.shell.add_page("my_profile", profile_view)
             self._presenters["my_profile"] = profile_presenter
@@ -215,6 +223,8 @@ class MainWindow(QMainWindow):
         self._navigate("dashboard")
 
     def _navigate(self, key: str) -> None:
+        self._invalidate_page(self._active_page, unless=key)
+        self._active_page = key
         self.shell.show_page(key)
         presenter = self._presenters.get(key)
         if presenter is not None:
@@ -223,6 +233,8 @@ class MainWindow(QMainWindow):
     def _navigate_with_filters(self, key: str, filters: dict | None = None) -> None:
         if key not in self._presenters:
             return
+        self._invalidate_page(self._active_page, unless=key)
+        self._active_page = key
         self.shell.show_page(key)
         presenter = self._presenters[key]
         presenter.load(filters) if filters is not None else presenter.load()
@@ -234,10 +246,19 @@ class MainWindow(QMainWindow):
 
     def _logout(self) -> None:
         self._invalidate_presenter_requests()
+        self.operation_executor.invalidate_session()
         self._clear_preview_caches()
         self.auth_service.logout()
         self._presenters.clear()
         self._show_login()
+
+    def _invalidate_page(self, key: str | None, *, unless: str) -> None:
+        if key is None or key == unless:
+            return
+        presenter = self._presenters.get(key)
+        invalidate = getattr(presenter, "invalidate_requests", None)
+        if invalidate is not None:
+            invalidate()
 
     def _clear_preview_caches(self) -> None:
         for presenter in self._presenters.values():
@@ -250,6 +271,11 @@ class MainWindow(QMainWindow):
             invalidate = getattr(presenter, "invalidate_requests", None)
             if invalidate is not None:
                 invalidate()
+
+    def closeEvent(self, event) -> None:
+        self._invalidate_presenter_requests()
+        self.operation_executor.shutdown()
+        super().closeEvent(event)
 
 
 def main() -> int:

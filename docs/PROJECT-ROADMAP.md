@@ -38,7 +38,7 @@ audit, commit, and push.
 | Task | Phase | Title | Status | Design | Implementation | Audit | Commit/push |
 |---|---:|---|---|---|---|---|---|
 | 01–21 | 1 | Core/backend/desktop/CQRS/Event Sourcing/User Administration baseline | Committed and pushed | Complete | Complete | Approved | Complete |
-| 22 | 2 | Desktop Background Execution and Non-Blocking UI | Audit complete; design not started | Not started | Not started | Planning audit complete | Not started |
+| 22 | 2 | Desktop Background Execution and Non-Blocking UI | Complete | Approved | Complete | Complete | Complete |
 | 23 | 2 | API Performance, Refresh Reduction, and Safe Local Caching | Planned | Not started | Not started | Not started | Not started |
 | 24 | 2 | Reliability, Security, Observability, and Performance Closure | Planned | Not started | Not started | Not started | Not started |
 | 25 | 3 | Desktop Visual Design System and UI/UX Cohesion | Planned | Not started | Not started | Not started | Not started |
@@ -305,7 +305,7 @@ Task 33 Final Audit
 
 ## 7. Immediate next action
 
-Task 22 performance/background-execution work is audited but not designed or
-implemented. The next action is a documentation-only Task 22 design proposal
-for ChatGPT and product-owner review. No Task 22 production or test work is
-authorized by this roadmap update.
+Task 22 is implemented and validated in its bounded pilot. Task 23 — API
+Performance, Refresh Reduction, and Safe Local Caching — is now the next
+unfinished task. Task 23 requires its own design and approval before production
+or test work begins.

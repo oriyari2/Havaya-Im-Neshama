@@ -4,6 +4,7 @@ from typing import Callable, Protocol
 
 from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError, ApiErrorKind
+from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 
 
@@ -18,10 +19,15 @@ class AuthPort(Protocol):
 
 
 class LoginPresenter:
-    def __init__(self, view: LoginViewPort, auth_service: AuthPort, on_authenticated: Callable[[Session], None]) -> None:
+    def __init__(self, view: LoginViewPort, auth_service: AuthPort, on_authenticated: Callable[[Session], None], executor: OperationExecutor | None = None) -> None:
         self.view = view
         self.auth_service = auth_service
         self.on_authenticated = on_authenticated
+        self._loading = False
+        self._operations = PresenterOperations(executor, "login")
+
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
         self._loading = False
 
     def login(self, email: str, password: str) -> None:
@@ -30,12 +36,15 @@ class LoginPresenter:
         if not email.strip() or not password:
             self.view.show_error("יש להזין דוא״ל וסיסמה.")
             return
+        context = self._operations.begin("login")
+        if context is None:
+            return
         self._loading = True
         self.view.set_loading(True)
         self.view.render_request_state(RequestState(RequestPhase.LOADING, "מתחבר…", "login", blocks_primary_action=True))
-        try:
-            session = self.auth_service.login(email.strip(), password)
-        except Exception as exc:
+        def failed(exc: Exception) -> None:
+            if not self._operations.is_current(context):
+                return
             if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONNECTION:
                 message = "לא ניתן להתחבר לשרת. בדקו את החיבור ונסו שוב."
             elif isinstance(exc, ApiError) and exc.kind == ApiErrorKind.SERVER:
@@ -47,8 +56,21 @@ class LoginPresenter:
             self.view.show_error(message)
             phase = RequestPhase.CONNECTION_ERROR if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONNECTION else RequestPhase.SERVER_ERROR
             self.view.render_request_state(RequestState(phase, message, "login"))
-        else:
+        def succeeded(session: Session) -> None:
+            if not self._operations.is_current(context):
+                return
             self.on_authenticated(session)
-        finally:
+
+        def finished() -> None:
+            if not self._operations.finish(context):
+                return
             self._loading = False
             self.view.set_loading(False)
+
+        self._operations.executor.submit(
+            context,
+            lambda: self.auth_service.login(email.strip(), password),
+            succeeded,
+            failed,
+            finished,
+        )

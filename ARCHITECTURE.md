@@ -126,3 +126,26 @@ the shared helper. This preserves excluded module behavior while allowing later
 tasks to opt into the foundation deliberately. Request identities currently
 protect synchronous/reentrant Customer selection and session invalidation; they
 do not claim the Task 22 background-execution guarantee.
+
+### Task 22 desktop execution boundary
+
+Task 22 adds a bounded scheduling boundary without changing MVP ownership.
+Presenters depend on a plain `OperationExecutor` port and retain request/session
+identity, duplicate-action, and stale-result decisions. Production composition
+provides a PySide6 `QThreadPool` adapter with four workers and a maximum of 32
+active or queued operations. The adapter executes existing synchronous Services
+and `ApiClient` calls away from the Qt event loop, then dispatches plain
+success/error completion to the UI thread.
+
+Views remain passive and never call the executor, Services, HTTP, repositories,
+or databases. Presenters never import Qt. Workers never access widgets. Page
+changes invalidate the previous pilot Presenter; logout, session expiry, and
+shutdown invalidate all outstanding callback identities. Cancellation means
+cooperative suppression of obsolete results and does not claim to reverse a
+mutation already committed by FastAPI.
+
+The bounded migration covers Login, Dashboard, Customers and owned Customer
+profile, Instructors and owned Instructor profile, and manager User
+Administration. API/query optimization, wider refresh reduction, and safe local
+caching remain Task 23. Backend contracts, CQRS/Event Sourcing, Gateway,
+authorization, and AI/RAG responsibilities are unchanged.

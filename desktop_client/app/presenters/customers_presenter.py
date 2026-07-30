@@ -5,6 +5,7 @@ from typing import Callable, Protocol
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
+from desktop_client.app.models.operation import ImmediateOperationExecutor, OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.customer_formatting import contact_row, customer_details, customer_row
 
 
@@ -68,7 +69,7 @@ def validate_customer(values: dict[str, object]) -> dict[str, object]:
 
 
 class CustomersPresenter:
-    def __init__(self, view: CustomersViewPort, service: CustomerServicePort, *, limit: int = 25) -> None:
+    def __init__(self, view: CustomersViewPort, service: CustomerServicePort, *, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view, self.service = view, service
         self.filters: dict[str, object] = {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name", "limit": limit, "offset": 0}
         self.selected_id: str | None = None
@@ -78,6 +79,7 @@ class CustomersPresenter:
         self._generation = 0
         self._session_epoch = 0
         self._current_requests: dict[str, RequestIdentity] = {}
+        self._executor = executor or ImmediateOperationExecutor()
 
     def _begin_request(self, operation_key: str, resource_id: str | None = None) -> RequestIdentity:
         self._generation += 1
@@ -92,25 +94,26 @@ class CustomersPresenter:
     def invalidate_requests(self) -> None:
         self._session_epoch += 1
         self._current_requests.clear()
+        self._loading = False
+        self._submitting = False
 
     def _render_state(self, state: RequestState) -> None:
         self.view.render_request_state(state)
 
     def load(self) -> None:
-        if self._loading:
-            return
         self._loading = True
         identity = self._begin_request("list")
         self._render_state(RequestState(RequestPhase.LOADING, "טוען לקוחות…", "list", blocks_primary_action=True))
         self.view.set_loading(True)
-        try:
-            payload = self.service.list_customers(dict(self.filters))
+        filters = dict(self.filters)
+
+        def succeeded(payload: dict) -> None:
             if not self._is_current(identity):
                 return
             items = payload["items"]
             self.view.show_customers(
-                [customer_row(item) for item in items], offset=int(self.filters["offset"]),
-                count=len(items), filtered=any(self.filters[k] not in (None, "") for k in ("search", "city", "customer_type", "is_active")),
+                [customer_row(item) for item in items], offset=int(filters["offset"]),
+                count=len(items), filtered=any(filters[k] not in (None, "") for k in ("search", "city", "customer_type", "is_active")),
             )
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
@@ -119,11 +122,18 @@ class CustomersPresenter:
                 self.selected_id = self.selected_customer = None
                 self.view.clear_details()
             self._render_state(RequestState(RequestPhase.EMPTY if not items else RequestPhase.IDLE, "אין לקוחות להצגה." if not items else "", "list"))
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
+        def failed(exc: Exception) -> None:
+            if self._is_current(identity):
+                self._show_error(exc)
+
+        def finished() -> None:
+            if not self._is_current(identity):
+                return
+            self._current_requests.pop("list", None)
             self._loading = False
             self.view.set_loading(False)
+
+        self._executor.submit(identity, lambda: self.service.list_customers(filters), succeeded, failed, finished)
 
     def apply_filters(self, values: dict[str, object]) -> None:
         self.filters.update(values)
@@ -142,26 +152,31 @@ class CustomersPresenter:
         identity = self._begin_request("detail", customer_id)
         self._render_state(RequestState(RequestPhase.LOADING, "טוען פרטי לקוח…", "detail", blocks_primary_action=True))
         self.view.set_detail_loading(True)
-        try:
-            customer = self.service.customer(customer_id)
+        def succeeded(customer: dict) -> None:
             if not self._is_current(identity) or self.selected_id != customer_id:
                 return
             self.selected_customer = customer
             self.view.show_details(customer_details(customer), customer, [contact_row(x) for x in customer.get("contacts", [])])
             self._render_state(RequestState(RequestPhase.IDLE, operation_key="detail"))
-        except ApiError as exc:
-            if exc.kind == ApiErrorKind.NOT_FOUND:
+        def failed(exc: Exception) -> None:
+            if not self._is_current(identity):
+                return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = self.selected_customer = None
                 self.view.clear_details()
                 self.view.show_error("הלקוח שנבחר אינו קיים עוד. הרשימה רועננה.")
                 self.load()
+            elif isinstance(exc, ApiError):
+                self._show_error(exc)
             else:
                 self._show_error(exc)
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
+
+        def finished() -> None:
             if self._is_current(identity):
+                self._current_requests.pop("detail", None)
                 self.view.set_detail_loading(False)
+
+        self._executor.submit(identity, lambda: self.service.customer(customer_id), succeeded, failed, finished)
 
     def begin_create(self) -> None:
         self.view.open_customer_form(None, self.submit_create)
@@ -190,7 +205,9 @@ class CustomersPresenter:
             return
         self._submitting = True
         form.set_submitting(True)
-        try:
+        identity = self._begin_request("submit", customer_id)
+
+        def operation():
             contact_name = str(payload.pop("contact_name"))
             contact_phone = str(payload.pop("contact_phone"))
             customer = self.service.update_customer(customer_id, payload) if customer_id else self.service.create_customer(payload)
@@ -208,18 +225,30 @@ class CustomersPresenter:
                 self.service.update_contact(str(contact["id"]), contact_payload)
             else:
                 self.service.create_contact(str(customer["id"]), contact_payload)
+            return customer
+
+        def succeeded(customer: dict) -> None:
+            if not self._is_current(identity):
+                return
             form.close_success()
             self.selected_id = str(customer["id"])
             self.view.show_success("הלקוח נשמר בהצלחה.")
             self.load()
             self.select(self.selected_id)
-        except Exception as exc:
+        def failed(exc: Exception) -> None:
+            if not self._is_current(identity):
+                return
             form.show_error(self._message(exc))
             if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT and self.selected_id:
                 self.select(self.selected_id)
-        finally:
+        def finished() -> None:
+            if not self._is_current(identity):
+                return
+            self._current_requests.pop("submit", None)
             self._submitting = False
             form.set_submitting(False)
+
+        self._executor.submit(identity, operation, succeeded, failed, finished)
 
     @staticmethod
     def _current_contact(customer: dict | None) -> dict | None:
@@ -238,27 +267,36 @@ class CustomersPresenter:
         customer_id = str(customer["id"])
         self._submitting = True
         self.view.set_loading(True)
-        try:
-            self.service.delete_customer(customer_id)
+        identity = self._begin_request("delete", customer_id)
+
+        def succeeded(_result: object) -> None:
+            if not self._is_current(identity):
+                return
             self.selected_id = self.selected_customer = None
             self.view.clear_details()
             self.view.show_success("הלקוח נמחק בהצלחה.")
             self.load()
-        except ApiError as exc:
-            if exc.kind == ApiErrorKind.NOT_FOUND:
+        def failed(exc: Exception) -> None:
+            if not self._is_current(identity):
+                return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = self.selected_customer = None
                 self.view.clear_details()
                 self.load()
-            elif exc.kind == ApiErrorKind.CONFLICT:
+            elif isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT:
                 self.view.show_error("לא ניתן למחוק את הלקוח כל עוד קיימות רשומות תלויות.")
                 self.select(customer_id)
             else:
                 self._show_error(exc)
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
+
+        def finished() -> None:
+            if not self._is_current(identity):
+                return
+            self._current_requests.pop("delete", None)
             self._submitting = False
             self.view.set_loading(False)
+
+        self._executor.submit(identity, lambda: self.service.delete_customer(customer_id), succeeded, failed, finished)
 
     def _mutate(self, operation: Callable, message: str) -> None:
         if self._submitting:
@@ -307,20 +345,34 @@ class CustomersPresenter:
 
 
 class CustomerProfilePresenter:
-    def __init__(self, view, service: CustomerServicePort, customer_id: str) -> None:
+    def __init__(self, view, service: CustomerServicePort, customer_id: str, executor: OperationExecutor | None = None) -> None:
         self.view, self.service, self.customer_id = view, service, customer_id
+        self._operations = PresenterOperations(executor, "customer_profile")
+
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
 
     def load(self) -> None:
+        context = self._operations.replace("load")
         self.view.set_loading(True)
-        try:
-            customer = self.service.customer(self.customer_id)
+
+        def success(customer):
+            if not self._operations.is_current(context):
+                return
             self.view.show_profile(customer_details(customer), [contact_row(x) for x in customer.get("contacts", [])])
-        except Exception as exc:
+
+        def failure(exc):
+            if not self._operations.is_current(context):
+                return
             retriable = isinstance(exc, ApiError) and exc.retriable
             permission = isinstance(exc, ApiError) and exc.kind == ApiErrorKind.PERMISSION
             self.view.show_error(CustomersPresenter._message(exc), retriable=retriable, permission=permission)
-        finally:
-            self.view.set_loading(False)
+
+        def finished():
+            if self._operations.finish(context):
+                self.view.set_loading(False)
+
+        self._operations.executor.submit(context, lambda: self.service.customer(self.customer_id), success, failure, finished)
 
     def retry(self) -> None:
         self.load()
