@@ -20,7 +20,7 @@ class UsersView(StatefulWidget):
         self.toolbar = SearchToolbar(placeholder="חיפוש לפי דוא״ל או שם"); self.toolbar.search_requested.connect(lambda search, _sort: self.filters_requested.emit({"search": search or None})); self.toolbar.refresh_requested.connect(self.retry_requested); self.scaffold.filter_panel.layout.addWidget(self.toolbar)
         row = QHBoxLayout(); self.role_filter = QComboBox(); self.role_filter.setAccessibleName("סינון לפי תפקיד"); self.role_filter.addItem("כל התפקידים", None)
         for value in ("manager", "customer", "instructor"): self.role_filter.addItem(ROLE_LABELS[value], value)
-        self.status_filter = QComboBox(); self.status_filter.setAccessibleName("סינון לפי מצב"); self.status_filter.addItem("כל המצבים", None); self.status_filter.addItem("פעילים", True); self.status_filter.addItem("לא פעילים", False)
+        self.status_filter = QComboBox(); self.status_filter.setAccessibleName("סינון לפי מצב חשבון"); self.status_filter.addItem("כל מצבי החשבון", None); self.status_filter.addItem("חשבונות פעילים", True); self.status_filter.addItem("חשבונות לא פעילים", False)
         self.apply_button = QPushButton("החל סינון"); self.apply_button.clicked.connect(self._filters)
         for widget in (self.role_filter, self.status_filter, self.apply_button): row.addWidget(widget)
         self.scaffold.filter_panel.layout.addLayout(row); self.scaffold.filter_panel.show()
@@ -28,7 +28,7 @@ class UsersView(StatefulWidget):
         for button, signal in ((self.create_button, self.create_requested), (self.edit_button, self.edit_requested), (self.activate_button, self.activate_requested), (self.deactivate_button, self.deactivate_requested), (self.reset_button, self.reset_password_requested)): button.clicked.connect(signal); button.setAccessibleName(button.text())
         self.scaffold.action_bar.add_action(self.deactivate_button, destructive=True); self.scaffold.action_bar.add_action(self.activate_button); self.scaffold.action_bar.add_action(self.reset_button); self.scaffold.action_bar.add_action(self.edit_button); self.scaffold.action_bar.add_action(self.create_button, primary=True); self.scaffold.action_bar.show()
         splitter = QSplitter(Qt.Orientation.Horizontal); splitter.setChildrenCollapsible(False)
-        self.table = QTableWidget(0, 5); self.table.setHorizontalHeaderLabels(["דוא״ל", "תפקיד", "שם", "מצב", "עודכן"]); configure_data_table(self.table, "רשימת משתמשים", (ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.SECONDARY_TEXT), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.TECHNICAL, 120))); self.table.itemSelectionChanged.connect(self._select); self.table.itemDoubleClicked.connect(lambda _item: self._select()); splitter.addWidget(self.table)
+        self.table = QTableWidget(0, 5); self.table.setHorizontalHeaderLabels(["דוא״ל", "תפקיד", "שם", "מצב חשבון", "עודכן"]); configure_data_table(self.table, "רשימת משתמשים", (ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.SECONDARY_TEXT), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.TECHNICAL, 120))); self.table.itemSelectionChanged.connect(self._select); self.table.itemDoubleClicked.connect(lambda _item: self._select()); splitter.addWidget(self.table)
         group = QGroupBox("פרטי משתמש"); self.details = QFormLayout(group); splitter.addWidget(group); splitter.setStretchFactor(0, 2); splitter.setStretchFactor(1, 1); self.scaffold.main_content.addWidget(splitter, 1)
         self.footer = PaginationFooter(); self.footer.page_requested.connect(self.page_requested); self.scaffold.add_footer(self.footer); self.clear_details()
 
@@ -57,7 +57,7 @@ class UsersView(StatefulWidget):
             rows.extend((("אימייל לקוח", user.get("customer_email") or user["email"]), ("איש קשר", user.get("contact_name") or "—"), ("טלפון איש קשר", user.get("contact_phone") or "—")))
         elif user["role"] == "instructor":
             rows.extend((("אימייל מדריך", user.get("instructor_email") or user["email"]), ("טלפון מדריך", user.get("instructor_phone") or "—")))
-        rows.extend((("מצב", "פעיל" if user["is_active"] else "לא פעיל"), ("נוצר", user["created_at"]), ("עודכן", user["updated_at"])))
+        rows.extend((("מצב חשבון", "פעיל" if user["is_active"] else "לא פעיל"), ("נוצר", user["created_at"]), ("עודכן", user["updated_at"])))
         for label, value in rows:
             content = QLabel(str(value)); content.setWordWrap(True); content.setToolTip(str(value)); self.details.addRow(label, content)
         self.edit_button.setEnabled(True); self.reset_button.setEnabled(True); self.activate_button.setEnabled(not user["is_active"]); self.deactivate_button.setEnabled(bool(user["is_active"] and str(user["id"]) != current_user_id))

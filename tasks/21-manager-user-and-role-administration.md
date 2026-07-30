@@ -680,3 +680,45 @@ Assumptions:
 
 Implementation may begin only after ChatGPT and product-owner approval of this
 lean design, including immutable role/profile links and the explicit exclusions.
+
+## 24. Final cross-screen consistency correction
+
+The post-implementation Windows review confirmed two presentation defects and
+one expected legacy-data difference:
+
+- The Manager Customers screen previously exposed the historical multi-contact
+  CRUD surface. The normal workflow now presents one Contact-person name and
+  phone as ordinary Customer fields in the Customer dialog and selected-Customer
+  detail panel. The separate contacts table, role/title, primary/status controls,
+  and Contact New/Edit/Deactivate/Reactivate actions are not shown. Existing
+  `customer_contacts` rows and APIs remain intact; the UI reads and updates the
+  active primary contact (or the first active contact) and creates one primary
+  contact when none exists.
+- The Manager Instructors screen now uses the Task 20 `PageScaffold`, semantic
+  table sizing, tooltips/elision, a 3:2 list-to-detail stretch policy, a readable
+  scrolling detail form, and accessible filters/actions/paging across supported
+  Windows sizes. Name receives the principal flexible width, email receives an
+  explicit readable minimum, and phone, city, and status use bounded semantic
+  minimums. The three screens label status explicitly as account, Customer, or
+  Instructor status so login eligibility is not confused with profile state.
+- User Management remains an account list, not a list of every business entity.
+  The pre-smoke read-only database audit found 20 Customers and 5 Customer-role Users, with
+  15 unlinked deterministic demo Customer rows; it also found 14 Instructors and
+  5 Instructor-role Users, with 9 unlinked deterministic demo Instructor rows.
+  Their deterministic seed IDs and catalog emails prove that the missing account
+  rows are expected seed/legacy business profiles, not a refresh, cache,
+  pagination, filtering, or Task 21 synchronization defect. No accounts,
+  passwords, or silent links are created for them.
+
+The required live smoke added two uniquely identified Customer/User and two
+Instructor/User pairs across its evidence runs and then logically deactivated
+all smoke accounts. The final non-destructive database state is therefore 22
+Customers / 7 Customer Users and 16 Instructors / 7 Instructor Users, while the
+unlinked counts remain exactly 15 and 9. No smoke account remains active.
+
+The Task 21 invariant is unchanged: every newly created Customer-role account
+atomically creates Customer + Contact + User, and every newly created
+Instructor-role account atomically creates Instructor + User. The list APIs have
+no cache and expose those active business records immediately after refresh.
+Account activation/deactivation affects login eligibility only and does not
+delete or deactivate the linked business profile or Contact data.

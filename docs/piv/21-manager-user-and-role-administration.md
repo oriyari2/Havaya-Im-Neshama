@@ -204,3 +204,47 @@ Full backend/desktop regressions, compileall, architecture/security scans,
 - Implementation is complete. Audit, commit, and push remain not started.
 - Wait for ChatGPT and product-owner implementation audit approval before any
   commit or push.
+
+## Final cross-screen validation correction
+
+Manual Windows review found that the Customers page still exposed the older
+multi-contact administration UI and that the Instructors page had not yet
+adopted the Task 20 responsive table/layout foundation. The bounded correction:
+
+- removes the separate contacts table and Contact New/Edit/Deactivate/Reactivate
+  controls from the normal Customers page;
+- shows and edits one Contact-person name and phone alongside the Customer's
+  ordinary fields, backed by the existing active primary `customer_contacts`
+  row without deleting historical data or changing the backend schema;
+- migrates the Instructors page to `PageScaffold`, semantic column sizing,
+  directional full-value tooltips, a 3:2 responsive list/detail split, and a
+  scrollable readable detail form;
+- distinguishes Account status in User Management from Customer and Instructor
+  business-profile status in the corresponding table/filter labels;
+- preserves the existing Task 21 atomic account creation and immediate list API
+  behavior without backend production changes.
+
+A pre-smoke read-only audit of the configured PostgreSQL database found:
+
+| Entity/account measure | Count | Finding |
+|---|---:|---|
+| Customers | 20 | business entities |
+| Customer-role Users | 5 | login accounts |
+| Customers without a User | 15 | deterministic demo seed IDs `0001...002` through `0001...016` |
+| Instructors | 14 | business entities |
+| Instructor-role Users | 5 | login accounts |
+| Instructors without a User | 9 | deterministic demo seed IDs in the `0003...` catalog range |
+
+The exact IDs and catalog emails match `demo_seed_catalog.py`. The discrepancy
+is therefore expected legacy/seed data, not a synchronization bug. User
+Management deliberately lists login accounts only. No legacy passwords,
+accounts, or links were fabricated. New Customer and Instructor accounts still
+create new linked business entities, appear in both relevant screens after
+refresh, and use the same email as their login identifier.
+
+Two live evidence runs created unique Manager, Customer, and Instructor
+accounts, proved login and cross-screen visibility, and logically deactivated
+every smoke account. Because the approved cleanup policy forbids physical
+deletion, the final counts are 22 Customers / 7 Customer Users and 16
+Instructors / 7 Instructor Users. The unlinked seed counts remain 15 and 9, and
+the final active smoke-account count is zero.

@@ -31,6 +31,13 @@ def customer_details(item: dict) -> list[tuple[str, str]]:
         ("הערות", "notes"),
     )
     rows = [(label, str(item.get(key) or "—")) for label, key in fields]
+    contacts = list(item.get("contacts", []))
+    contact = next(
+        (entry for entry in contacts if entry.get("is_primary") and entry.get("is_active")),
+        next((entry for entry in contacts if entry.get("is_active")), None),
+    )
+    rows.insert(6, ("איש קשר", str(contact.get("full_name") or "—") if contact else "—"))
+    rows.insert(7, ("טלפון איש קשר", str(contact.get("phone") or "—") if contact else "—"))
     rows.extend((
         ("מצב", "פעיל" if item.get("is_active") else "לא פעיל"),
         ("נוצר", _date(item.get("created_at"))),

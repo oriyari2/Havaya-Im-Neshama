@@ -22,6 +22,7 @@ class UserViewTests(TestCase):
     def test_page_table_filters_details_and_self_deactivation(self) -> None:
         view=UsersView(); self.assertTrue(view.table.property("task20Table")); self.assertEqual(view.table.accessibleName(),"רשימת משתמשים")
         self.assertEqual(view.table.horizontalHeaderItem(2).text(),"שם")
+        self.assertEqual(view.table.horizontalHeaderItem(3).text(),"מצב חשבון")
         view.show_users([USER],offset=0,count=1,filtered=False); self.assertIn('dir="ltr"',view.table.item(0,0).toolTip()); self.assertIn("user@example.com",view.table.item(0,0).toolTip())
         view.show_details(USER,current_user_id="u1"); self.assertFalse(view.deactivate_button.isEnabled()); self.assertTrue(view.edit_button.isEnabled()); self.assertTrue(view.reset_button.isEnabled())
         view.show_details(USER,current_user_id="other"); self.assertTrue(view.deactivate_button.isEnabled()); self.assertFalse(view.activate_button.isEnabled())

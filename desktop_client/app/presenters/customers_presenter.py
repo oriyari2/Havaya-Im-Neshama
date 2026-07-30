@@ -28,9 +28,7 @@ class CustomersViewPort(Protocol):
     def clear_details(self) -> None: ...
     def select_customer(self, customer_id: str) -> None: ...
     def open_customer_form(self, initial: dict | None, submit: Callable) -> None: ...
-    def open_contact_form(self, initial: dict | None, submit: Callable) -> None: ...
     def confirm_customer_deletion(self, name: str) -> bool: ...
-    def confirm_contact_deactivation(self, name: str) -> bool: ...
 
 
 class CustomerServicePort(Protocol):
@@ -39,11 +37,8 @@ class CustomerServicePort(Protocol):
     def create_customer(self, payload: dict[str, object]) -> dict: ...
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict: ...
     def delete_customer(self, customer_id: str) -> None: ...
-    def contacts(self, customer_id: str, *, is_active: bool | None = None) -> list[dict]: ...
     def create_contact(self, customer_id: str, payload: dict[str, object]) -> dict: ...
     def update_contact(self, contact_id: str, payload: dict[str, object]) -> dict: ...
-    def deactivate_contact(self, contact_id: str) -> dict: ...
-    def reactivate_contact(self, contact_id: str) -> dict: ...
 
 
 def validate_customer(values: dict[str, object]) -> dict[str, object]:
@@ -53,6 +48,12 @@ def validate_customer(values: dict[str, object]) -> dict[str, object]:
     email = str(values.get("email") or "").strip() or None
     if email and not EMAIL_PATTERN.match(email):
         raise ValueError("כתובת הדוא״ל אינה תקינה.")
+    contact_name = str(values.get("contact_name") or "").strip()
+    if not contact_name:
+        raise ValueError("יש להזין שם איש קשר.")
+    contact_phone = str(values.get("contact_phone") or "").strip()
+    if not contact_phone:
+        raise ValueError("יש להזין טלפון איש קשר.")
     return {
         "name": name,
         "customer_type": str(values.get("customer_type") or "").strip() or None,
@@ -61,22 +62,8 @@ def validate_customer(values: dict[str, object]) -> dict[str, object]:
         "phone": str(values.get("phone") or "").strip() or None,
         "email": email,
         "notes": str(values.get("notes") or "").strip() or None,
-    }
-
-
-def validate_contact(values: dict[str, object]) -> dict[str, object]:
-    name = str(values.get("full_name") or "").strip()
-    if not name:
-        raise ValueError("יש להזין שם איש קשר.")
-    email = str(values.get("email") or "").strip() or None
-    if email and not EMAIL_PATTERN.match(email):
-        raise ValueError("כתובת הדוא״ל של איש הקשר אינה תקינה.")
-    return {
-        "full_name": name, "role_title": str(values.get("role_title") or "").strip() or None,
-        "phone": str(values.get("phone") or "").strip() or None, "email": email,
-        "is_primary": bool(values.get("is_primary")),
-        "notes": str(values.get("notes") or "").strip() or None,
-        "is_active": bool(values.get("is_active", True)),
+        "contact_name": contact_name,
+        "contact_phone": contact_phone,
     }
 
 
@@ -181,7 +168,11 @@ class CustomersPresenter:
 
     def begin_edit(self) -> None:
         if self.selected_customer:
-            self.view.open_customer_form(self.selected_customer, self.submit_edit)
+            initial = dict(self.selected_customer)
+            contact = self._current_contact(self.selected_customer)
+            initial["contact_name"] = contact.get("full_name") if contact else ""
+            initial["contact_phone"] = contact.get("phone") if contact else ""
+            self.view.open_customer_form(initial, self.submit_edit)
 
     def submit_create(self, values: dict[str, object], form: FormPort) -> None:
         self._submit_customer(values, form, None)
@@ -200,7 +191,23 @@ class CustomersPresenter:
         self._submitting = True
         form.set_submitting(True)
         try:
+            contact_name = str(payload.pop("contact_name"))
+            contact_phone = str(payload.pop("contact_phone"))
             customer = self.service.update_customer(customer_id, payload) if customer_id else self.service.create_customer(payload)
+            contact = self._current_contact(self.selected_customer) if customer_id else None
+            contact_payload = {
+                "full_name": contact_name,
+                "role_title": None,
+                "phone": contact_phone,
+                "email": None,
+                "is_primary": True,
+                "notes": None,
+                "is_active": True,
+            }
+            if contact:
+                self.service.update_contact(str(contact["id"]), contact_payload)
+            else:
+                self.service.create_contact(str(customer["id"]), contact_payload)
             form.close_success()
             self.selected_id = str(customer["id"])
             self.view.show_success("הלקוח נשמר בהצלחה.")
@@ -213,6 +220,14 @@ class CustomersPresenter:
         finally:
             self._submitting = False
             form.set_submitting(False)
+
+    @staticmethod
+    def _current_contact(customer: dict | None) -> dict | None:
+        contacts = list((customer or {}).get("contacts", []))
+        return next(
+            (contact for contact in contacts if contact.get("is_primary") and contact.get("is_active")),
+            next((contact for contact in contacts if contact.get("is_active")), None),
+        )
 
     def delete(self) -> None:
         customer = self.selected_customer
@@ -245,63 +260,6 @@ class CustomersPresenter:
             self._submitting = False
             self.view.set_loading(False)
 
-    def begin_contact_create(self) -> None:
-        if self.selected_customer:
-            self.view.open_contact_form(None, self.submit_contact_create)
-
-    def begin_contact_edit(self, contact: dict) -> None:
-        self.view.open_contact_form(contact, lambda values, form: self.submit_contact_edit(str(contact["id"]), values, form))
-
-    def submit_contact_create(self, values: dict[str, object], form: FormPort) -> None:
-        self._submit_contact(values, form, None)
-
-    def submit_contact_edit(self, contact_id: str, values: dict[str, object], form: FormPort) -> None:
-        self._submit_contact(values, form, contact_id)
-
-    def _submit_contact(self, values: dict[str, object], form: FormPort, contact_id: str | None) -> None:
-        if self._submitting or not self.selected_id:
-            return
-        try:
-            payload = validate_contact(values)
-        except ValueError as exc:
-            form.show_error(str(exc))
-            return
-        self._submitting = True
-        form.set_submitting(True)
-        try:
-            if contact_id:
-                self.service.update_contact(contact_id, payload)
-            else:
-                self.service.create_contact(self.selected_id, payload)
-            form.close_success()
-            self.view.show_success("איש הקשר נשמר בהצלחה.")
-            self.refresh_contacts()
-        except Exception as exc:
-            form.show_error(self._message(exc))
-            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT:
-                self.refresh_contacts()
-        finally:
-            self._submitting = False
-            form.set_submitting(False)
-
-    def deactivate_contact(self, contact: dict) -> None:
-        if contact.get("is_active") and self.view.confirm_contact_deactivation(str(contact["full_name"])):
-            self._mutate_contact(lambda: self.service.deactivate_contact(str(contact["id"])), "איש הקשר הושבת.")
-
-    def reactivate_contact(self, contact: dict) -> None:
-        if not contact.get("is_active"):
-            self._mutate_contact(lambda: self.service.reactivate_contact(str(contact["id"])), "איש הקשר הופעל מחדש.")
-
-    def refresh_contacts(self) -> None:
-        if not self.selected_id:
-            return
-        try:
-            customer = self.service.customer(self.selected_id)
-            self.selected_customer = customer
-            self.view.show_details(customer_details(customer), customer, [contact_row(x) for x in customer.get("contacts", [])])
-        except Exception as exc:
-            self._show_error(exc)
-
     def _mutate(self, operation: Callable, message: str) -> None:
         if self._submitting:
             return
@@ -319,19 +277,6 @@ class CustomersPresenter:
         finally:
             self._submitting = False
             self.view.set_loading(False)
-
-    def _mutate_contact(self, operation: Callable, message: str) -> None:
-        if self._submitting:
-            return
-        self._submitting = True
-        try:
-            operation()
-            self.view.show_success(message)
-            self.refresh_contacts()
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
-            self._submitting = False
 
     def _show_error(self, exc: Exception) -> None:
         permission = isinstance(exc, ApiError) and exc.kind == ApiErrorKind.PERMISSION

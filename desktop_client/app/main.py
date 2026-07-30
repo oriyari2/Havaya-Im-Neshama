@@ -149,10 +149,6 @@ class MainWindow(QMainWindow):
             customers_view.create_requested.connect(customers_presenter.begin_create)
             customers_view.edit_requested.connect(customers_presenter.begin_edit)
             customers_view.delete_requested.connect(customers_presenter.delete)
-            customers_view.contact_create_requested.connect(customers_presenter.begin_contact_create)
-            customers_view.contact_edit_requested.connect(customers_presenter.begin_contact_edit)
-            customers_view.contact_deactivate_requested.connect(customers_presenter.deactivate_contact)
-            customers_view.contact_reactivate_requested.connect(customers_presenter.reactivate_contact)
             self.shell.add_page("customers", customers_view)
             self._presenters["customers"] = customers_presenter
 

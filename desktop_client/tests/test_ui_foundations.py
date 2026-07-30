@@ -11,7 +11,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QTableWidget, 
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
-from desktop_client.app.views.customer_dialogs import ContactDialog, CustomerDialog
+from desktop_client.app.views.customer_dialogs import CustomerDialog
 from desktop_client.app.views.customers_view import CustomersView
 from desktop_client.app.views.activities_view import ActivitiesView
 from desktop_client.app.views.ai_chat_view import AIChatView
@@ -148,13 +148,13 @@ class UiFoundationTests(unittest.TestCase):
         dialog = CustomerDialog({"name": "נשמר", "email": "bad"}); self.assertGreaterEqual(dialog.width(), DIALOG_WIDTH_DEFAULT); self.assertTrue(dialog.save_button.isDefault())
         dialog.show_error("כתובת הדוא״ל אינה תקינה."); self.app.processEvents(); self.assertEqual(dialog.focusWidget(), dialog.fields["email"]); self.assertEqual(dialog.values()["name"], "נשמר")
         dialog.reject(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected)
-        contact = ContactDialog(); self.assertEqual(contact.fields["email"].layoutDirection(), Qt.LayoutDirection.LeftToRight)
+        self.assertEqual(dialog.fields["contact_phone"].layoutDirection(), Qt.LayoutDirection.LeftToRight)
 
     def test_dialog_labels_keyboard_scrolling_and_focus_restoration(self) -> None:
         parent = QWidget(); opener = QPushButton("פתיחה", parent); parent.show(); opener.setFocus(); self.app.processEvents()
         dialog = CustomerDialog(parent=parent); submitted = []; dialog.submitted.connect(lambda values, form: submitted.append(values)); dialog.show(); self.app.processEvents()
         self.assertIs(dialog.form.labelForField(dialog.fields["name"]).buddy(), dialog.fields["name"]); self.assertIs(dialog.focusWidget(), dialog.fields["name"])
-        dialog.fields["name"].setText("לקוח"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
+        dialog.fields["name"].setText("לקוח"); dialog.fields["contact_name"].setText("איש קשר"); dialog.fields["contact_phone"].setText("050"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
         submitted.clear(); dialog.notes.setFocus(); QTest.keyClick(dialog.notes, Qt.Key.Key_Return); self.assertEqual(submitted, [])
         self.assertLessEqual(dialog.width(), DIALOG_WIDTH_DEFAULT); self.assertTrue(dialog.scroll.widgetResizable())
         QTest.keyClick(dialog, Qt.Key.Key_Escape); self.app.processEvents(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected); self.assertIs(parent.focusWidget(), opener); parent.close()
@@ -162,27 +162,23 @@ class UiFoundationTests(unittest.TestCase):
     def test_supported_minimum_keeps_pilot_regions_meaningfully_sized(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView(); shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.resize(1024, 640); shell.show(); self.app.processEvents()
         self.assertGreaterEqual(customers.table.width(), 360); self.assertGreaterEqual(customers.splitter.widget(1).width(), 300)
-        for widget in (customers.create_button, customers.apply_filters_button, customers.table, customers.contacts, customers.add_contact, customers.edit_contact, customers.deactivate_contact, customers.reactivate_contact, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
-        self.assertGreater(customers.table.height(), 100); self.assertGreater(customers.contacts.height(), 40); shell.close()
+        for widget in (customers.create_button, customers.apply_filters_button, customers.table, customers.details_scroll, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
+        self.assertGreater(customers.table.height(), 100); self.assertGreater(customers.details_scroll.height(), 100); shell.close()
 
-    def test_customer_and_contact_tables_use_available_width_across_supported_sizes(self) -> None:
+    def test_customer_table_and_single_details_panel_use_supported_sizes(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView()
         shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.show()
         measurements = []
         for width, height in ((1024, 640), (1200, 760), (1440, 900)):
             shell.resize(width, height); self.app.processEvents()
             customer_widths = tuple(customers.table.columnWidth(index) for index in range(customers.table.columnCount()))
-            contact_widths = tuple(customers.contacts.columnWidth(index) for index in range(customers.contacts.columnCount()))
-            measurements.append((customer_widths, contact_widths))
-            for table, widths in ((customers.table, customer_widths), (customers.contacts, contact_widths)):
-                unused = table.viewport().width() - 1 - sum(widths)
-                self.assertTrue(abs(unused) <= 1 or unused < 0)
+            measurements.append(customer_widths)
+            unused = customers.table.viewport().width() - 1 - sum(customer_widths)
+            self.assertTrue(abs(unused) <= 1 or unused < 0)
             self.assertGreater(customer_widths[0], customer_widths[5])
-            self.assertGreater(contact_widths[0], contact_widths[4])
-        self.assertGreater(measurements[2][0][0], measurements[1][0][0])
-        self.assertGreater(measurements[2][1][0], measurements[1][1][0])
-        self.assertEqual(measurements[2][0][5], measurements[1][0][5])
-        self.assertEqual(measurements[2][1][4], measurements[1][1][4]); shell.close()
+            self.assertGreaterEqual(customers.splitter.widget(1).width(), 300)
+        self.assertGreater(measurements[2][0], measurements[1][0])
+        self.assertEqual(measurements[2][5], measurements[1][5]); shell.close()
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
         self.app.setStyleSheet(APP_STYLE)
