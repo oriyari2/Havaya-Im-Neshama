@@ -603,11 +603,33 @@ Tasks 25–28.
 Historical Task/PIV descriptions remain evidence, while their old future-task
 numbers are superseded by the authoritative roadmap.
 
+Task 23 implementation evidence
+
+- `NFR-03`: every appropriate reachable desktop screen uses the bounded Task 22
+  execution path; valid session-scoped reads return immediately, identical
+  flights coalesce, obsolete reads are removed/suppressed, and unchanged tables
+  do not rebuild. Live local-backend measurements show cached returns of
+  0.049–0.542 ms with zero repeat HTTP versus 1,890–2,408 ms uncached repeats.
+- `NFR-06`: hard-expiry and explicit SWR policies distinguish initial failure,
+  safe stale retention, non-blocking freshness warning, retry, and overriding
+  401/session expiry. Raw exceptions and authorization failures are not cached.
+- `NFR-07`: the cache remains in ApiClient infrastructure, Qt execution remains
+  in its adapter, Presenters remain Qt-free, Views passive, and backend/API/
+  CQRS/Event Sourcing/Gateway/AI ownership unchanged.
+- `NFR-08`: cache/in-flight/refresh/worker/pending/payload bounds, deterministic
+  keys, defensive copies, session/user/role clearing, targeted invalidation,
+  mutation safety, diagnostics, and deterministic lifecycle tests are recorded
+  in Task/PIV 23.
+- Security/RBAC continuity: authentication, passwords/reset values, tokens,
+  secrets, AI consultations, mutation payloads, errors, and preview bytes are
+  not cached or persisted. A new identity/role and logout/401 clear all entries.
+
 Later tasks
 
-- Phase 2: Task 22 background execution is implemented. Tasks 23–24 retain
-  faster loading/API interaction, refresh reduction, bounded caching,
-  reliability, security, and measurable performance closure.
+- Phase 2: Tasks 22–23 background execution, faster repeated loading, request
+  coalescing, refresh reduction, bounded session caching, and latest-intent
+  behavior are implemented. Task 24 retains reliability, security,
+  observability, and measurable performance closure.
 - Phase 3 / Tasks 25–28: Desktop visual design, UI consistency, UX,
   accessibility, responsive layouts, and professional presentation.
 - Phase 4 / Tasks 29–30: remaining Ollama readiness, RAG/semantic-search quality,

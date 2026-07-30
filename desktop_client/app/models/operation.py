@@ -6,6 +6,7 @@ from typing import Generic, Protocol, TypeVar
 
 
 T = TypeVar("T")
+NON_CANCELLABLE_OPERATION_KEYS = frozenset({"mutation", "mutate", "submit", "delete"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +35,10 @@ class OperationExecutor(Protocol):
 
     def invalidate_session(self) -> None: ...
 
+    def cancel_owner(self, owner: str) -> int: ...
+
+    def cancel_operation(self, owner: str, key: str) -> int: ...
+
     def shutdown(self, timeout_ms: int = 3000) -> None: ...
 
 
@@ -59,6 +64,14 @@ class ImmediateOperationExecutor:
     def invalidate_session(self) -> None:
         return None
 
+    def cancel_owner(self, owner: str) -> int:
+        del owner
+        return 0
+
+    def cancel_operation(self, owner: str, key: str) -> int:
+        del owner, key
+        return 0
+
     def shutdown(self, timeout_ms: int = 3000) -> None:
         del timeout_ms
 
@@ -82,6 +95,7 @@ class PresenterOperations:
         return context
 
     def replace(self, key: str) -> OperationContext:
+        self.executor.cancel_operation(self.owner, key)
         self.generation += 1
         context = OperationContext(self.session_epoch, self.owner, key, self.generation)
         self.current[key] = context
@@ -98,4 +112,5 @@ class PresenterOperations:
 
     def invalidate(self) -> None:
         self.session_epoch += 1
-        self.current.clear()
+        self.current = {key: context for key, context in self.current.items() if key in NON_CANCELLABLE_OPERATION_KEYS}
+        self.executor.cancel_owner(self.owner)

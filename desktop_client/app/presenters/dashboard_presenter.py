@@ -29,9 +29,11 @@ class DashboardPresenter:
         self.navigate = navigate
         self.create_booking = create_booking
         self._operations = PresenterOperations(executor, "dashboard")
+        self._has_rendered = False
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
+        self.view.set_loading(False)
 
     def drill_down(self, target: str) -> None:
         status_filters = {"pending_count": "NEW", "confirmed_count": "CONFIRMED", "cancelled_count": "CANCELLED"}
@@ -47,7 +49,8 @@ class DashboardPresenter:
 
     def load(self) -> None:
         context = self._operations.replace("load")
-        self.view.set_loading(True)
+        if not self._has_rendered:
+            self.view.set_loading(True)
 
         def operation():
             errors: list[str] = []
@@ -82,6 +85,7 @@ class DashboardPresenter:
             if summary:
                 self.view.show_summary(summary)
             self.view.show_sections(first_title, [booking_row(item) for item in first], second_title, [booking_row(item) for item in second])
+            self._has_rendered = True
             if errors:
                 self.view.show_error(" | ".join(errors))
 

@@ -37,27 +37,33 @@ class InstructorsPresenter:
         self.loading = False
         self.submitting = False
         self._operations = PresenterOperations(executor, "instructors")
+        self._last_list_render = None
 
     def invalidate_requests(self):
         self._operations.invalidate()
-        self.loading = self.submitting = False
+        self.loading = False
+        self.view.set_loading(False)
 
     def load(self):
         context = self._operations.replace("list")
         filters = dict(self.filters)
         self.loading = True
-        self.view.set_loading(True)
+        if self._last_list_render is None:
+            self.view.set_loading(True)
 
         def success(payload):
             if not self._operations.is_current(context):
                 return
             items = payload["items"]
-            self.view.show_instructors(
-                [instructor_row(item) for item in items],
-                offset=filters["offset"],
-                count=len(items),
-                filtered=any(filters[key] not in (None, "") for key in ("search", "city", "is_active")),
-            )
+            signature = (filters, items)
+            if signature != self._last_list_render:
+                self.view.show_instructors(
+                    [instructor_row(item) for item in items],
+                    offset=filters["offset"],
+                    count=len(items),
+                    filtered=any(filters[key] not in (None, "") for key in ("search", "city", "is_active")),
+                )
+                self._last_list_render = signature
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
                 self.view.select_instructor(self.selected_id)
@@ -86,6 +92,9 @@ class InstructorsPresenter:
         self.load()
 
     def retry(self):
+        invalidate = getattr(self.service, "invalidate_list", None)
+        if invalidate is not None:
+            invalidate(dict(self.filters))
         self.load()
 
     def select(self, instructor_id):
@@ -254,6 +263,7 @@ class InstructorProfilePresenter:
 
     def invalidate_requests(self):
         self._operations.invalidate()
+        self.view.set_loading(False)
 
     def load(self):
         context = self._operations.replace("load")

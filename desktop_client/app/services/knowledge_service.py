@@ -16,6 +16,9 @@ class KnowledgeService:
         response = self.api_client.get("/api/rag/sources")
         return response if isinstance(response, list) else []
 
+    def invalidate_list(self) -> None:
+        self.api_client.invalidate_cached_get("/api/rag/sources")
+
     def get_source(self, source_id: str) -> dict:
         response = self.api_client.get(f"/api/rag/sources/{source_id}")
         return response if isinstance(response, dict) else {}

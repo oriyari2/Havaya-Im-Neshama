@@ -144,8 +144,37 @@ shutdown invalidate all outstanding callback identities. Cancellation means
 cooperative suppression of obsolete results and does not claim to reverse a
 mutation already committed by FastAPI.
 
-The bounded migration covers Login, Dashboard, Customers and owned Customer
+The bounded Task 22 pilot covers Login, Dashboard, Customers and owned Customer
 profile, Instructors and owned Instructor profile, and manager User
-Administration. API/query optimization, wider refresh reduction, and safe local
-caching remain Task 23. Backend contracts, CQRS/Event Sourcing, Gateway,
-authorization, and AI/RAG responsibilities are unchanged.
+Administration. Task 23 extends the same boundary as documented below. Backend
+contracts, CQRS/Event Sourcing, Gateway, authorization, and AI/RAG
+responsibilities are unchanged.
+
+### Task 23 session performance boundary
+
+Task 23 adds one process-memory `SessionPerformanceCache` owned by the desktop
+ApiClient. It is infrastructure, not domain state. Cache scope is a generation,
+authenticated user ID, and role; login identity change, logout, 401 expiry, and
+shutdown clear the entire scope. Canonical keys also contain resource, path, and
+every response-shaping parameter. Stored/returned values are defensive copies.
+
+Policies are per resource rather than global. They define TTL, explicit SWR
+permission, 1 MiB payload limit, and invalidation relationships. Global bounds
+are 128 entries, an 8 MiB serialized-size estimate, 32 in-flight identities,
+and two refresh workers. Authentication, password/reset data, AI consultation,
+mutations, errors, tokens/secrets, and public preview bytes are never cached;
+there is no disk persistence.
+
+The cache coalesces only complete identical GET identities. Mutation success
+causes targeted resource invalidation; failure does not alter authoritative
+cached state. SWR may retain safe operational data with a freshness warning,
+but a 401 clears scope and overrides presentation. The cache never grants
+authorization and cannot broaden a backend response.
+
+Task 23 also adds owner/key removal to the bounded Qt execution adapter.
+Superseded queued reads are removed where Qt permits; an already-running
+`urllib` transport is not claimed as cancelled. Its callback record and
+Presenter identity are invalidated so its result/error cannot render. Mutation
+keys remain non-cancellable after dispatch and retain duplicate guards until
+authoritative completion. Views remain passive, Presenters Qt-free, and workers
+widget-free.

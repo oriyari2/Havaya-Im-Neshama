@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
+
 
 class AIChatView(Protocol):
     def set_loading(self, loading: bool) -> None: ...
@@ -11,10 +13,16 @@ class AIChatView(Protocol):
 
 
 class AIChatPresenter:
-    def __init__(self, view: AIChatView, service) -> None:
+    def __init__(self, view: AIChatView, service, executor: OperationExecutor | None = None) -> None:
         self.view = view
         self.service = service
         self._loading = False
+        self._operations = PresenterOperations(executor, "ai_chat")
+
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
+        self._loading = False
+        self.view.set_loading(False)
 
     def load(self) -> None:
         return None
@@ -27,18 +35,30 @@ class AIChatPresenter:
             self.view.show_error("יש להזין שאלה לפני השליחה.")
             return
 
+        context = self._operations.begin("consult")
+        if context is None:
+            return
         self._loading = True
         self.view.set_loading(True)
         self.view.append_message("את/ה", clean_prompt)
         self.view.clear_input()
-        try:
-            answer = self._format_answer(self.service.consult(clean_prompt))
+        def success(response):
+            if not self._operations.is_current(context):
+                return
+            answer = self._format_answer(response)
             self.view.append_message("היועץ", answer or "לא התקבלה תשובה מהשירות.")
-        except Exception as exc:
-            self.view.show_error(str(exc))
-        finally:
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                self.view.show_error(str(exc))
+
+        def finished():
+            if not self._operations.finish(context):
+                return
             self._loading = False
             self.view.set_loading(False)
+
+        self._operations.executor.submit(context, lambda: self.service.consult(clean_prompt), success, failure, finished)
 
     @staticmethod
     def _format_answer(response) -> str:

@@ -39,7 +39,7 @@ audit, commit, and push.
 |---|---:|---|---|---|---|---|---|
 | 01–21 | 1 | Core/backend/desktop/CQRS/Event Sourcing/User Administration baseline | Committed and pushed | Complete | Complete | Approved | Complete |
 | 22 | 2 | Desktop Background Execution and Non-Blocking UI | Complete | Approved | Complete | Complete | Complete |
-| 23 | 2 | API Performance, Refresh Reduction, and Safe Local Caching | Planned | Not started | Not started | Not started | Not started |
+| 23 | 2 | API Performance, Refresh Reduction, and Safe Local Caching | Committed and pushed | Approved | Complete | Complete | Complete |
 | 24 | 2 | Reliability, Security, Observability, and Performance Closure | Planned | Not started | Not started | Not started | Not started |
 | 25 | 3 | Desktop Visual Design System and UI/UX Cohesion | Planned | Not started | Not started | Not started | Not started |
 | 26 | 3 | Shell, Login, Navigation, and Dashboard Experience | Planned | Not started | Not started | Not started | Not started |
@@ -153,10 +153,13 @@ audit. A full design proposal and approval are required before implementation.
 
 ### Task 23 — API Performance, Refresh Reduction, and Safe Local Caching
 
-Measure representative screen/API flows, eliminate redundant requests and
-refresh cascades, optimize supported queries, and add bounded authorization-safe
-local caches only where evidence justifies them. Every cache requires size/TTL
-or current-entity bounds, invalidation, logout/session clearing, and tests.
+Implemented across every appropriate reachable desktop screen. Real API
+measurement justified a bounded session/user/role-scoped GET cache with
+resource TTL/SWR policies, complete keys, identical-flight coalescing, targeted
+mutation invalidation, logout/expiry clearing, latest-intent queue removal and
+stale suppression, and unchanged-table rebuild avoidance. No backend contract,
+schema, authorization, CQRS/Event Sourcing, Gateway, or AI behavior changed.
+Task/PIV 23 contain policies, matrices, evidence, and the native-run limitation.
 
 Dependency: Task 22 lifecycle contract.
 
@@ -305,7 +308,6 @@ Task 33 Final Audit
 
 ## 7. Immediate next action
 
-Task 22 is implemented and validated in its bounded pilot. Task 23 — API
-Performance, Refresh Reduction, and Safe Local Caching — is now the next
-unfinished task. Task 23 requires its own design and approval before production
-or test work begins.
+Task 23 is implemented, validated, committed, and pushed. Task 24 — Reliability,
+Security, Observability, and Performance Closure — is the next unfinished task.
+Do not begin Task 24 until a separate design/audit prompt is approved.

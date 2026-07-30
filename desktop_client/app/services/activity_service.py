@@ -17,6 +17,9 @@ class ActivityService:
     def list_activities(self, filters: dict[str, object]) -> dict:
         return self.api_client.get("/activities", filters)
 
+    def invalidate_list(self, filters: dict[str, object]) -> None:
+        self.api_client.invalidate_cached_get("/activities", filters)
+
     def activity(self, activity_id: str) -> dict:
         return self.api_client.get(f"/activities/{activity_id}")
 

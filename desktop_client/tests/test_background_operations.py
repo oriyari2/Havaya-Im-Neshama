@@ -88,6 +88,31 @@ class BackgroundOperationTests(unittest.TestCase):
         self.assertIsInstance(errors[0], OperationCapacityError)
         executor.shutdown()
 
+    def test_latest_intent_removes_obsolete_callback_and_delivers_newest_result(self) -> None:
+        executor = QtOperationExecutor(max_workers=1)
+        operations = PresenterOperations(executor, "customers")
+        delivered = []
+        first = operations.replace("list")
+        executor.submit(first, lambda: (time.sleep(0.10), "old")[1], delivered.append, delivered.append)
+        newest = operations.replace("list")
+        executor.submit(newest, lambda: "new", delivered.append, delivered.append)
+        self.wait_until(lambda: delivered == ["new"], timeout_ms=2000)
+        self.assertFalse(operations.is_current(first))
+        self.assertTrue(operations.is_current(newest))
+        executor.shutdown()
+
+    def test_navigation_does_not_cancel_inflight_mutation(self) -> None:
+        executor = QtOperationExecutor(max_workers=1)
+        operations = PresenterOperations(executor, "users")
+        delivered = []
+        mutation = operations.begin("mutation")
+        executor.submit(mutation, lambda: (time.sleep(0.06), "committed")[1], delivered.append, delivered.append)
+        operations.invalidate()
+        self.assertTrue(operations.is_current(mutation))
+        self.wait_until(lambda: delivered == ["committed"])
+        self.assertTrue(operations.finish(mutation))
+        executor.shutdown()
+
     def test_presenter_identity_prevents_duplicates_and_stale_completion(self) -> None:
         operations = PresenterOperations(None, "customers")
         first = operations.begin("submit")

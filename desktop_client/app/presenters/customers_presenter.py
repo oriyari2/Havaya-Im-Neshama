@@ -5,7 +5,7 @@ from typing import Callable, Protocol
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
-from desktop_client.app.models.operation import ImmediateOperationExecutor, OperationExecutor, PresenterOperations
+from desktop_client.app.models.operation import NON_CANCELLABLE_OPERATION_KEYS, ImmediateOperationExecutor, OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.customer_formatting import contact_row, customer_details, customer_row
 
 
@@ -80,8 +80,12 @@ class CustomersPresenter:
         self._session_epoch = 0
         self._current_requests: dict[str, RequestIdentity] = {}
         self._executor = executor or ImmediateOperationExecutor()
+        self._last_list_render: tuple[dict, list] | None = None
 
     def _begin_request(self, operation_key: str, resource_id: str | None = None) -> RequestIdentity:
+        cancel_operation = getattr(self._executor, "cancel_operation", None)
+        if cancel_operation is not None:
+            cancel_operation("customers", operation_key)
         self._generation += 1
         identity = RequestIdentity(self._session_epoch, "customers", operation_key, self._generation, resource_id)
         self._current_requests[operation_key] = identity
@@ -93,9 +97,13 @@ class CustomersPresenter:
 
     def invalidate_requests(self) -> None:
         self._session_epoch += 1
-        self._current_requests.clear()
+        self._current_requests = {key: identity for key, identity in self._current_requests.items() if key in NON_CANCELLABLE_OPERATION_KEYS}
         self._loading = False
-        self._submitting = False
+        self.view.set_loading(False)
+        self.view.set_detail_loading(False)
+        cancel_owner = getattr(self._executor, "cancel_owner", None)
+        if cancel_owner is not None:
+            cancel_owner("customers")
 
     def _render_state(self, state: RequestState) -> None:
         self.view.render_request_state(state)
@@ -103,18 +111,22 @@ class CustomersPresenter:
     def load(self) -> None:
         self._loading = True
         identity = self._begin_request("list")
-        self._render_state(RequestState(RequestPhase.LOADING, "טוען לקוחות…", "list", blocks_primary_action=True))
-        self.view.set_loading(True)
+        if self._last_list_render is None:
+            self._render_state(RequestState(RequestPhase.LOADING, "טוען לקוחות…", "list", blocks_primary_action=True))
+            self.view.set_loading(True)
         filters = dict(self.filters)
 
         def succeeded(payload: dict) -> None:
             if not self._is_current(identity):
                 return
             items = payload["items"]
-            self.view.show_customers(
-                [customer_row(item) for item in items], offset=int(filters["offset"]),
-                count=len(items), filtered=any(filters[k] not in (None, "") for k in ("search", "city", "customer_type", "is_active")),
-            )
+            signature = (filters, items)
+            if signature != self._last_list_render:
+                self.view.show_customers(
+                    [customer_row(item) for item in items], offset=int(filters["offset"]),
+                    count=len(items), filtered=any(filters[k] not in (None, "") for k in ("search", "city", "customer_type", "is_active")),
+                )
+                self._last_list_render = signature
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
                 self.view.select_customer(self.selected_id)
@@ -145,6 +157,9 @@ class CustomersPresenter:
         self.load()
 
     def retry(self) -> None:
+        invalidate = getattr(self.service, "invalidate_list", None)
+        if invalidate is not None:
+            invalidate(dict(self.filters))
         self.load()
 
     def select(self, customer_id: str) -> None:
@@ -351,6 +366,7 @@ class CustomerProfilePresenter:
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
+        self.view.set_loading(False)
 
     def load(self) -> None:
         context = self._operations.replace("load")

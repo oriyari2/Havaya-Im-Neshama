@@ -39,10 +39,12 @@ class UsersPresenter:
         self.loading = False
         self.submitting = False
         self._operations = PresenterOperations(executor, "users")
+        self._last_list_render = None
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
-        self.loading = self.submitting = False
+        self.loading = False
+        self.view.set_loading(False)
 
     def _allowed(self) -> bool:
         if self.session_role == "manager":
@@ -56,12 +58,16 @@ class UsersPresenter:
         context = self._operations.replace("list")
         filters = dict(self.filters)
         self.loading = True
-        self.view.set_loading(True)
+        if self._last_list_render is None:
+            self.view.set_loading(True)
         def success(payload):
             if not self._operations.is_current(context):
                 return
             items = payload["items"]
-            self.view.show_users(items, offset=filters["offset"], count=len(items), filtered=any(filters[key] not in (None, "") for key in ("search", "role", "is_active")))
+            signature = (filters, items)
+            if signature != self._last_list_render:
+                self.view.show_users(items, offset=filters["offset"], count=len(items), filtered=any(filters[key] not in (None, "") for key in ("search", "role", "is_active")))
+                self._last_list_render = signature
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
                 self.view.select_user(self.selected_id)
@@ -89,6 +95,9 @@ class UsersPresenter:
         self.load()
 
     def retry(self) -> None:
+        invalidate = getattr(self.service, "invalidate_list", None)
+        if invalidate is not None:
+            invalidate(dict(self.filters))
         self.load()
 
     def select(self, user_id: str) -> None:

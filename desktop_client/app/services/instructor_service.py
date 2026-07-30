@@ -7,3 +7,4 @@ class InstructorService:
     def create_instructor(self,payload):return self.api_client.post("/instructors",payload)
     def update_instructor(self,instructor_id,payload):return self.api_client.put(f"/instructors/{instructor_id}",payload)
     def delete_instructor(self,instructor_id):self.api_client.delete(f"/instructors/{instructor_id}")
+    def invalidate_list(self,filters):self.api_client.invalidate_cached_get("/instructors",filters)

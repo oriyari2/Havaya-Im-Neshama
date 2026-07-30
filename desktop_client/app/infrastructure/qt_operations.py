@@ -3,12 +3,13 @@ from __future__ import annotations
 import itertools
 import logging
 import threading
+from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, QTimer, Qt, Signal, Slot
 
-from desktop_client.app.models.operation import OperationContext
+from desktop_client.app.models.operation import NON_CANCELLABLE_OPERATION_KEYS, OperationContext
 
 
 logger = logging.getLogger(__name__)
@@ -18,6 +19,14 @@ MAX_PENDING_OPERATIONS = 32
 
 class OperationCapacityError(RuntimeError):
     pass
+
+
+@dataclass(slots=True)
+class _OperationRecord:
+    epoch: int
+    context: OperationContext
+    bridge: "_Bridge"
+    work: "_Work"
 
 
 class _Bridge(QObject):
@@ -91,7 +100,7 @@ class QtOperationExecutor(QObject):
         self._max_pending = max_pending
         self._epoch = 0
         self._lock = threading.Lock()
-        self._active: dict[int, tuple[int, _Bridge]] = {}
+        self._active: dict[int, _OperationRecord] = {}
 
     @property
     def active_count(self) -> int:
@@ -131,14 +140,48 @@ class QtOperationExecutor(QObject):
                 callback()
 
         bridge = _Bridge(success, error, finished)
+        work = _Work(operation, bridge)
         with self._lock:
-            self._active[operation_id] = (epoch, bridge)
-        self._pool.start(_Work(operation, bridge))
+            self._active[operation_id] = _OperationRecord(epoch, context, bridge, work)
+        self._pool.start(work)
         return QtOperationHandle(self, operation_id)
 
     def cancel(self, operation_id: int) -> None:
         with self._lock:
-            self._active.pop(operation_id, None)
+            record = self._active.pop(operation_id, None)
+        if record is not None:
+            self._try_remove_queued(record.work)
+
+    def cancel_owner(self, owner: str) -> int:
+        with self._lock:
+            matches = [operation_id for operation_id, record in self._active.items() if self._context_owner(record.context) == owner and self._context_key(record.context) not in NON_CANCELLABLE_OPERATION_KEYS]
+            records = [self._active.pop(operation_id) for operation_id in matches]
+        for record in records:
+            self._try_remove_queued(record.work)
+        return len(records)
+
+    def cancel_operation(self, owner: str, key: str) -> int:
+        with self._lock:
+            matches = [operation_id for operation_id, record in self._active.items() if self._context_owner(record.context) == owner and self._context_key(record.context) == key and key not in NON_CANCELLABLE_OPERATION_KEYS]
+            records = [self._active.pop(operation_id) for operation_id in matches]
+        for record in records:
+            self._try_remove_queued(record.work)
+        return len(records)
+
+    def _try_remove_queued(self, work: "_Work") -> bool:
+        try:
+            return self._pool.tryTake(work)
+        except RuntimeError:
+            # QRunnable may finish before its queued Qt completion reaches Python.
+            return False
+
+    @staticmethod
+    def _context_owner(context) -> str | None:
+        return getattr(context, "owner", getattr(context, "screen", None))
+
+    @staticmethod
+    def _context_key(context) -> str | None:
+        return getattr(context, "key", getattr(context, "operation_key", None))
 
     def invalidate_session(self) -> None:
         with self._lock:

@@ -10,6 +10,8 @@ from urllib.parse import urlencode
 from urllib.parse import urlparse
 from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
+from desktop_client.app.infrastructure.performance_cache import SessionPerformanceCache
+
 
 class ApiErrorKind(StrEnum):
     VALIDATION = "validation"
@@ -61,14 +63,27 @@ class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
 
 
 class ApiClient:
-    def __init__(self, base_url: str | None = None, timeout: float = 120.0) -> None:
+    def __init__(self, base_url: str | None = None, timeout: float = 120.0, performance_cache: SessionPerformanceCache | None = None) -> None:
         self.base_url = (base_url or os.getenv("API_BASE_URL", "http://127.0.0.1:8000")).rstrip("/")
         self.timeout = timeout
         self.access_token: str | None = None
         self._unauthorized_handler: Callable[[], None] | None = None
+        self.performance_cache = performance_cache or SessionPerformanceCache()
 
     def set_access_token(self, token: str | None) -> None:
         self.access_token = token
+
+    def set_performance_scope(self, user_id: str, role: str) -> None:
+        self.performance_cache.start_session(user_id, role)
+
+    def clear_performance_scope(self) -> None:
+        self.performance_cache.clear_session()
+
+    def invalidate_cached_get(self, path: str, params: dict[str, object] | None = None) -> bool:
+        return self.performance_cache.invalidate_path(path, params)
+
+    def performance_snapshot(self) -> dict[str, int]:
+        return self.performance_cache.snapshot()
 
     def set_unauthorized_handler(self, handler: Callable[[], None] | None) -> None:
         self._unauthorized_handler = handler
@@ -79,19 +94,28 @@ class ApiClient:
             doseq=True,
         )
         target = f"{path}?{query}" if query else path
-        return self._request("GET", target)
+        return self.performance_cache.get_or_load(path, params, lambda: self._request("GET", target))
 
     def post(self, path: str, payload: dict[str, object]) -> Any:
-        return self._request("POST", path, payload)
+        result = self._request("POST", path, payload)
+        if path != "/auth/login":
+            self.performance_cache.invalidate_for_mutation(path, payload)
+        return result
 
     def patch(self, path: str, payload: dict[str, object]) -> Any:
-        return self._request("PATCH", path, payload)
+        result = self._request("PATCH", path, payload)
+        self.performance_cache.invalidate_for_mutation(path, payload)
+        return result
 
     def put(self, path: str, payload: dict[str, object]) -> Any:
-        return self._request("PUT", path, payload)
+        result = self._request("PUT", path, payload)
+        self.performance_cache.invalidate_for_mutation(path, payload)
+        return result
 
     def delete(self, path: str, payload: dict[str, object] | None = None) -> Any:
-        return self._request("DELETE", path, payload)
+        result = self._request("DELETE", path, payload)
+        self.performance_cache.invalidate_for_mutation(path, payload)
+        return result
 
     def post_multipart(
         self,
@@ -120,7 +144,9 @@ class ApiClient:
             "Accept": "application/json",
             "Content-Type": f"multipart/form-data; boundary={boundary}",
         }
-        return self._send("POST", f"{self.base_url}{path}", data=body, headers=headers, authenticated=True)
+        result = self._send("POST", f"{self.base_url}{path}", data=body, headers=headers, authenticated=True)
+        self.performance_cache.invalidate_for_mutation(path)
+        return result
 
     def get_public_bytes(self, url: str, *, max_bytes: int) -> bytes:
         parsed = urlparse(url)

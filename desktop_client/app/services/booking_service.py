@@ -13,6 +13,12 @@ class BookingService:
     def list_bookings(self, filters: dict[str, object] | None = None) -> dict:
         return self.api_client.get("/bookings", filters)
 
+    def invalidate_list(self, filters: dict[str, object] | None = None) -> None:
+        self.api_client.invalidate_cached_get("/bookings", filters)
+
+    def invalidate_open_events(self) -> None:
+        self.api_client.invalidate_cached_get("/bookings/open-events")
+
     def my_bookings(self, *, limit: int = 50, offset: int = 0) -> dict:
         return self.api_client.get("/bookings/my-bookings", {"limit": limit, "offset": offset})
 

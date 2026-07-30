@@ -346,3 +346,25 @@ git diff --check
 Expected results from the latest documented pass: focused AI/desktop tests,
 the full backend unittest suite, compile validation, and whitespace validation
 passed.
+
+### Task 23 desktop performance diagnostics
+
+The desktop now keeps a bounded, process-memory cache scoped to the current
+authenticated user and role. It is cleared on logout, session expiry, identity
+change, and shutdown; it does not persist credentials or application data.
+`ApiClient.performance_snapshot()` exposes only aggregate hit/miss/coalescing,
+capacity, and entry-size counters for tests and diagnostics.
+
+An opt-in, read-only real-backend measurement can be run without putting demo
+credentials on the command line:
+
+```powershell
+$env:TASK23_DEMO_EMAIL = '<approved demo email>'
+$env:TASK23_DEMO_PASSWORD = '<approved demo password>'
+.\.venv\Scripts\python.exe -m desktop_client.tests.task23_measurements
+Remove-Item Env:TASK23_DEMO_EMAIL, Env:TASK23_DEMO_PASSWORD
+```
+
+The harness prints no token or credential. It measures uncached and cached
+reads, request counts, navigation submission/useful-content timing, and the
+three supported window sizes. Full policy and evidence are in the Task 23 PIV.

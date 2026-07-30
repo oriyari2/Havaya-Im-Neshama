@@ -49,6 +49,7 @@ APP_STYLE = build_neutral_stylesheet()
 
 class MainWindow(QMainWindow):
     session_expired = Signal()
+    cache_refresh_failed = Signal(str)
 
     def __init__(self, api_client: ApiClient | None = None) -> None:
         super().__init__()
@@ -61,6 +62,10 @@ class MainWindow(QMainWindow):
         self.auth_service = AuthService(self.api_client)
         self.api_client.set_unauthorized_handler(self._handle_unauthorized)
         self.session_expired.connect(self._complete_session_expiry)
+        performance_cache = getattr(self.api_client, "performance_cache", None)
+        if performance_cache is not None:
+            performance_cache.set_refresh_failure_handler(self.cache_refresh_failed.emit)
+        self.cache_refresh_failed.connect(self._show_freshness_warning)
         self.booking_service = BookingService(self.api_client)
         self.assignment_service = AssignmentService(self.api_client)
         self.activity_service = ActivityService(self.api_client)
@@ -93,6 +98,13 @@ class MainWindow(QMainWindow):
         self._presenters.clear()
         self._show_login("פג תוקף ההתחברות. יש להתחבר מחדש.")
 
+    def _show_freshness_warning(self, _resource: str) -> None:
+        presenter = self._presenters.get(self._active_page or "")
+        view = getattr(presenter, "view", None)
+        show_error = getattr(view, "show_error", None)
+        if show_error is not None:
+            show_error("המידע המוצג זמין, אך לא ניתן היה לוודא שהוא מעודכן. אפשר לנסות לרענן שוב.")
+
     def _show_workspace(self, session: Session) -> None:
         self.session = session
         self.shell = ShellView(session.email)
@@ -109,7 +121,7 @@ class MainWindow(QMainWindow):
         self._presenters["dashboard"] = dashboard_presenter
 
         activities_view = ActivitiesView(session.role)
-        activities_presenter = ActivitiesPresenter(activities_view, self.activity_service, session.role)
+        activities_presenter = ActivitiesPresenter(activities_view, self.activity_service, session.role, executor=self.operation_executor)
         activities_view.filters_requested.connect(activities_presenter.apply_filters)
         activities_view.page_requested.connect(activities_presenter.page)
         activities_view.activity_selected.connect(activities_presenter.select)
@@ -161,12 +173,12 @@ class MainWindow(QMainWindow):
             self._presenters["customers"] = customers_presenter
 
             knowledge_view = KnowledgeManagementView()
-            knowledge_presenter = KnowledgeManagementPresenter(knowledge_view, self.knowledge_service)
+            knowledge_presenter = KnowledgeManagementPresenter(knowledge_view, self.knowledge_service, self.operation_executor)
             knowledge_view.save_requested.connect(knowledge_presenter.save)
             knowledge_view.replace_requested.connect(knowledge_presenter.replace)
             knowledge_view.delete_requested.connect(knowledge_presenter.delete)
             knowledge_view.source_selected.connect(knowledge_presenter.select_source)
-            knowledge_view.retry_requested.connect(knowledge_presenter.load)
+            knowledge_view.retry_requested.connect(knowledge_presenter.retry)
             self.shell.add_page("knowledge", knowledge_view)
             self._presenters["knowledge"] = knowledge_presenter
         elif session.role == "customer" and session.customer_id:
@@ -186,6 +198,7 @@ class MainWindow(QMainWindow):
             customer_service=self.customer_service,
             activity_service=self.activity_service,
             instructor_service=self.instructor_service,
+            executor=self.operation_executor,
         )
         bookings_view.filters_requested.connect(bookings_presenter.load)
         bookings_view.booking_selected.connect(bookings_presenter.select_booking)
@@ -201,20 +214,20 @@ class MainWindow(QMainWindow):
         self.shell.add_page(bookings_key, bookings_view)
         self._presenters[bookings_key] = bookings_presenter
         if session.role=="manager":
-            assignments_presenter=BookingAssignmentsPresenter(bookings_view,self.assignment_service,self.instructor_service,refresh_booking=bookings_presenter.select_booking,refresh_related=self._refresh_booking_related)
+            assignments_presenter=BookingAssignmentsPresenter(bookings_view,self.assignment_service,self.instructor_service,refresh_booking=bookings_presenter.select_booking,refresh_related=self._refresh_booking_related,executor=self.operation_executor)
             bookings_view.booking_selected.connect(assignments_presenter.select_booking);bookings_view.assignment_add_requested.connect(assignments_presenter.begin_assign);bookings_view.assignment_remove_requested.connect(assignments_presenter.remove);self._presenters["booking_assignments"]=assignments_presenter
 
         if session.role in {"manager", "instructor"}:
             open_view = OpenEventsView()
-            open_presenter = OpenEventsPresenter(open_view, self.booking_service)
+            open_presenter = OpenEventsPresenter(open_view, self.booking_service, self.operation_executor)
             open_view.event_selected.connect(open_presenter.select)
             open_view.filter_requested.connect(open_presenter.apply_filter)
-            open_view.retry_requested.connect(open_presenter.load)
+            open_view.retry_requested.connect(open_presenter.retry)
             self.shell.add_page("open_events", open_view)
             self._presenters["open_events"] = open_presenter
 
         ai_chat_view = AIChatView()
-        ai_chat_presenter = AIChatPresenter(ai_chat_view, self.ai_chat_service)
+        ai_chat_presenter = AIChatPresenter(ai_chat_view, self.ai_chat_service, self.operation_executor)
         ai_chat_view.message_submitted.connect(ai_chat_presenter.send_message)
         self.shell.add_page("ai_chat", ai_chat_view)
         self._presenters["ai_chat"] = ai_chat_presenter
@@ -275,6 +288,9 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         self._invalidate_presenter_requests()
         self.operation_executor.shutdown()
+        performance_cache = getattr(self.api_client, "performance_cache", None)
+        if performance_cache is not None:
+            performance_cache.shutdown()
         super().closeEvent(event)
 
 

@@ -7,6 +7,7 @@ from typing import Callable, Protocol
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.presenters.activity_formatting import activity_details, activity_row
 from desktop_client.app.media_config import MAX_PREVIEW_CACHE_ENTRIES
+from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +55,7 @@ def validate_activity(values: dict[str, object]) -> dict[str, object]:
 
 
 class ActivitiesPresenter:
-    def __init__(self, view, service: ActivityServicePort, role: str, *, limit: int = 25) -> None:
+    def __init__(self, view, service: ActivityServicePort, role: str, *, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view, self.service, self.role = view, service, role
         self.filters: dict[str, object] = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if role == "manager" else True, "limit": limit, "offset": 0}
         self.selected_id: str | None = None; self.selected_activity: dict | None = None; self._loading = False; self._submitting = False
@@ -62,20 +63,37 @@ class ActivitiesPresenter:
         self.selected_image_id: str | None = None
         self._preview_generation = 0
         self._preview_cache: OrderedDict[tuple[str, str, str], bytes] = OrderedDict()
+        self._operations = PresenterOperations(executor, "activities")
+        self._last_list_render = None
         self.view.set_manager_actions(role == "manager")
         self.view.set_media_actions(role == "manager")
 
+    def invalidate_requests(self) -> None:
+        self._operations.invalidate()
+        self._loading = False
+        self._preview_generation += 1
+        self.view.set_loading(False)
+
     def load(self) -> None:
-        if self._loading: return
-        self._loading = True; self.view.set_loading(True)
-        try:
-            payload = self.service.list_activities(dict(self.filters)); items = payload["items"]
-            self.view.show_activities([activity_row(x) for x in items], offset=int(self.filters["offset"]), count=len(items), filtered=any(self.filters[k] not in (None, "") for k in ("search", "target_audience", "season", "tag", "is_active")))
+        context = self._operations.replace("list"); filters = dict(self.filters)
+        self._loading = True
+        if self._last_list_render is None:
+            self.view.set_loading(True)
+        def success(payload):
+            if not self._operations.is_current(context): return
+            items = payload["items"]
+            signature = (filters, items)
+            if signature != self._last_list_render:
+                self.view.show_activities([activity_row(x) for x in items], offset=int(filters["offset"]), count=len(items), filtered=any(filters[k] not in (None, "") for k in ("search", "target_audience", "season", "tag", "is_active")))
+                self._last_list_render = signature
             ids = {str(x["id"]) for x in items}
             if self.selected_id in ids: self.view.select_activity(self.selected_id)
             elif self.selected_id is not None: self.selected_id = None; self.selected_activity = None; self._clear_media_selection(); self.view.clear_details()
-        except Exception as exc: self._show_error(exc)
-        finally: self._loading = False; self.view.set_loading(False)
+        def failure(exc):
+            if self._operations.is_current(context): self._show_error(exc)
+        def finished():
+            if self._operations.finish(context): self._loading = False; self.view.set_loading(False)
+        self._operations.executor.submit(context, lambda: self.service.list_activities(filters), success, failure, finished)
 
     def apply_filters(self, values: dict[str, object]) -> None:
         allowed = {"search", "target_audience", "season", "tag"}
@@ -85,19 +103,25 @@ class ActivitiesPresenter:
     def page(self, offset: int, limit: int) -> None:
         self.filters.update(offset=max(0, offset), limit=limit); self.load()
 
-    def retry(self) -> None: self.load()
+    def retry(self) -> None:
+        invalidate = getattr(self.service, "invalidate_list", None)
+        if invalidate is not None: invalidate(dict(self.filters))
+        self.load()
 
     def select(self, activity_id: str) -> None:
-        self.selected_id = activity_id; self.view.set_loading(True)
-        try:
-            activity = self.service.activity(activity_id); self.selected_activity = activity; self.view.show_details(activity_details(activity), activity)
+        self.selected_id = activity_id; context = self._operations.replace("detail"); self.view.set_loading(True)
+        def success(activity):
+            if not self._operations.is_current(context) or self.selected_id != activity_id: return
+            self.selected_activity = activity; self.view.show_details(activity_details(activity), activity)
             self._set_images(list(activity.get("images") or []))
-        except ApiError as exc:
-            if exc.kind == ApiErrorKind.NOT_FOUND:
+        def failure(exc):
+            if not self._operations.is_current(context): return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = None; self.selected_activity = None; self._clear_media_selection(); self.view.clear_details(); self.view.show_error("הפעילות שנבחרה אינה קיימת עוד. הרשימה רועננה."); self.load()
             else: self._show_error(exc)
-        except Exception as exc: self._show_error(exc)
-        finally: self.view.set_loading(False)
+        def finished():
+            if self._operations.finish(context): self.view.set_loading(False)
+        self._operations.executor.submit(context, lambda: self.service.activity(activity_id), success, failure, finished)
 
     def begin_create(self) -> None:
         if self.role == "manager": self.view.open_activity_form(None, self.submit_create)
@@ -110,14 +134,20 @@ class ActivitiesPresenter:
         if self._submitting or self.role != "manager": return
         try: payload = validate_activity(values)
         except ValueError as exc: form.show_error(str(exc)); return
+        context = self._operations.begin("submit")
+        if context is None: return
         self._submitting = True; form.set_submitting(True)
-        try:
-            activity = self.service.update_activity(activity_id, payload) if activity_id else self.service.create_activity(payload)
+        def success(activity):
+            if not self._operations.is_current(context): return
             self.selected_id = str(activity["id"]); form.close_success(); self.view.show_success("הפעילות נשמרה בהצלחה."); self.load(); self.select(self.selected_id)
-        except Exception as exc:
+        def failure(exc):
+            if not self._operations.is_current(context): return
             form.show_error(self._message(exc))
             if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT and self.selected_id: self.select(self.selected_id)
-        finally: self._submitting = False; form.set_submitting(False)
+        def finished():
+            if self._operations.finish(context): self._submitting = False; form.set_submitting(False)
+        operation = lambda: self.service.update_activity(activity_id, payload) if activity_id else self.service.create_activity(payload)
+        self._operations.executor.submit(context, operation, success, failure, finished)
 
     def deactivate(self) -> None:
         item = self.selected_activity
@@ -140,19 +170,21 @@ class ActivitiesPresenter:
         if self.role != "manager" or self.selected_id is None or self._submitting or not file_path:
             return
         activity_id = self.selected_id
+        context = self._operations.begin("submit")
+        if context is None: return
         self._submitting = True
         self.view.set_media_submitting(True)
-        try:
-            self.service.upload_image(activity_id, file_path)
+        def success(_result):
+            if not self._operations.is_current(context): return
             self._invalidate_activity_cache(activity_id)
             self.view.show_success("התמונה הועלתה בהצלחה.")
             self.load()
             self.select(activity_id)
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
-            self._submitting = False
-            self.view.set_media_submitting(False)
+        def failure(exc):
+            if self._operations.is_current(context): self._show_error(exc)
+        def finished():
+            if self._operations.finish(context): self._submitting = False; self.view.set_media_submitting(False)
+        self._operations.executor.submit(context, lambda: self.service.upload_image(activity_id, file_path), success, failure, finished)
 
     def delete_image(self) -> None:
         if self.role != "manager" or self.selected_id is None or self.selected_image_id is None or self._submitting:
@@ -161,24 +193,25 @@ class ActivitiesPresenter:
         if image is None or not self.view.confirm_image_deletion(str(image.get("original_filename") or "התמונה הנבחרת")):
             return
         activity_id, image_id = self.selected_id, self.selected_image_id
+        context = self._operations.begin("delete")
+        if context is None: return
         self._submitting = True
         self.view.set_media_submitting(True)
-        try:
-            self.service.delete_image(activity_id, image_id)
+        def success(_result):
+            if not self._operations.is_current(context): return
             self._invalidate_activity_cache(activity_id)
             self.view.show_success("התמונה נמחקה בהצלחה.")
             self.load()
             self.select(activity_id)
-        except ApiError as exc:
-            if exc.kind == ApiErrorKind.NOT_FOUND:
+        def failure(exc):
+            if not self._operations.is_current(context): return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self._invalidate_activity_cache(activity_id)
                 self.select(activity_id)
             self._show_error(exc)
-        except Exception as exc:
-            self._show_error(exc)
-        finally:
-            self._submitting = False
-            self.view.set_media_submitting(False)
+        def finished():
+            if self._operations.finish(context): self._submitting = False; self.view.set_media_submitting(False)
+        self._operations.executor.submit(context, lambda: self.service.delete_image(activity_id, image_id), success, failure, finished)
 
     def retry_preview(self) -> None:
         if self.selected_image_id:
@@ -214,26 +247,33 @@ class ActivitiesPresenter:
         generation = self._preview_generation
         key = (activity_id, image_id, secure_url)
         self.view.set_preview_loading(True)
-        try:
-            data = self._preview_cache.get(key) if use_cache else None
-            if data is not None:
-                self._preview_cache.move_to_end(key)
-            else:
-                data = self.service.preview_bytes(secure_url)
-            if not self._preview_is_current(generation, activity_id, image_id):
-                return
-            rendered = self.view.show_preview(data)
-            if rendered is not False and key not in self._preview_cache:
-                self._preview_cache[key] = data
-                self._preview_cache.move_to_end(key)
-                while len(self._preview_cache) > MAX_PREVIEW_CACHE_ENTRIES:
-                    self._preview_cache.popitem(last=False)
-        except Exception:
-            if self._preview_is_current(generation, activity_id, image_id):
+        data = self._preview_cache.get(key) if use_cache else None
+        if data is not None:
+            self._preview_cache.move_to_end(key)
+            self._render_preview_result(data, key, generation, activity_id, image_id)
+            self.view.set_preview_loading(False)
+            return
+        context = self._operations.replace("preview")
+        def success(data):
+            if not self._operations.is_current(context): return
+            self._render_preview_result(data, key, generation, activity_id, image_id)
+        def failure(_exc):
+            if self._operations.is_current(context) and self._preview_is_current(generation, activity_id, image_id):
                 self.view.show_preview_error("לא ניתן להציג כרגע את התמונה. נסו שוב.")
-        finally:
-            if self._preview_is_current(generation, activity_id, image_id):
+        def finished():
+            if self._operations.finish(context) and self._preview_is_current(generation, activity_id, image_id):
                 self.view.set_preview_loading(False)
+        self._operations.executor.submit(context, lambda: self.service.preview_bytes(secure_url), success, failure, finished)
+
+    def _render_preview_result(self, data: bytes, key: tuple[str, str, str], generation: int, activity_id: str, image_id: str) -> None:
+        if not self._preview_is_current(generation, activity_id, image_id):
+            return
+        rendered = self.view.show_preview(data)
+        if rendered is not False and key not in self._preview_cache:
+            self._preview_cache[key] = data
+            self._preview_cache.move_to_end(key)
+            while len(self._preview_cache) > MAX_PREVIEW_CACHE_ENTRIES:
+                self._preview_cache.popitem(last=False)
 
     def _preview_is_current(self, generation: int, activity_id: str, image_id: str) -> bool:
         return generation == self._preview_generation and activity_id == self.selected_id and image_id == self.selected_image_id
@@ -251,12 +291,18 @@ class ActivitiesPresenter:
 
     def _mutate(self, operation: Callable, message: str) -> None:
         if self._submitting: return
+        context = self._operations.begin("mutate")
+        if context is None: return
         self._submitting = True; self.view.set_loading(True)
-        try:
-            item = operation(); selected = str(item["id"]); self.selected_id = selected; self.view.show_success(message); self.load()
+        def success(item):
+            if not self._operations.is_current(context): return
+            selected = str(item["id"]); self.selected_id = selected; self.view.show_success(message); self.load()
             if self.selected_id: self.select(selected)
-        except Exception as exc: self._show_error(exc)
-        finally: self._submitting = False; self.view.set_loading(False)
+        def failure(exc):
+            if self._operations.is_current(context): self._show_error(exc)
+        def finished():
+            if self._operations.finish(context): self._submitting = False; self.view.set_loading(False)
+        self._operations.executor.submit(context, operation, success, failure, finished)
 
     def _show_error(self, exc: Exception) -> None:
         if not isinstance(exc, ApiError):

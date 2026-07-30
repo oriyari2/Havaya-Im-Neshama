@@ -10,6 +10,9 @@ class UserService:
     def list_users(self, filters: dict[str, object]) -> dict:
         return self.api_client.get("/users", filters)
 
+    def invalidate_list(self, filters: dict[str, object]) -> None:
+        self.api_client.invalidate_cached_get("/users", filters)
+
     def user(self, user_id: str) -> dict:
         return self.api_client.get(f"/users/{user_id}")
 
