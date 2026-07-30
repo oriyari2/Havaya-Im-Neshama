@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QSignalBlocker, QTimer, Qt
 from PySide6.QtWidgets import QComboBox, QLabel, QLineEdit, QWidget
 
 from desktop_client.app.views.customer_dialogs import _BaseFormDialog
@@ -43,8 +43,14 @@ class CreateUserDialog(_BaseFormDialog):
         order = [self.email, self.password, self.confirmation, self.role, self.manager_name, self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone, self.instructor_name, self.instructor_phone, self.instructor_city, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]): QWidget.setTabOrder(first, second)
 
-    def _role_changed(self) -> None:
+    def _role_changed(self, *_args) -> None:
         role = self.role.currentData()
+        role_fields = (
+            self.manager_name, self.customer_name, self.customer_type,
+            self.customer_city, self.contact_name, self.contact_phone,
+            self.instructor_name, self.instructor_phone, self.instructor_city,
+        )
+        blockers = [QSignalBlocker(field) for field in role_fields]
         customer = role == "customer"; instructor = role == "instructor"
         manager = role == "manager"; self.form.labelForField(self.manager_name).setVisible(manager); self.manager_name.setVisible(manager)
         if not manager: self.manager_name.clear()
@@ -54,9 +60,11 @@ class CreateUserDialog(_BaseFormDialog):
         for widget in (self.instructor_name, self.instructor_phone, self.instructor_city):
             self.form.labelForField(widget).setVisible(instructor); widget.setVisible(instructor)
             if not instructor: widget.clear()
+        del blockers
         self._update_save_enabled()
+        QTimer.singleShot(0, self._update_save_enabled)
 
-    def _update_save_enabled(self) -> None:
+    def _update_save_enabled(self, *_args) -> None:
         role = self.role.currentData()
         email = self.email.text().strip().lower()
         password = self.password.text()
@@ -64,9 +72,12 @@ class CreateUserDialog(_BaseFormDialog):
         common_valid = common_valid and 8 <= len(password) <= 128 and password == password.strip()
         common_valid = common_valid and all(character.isprintable() for character in password)
         common_valid = common_valid and password == self.confirmation.text()
-        role_valid = role == "manager" and bool(self.manager_name.text().strip())
-        role_valid = role_valid or role == "customer" and all(field.text().strip() for field in (self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone))
-        role_valid = role_valid or role == "instructor" and all(field.text().strip() for field in (self.instructor_name, self.instructor_city))
+        required_fields = {
+            "manager": (self.manager_name,),
+            "customer": (self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone),
+            "instructor": (self.instructor_name, self.instructor_city),
+        }
+        role_valid = role in required_fields and all(field.text().strip() for field in required_fields[role])
         self.save_button.setEnabled(bool(common_valid and role_valid))
 
     def values(self) -> dict:

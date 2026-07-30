@@ -57,6 +57,29 @@ class UserViewTests(TestCase):
         dialog.role.setCurrentIndex(dialog.role.findData("customer")); self.assertEqual(dialog.instructor_name.text(),""); self.assertFalse(dialog.save_button.isEnabled())
         dialog.role.setCurrentIndex(dialog.role.findData("instructor")); dialog.instructor_name.setText("מדריך"); dialog.instructor_city.setText("ירושלים"); selected=dialog.role.currentData(); dialog.show_error("שגיאה"); self.assertEqual(dialog.role.currentData(),selected); self.assertEqual(dialog.password.text(),""); self.assertEqual(dialog.confirmation.text(),""); self.assertFalse(dialog.save_button.isEnabled())
 
+    def test_create_dialog_save_validation_for_all_roles_and_role_switches(self) -> None:
+        dialog=CreateUserDialog(); dialog.show(); self.app.processEvents()
+        dialog.email.setText("new@example.com"); dialog.password.setText("password1"); dialog.confirmation.setText("password1")
+
+        dialog.role.setCurrentIndex(dialog.role.findData("manager")); dialog.manager_name.setText("מנהלת")
+        self.assertTrue(dialog.save_button.isEnabled())
+
+        dialog.role.setCurrentIndex(dialog.role.findData("customer")); self.app.processEvents(); self.assertFalse(dialog.save_button.isEnabled())
+        for field,value in ((dialog.customer_name,"לקוח"),(dialog.customer_type,"בית ספר"),(dialog.customer_city,"חיפה"),(dialog.contact_name,"איש קשר")):
+            field.setText(value); self.assertFalse(dialog.save_button.isEnabled())
+        dialog.contact_phone.setText("050"); self.assertTrue(dialog.save_button.isEnabled())
+        dialog.customer_city.clear(); self.assertFalse(dialog.save_button.isEnabled()); dialog.customer_city.setText("חיפה"); self.assertTrue(dialog.save_button.isEnabled())
+
+        dialog.role.setCurrentIndex(dialog.role.findData("instructor")); self.app.processEvents(); self.assertFalse(dialog.save_button.isEnabled())
+        dialog.instructor_name.setText("מדריך"); self.assertFalse(dialog.save_button.isEnabled())
+        dialog.instructor_city.setText("ירושלים"); self.assertTrue(dialog.save_button.isEnabled())
+        dialog.instructor_phone.setText("051"); self.assertTrue(dialog.save_button.isEnabled())
+        dialog.instructor_phone.clear(); self.assertTrue(dialog.save_button.isEnabled())
+        dialog.password.setText("short"); self.assertFalse(dialog.save_button.isEnabled())
+        dialog.password.setText("password1"); self.assertTrue(dialog.save_button.isEnabled())
+        dialog.confirmation.setText("different"); self.assertFalse(dialog.save_button.isEnabled())
+        dialog.confirmation.setText("password1"); self.assertTrue(dialog.save_button.isEnabled()); dialog.close()
+
     def test_instructor_details_use_same_login_email_and_safe_phone(self) -> None:
         view=UsersView(); instructor={**USER,"role":"instructor","customer_id":None,"customer_name":None,"customer_email":None,"contact_name":None,"contact_phone":None,"instructor_id":"i1","instructor_name":"מדריך","instructor_email":"instructor@example.com","instructor_phone":"051","email":"instructor@example.com"}; view.show_details(instructor,current_user_id="other")
         rendered=" ".join(view.details.itemAt(row,QFormLayout.ItemRole.FieldRole).widget().text() for row in range(view.details.rowCount())); self.assertIn("מדריך",rendered); self.assertIn("instructor@example.com",rendered); self.assertIn("051",rendered)
