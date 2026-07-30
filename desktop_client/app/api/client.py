@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 import os
+import secrets
 from enum import StrEnum
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import Request, urlopen
+from urllib.parse import urlparse
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 
 class ApiErrorKind(StrEnum):
@@ -47,6 +49,17 @@ class ApiError(RuntimeError):
         }.get(status_code, ApiErrorKind.SERVER if status_code >= 500 else ApiErrorKind.UNKNOWN)
 
 
+class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, request, file_pointer, code, message, headers, new_url):
+        parsed = urlparse(new_url)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise URLError("Insecure image redirect blocked")
+        redirected = super().redirect_request(request, file_pointer, code, message, headers, new_url)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
 class ApiClient:
     def __init__(self, base_url: str | None = None, timeout: float = 120.0) -> None:
         self.base_url = (base_url or os.getenv("API_BASE_URL", "http://127.0.0.1:8000")).rstrip("/")
@@ -80,23 +93,74 @@ class ApiClient:
     def delete(self, path: str, payload: dict[str, object] | None = None) -> Any:
         return self._request("DELETE", path, payload)
 
+    def post_multipart(
+        self,
+        path: str,
+        *,
+        field_name: str,
+        filename: str,
+        content_type: str,
+        file_bytes: bytes,
+    ) -> Any:
+        boundary = f"codex-{secrets.token_hex(16)}"
+        disposition = (
+            f'Content-Disposition: form-data; name="{field_name}"; '
+            f'filename="{filename.replace(chr(34), "_")}"\r\n'
+        ).encode("utf-8")
+        body = b"".join(
+            (
+                f"--{boundary}\r\n".encode("ascii"),
+                disposition,
+                f"Content-Type: {content_type}\r\n\r\n".encode("ascii"),
+                file_bytes,
+                f"\r\n--{boundary}--\r\n".encode("ascii"),
+            )
+        )
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }
+        return self._send("POST", f"{self.base_url}{path}", data=body, headers=headers, authenticated=True)
+
+    def get_public_bytes(self, url: str, *, max_bytes: int) -> bytes:
+        parsed = urlparse(url)
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ApiError("Invalid secure image URL", kind=ApiErrorKind.VALIDATION)
+        request = Request(url, headers={"Accept": "image/*"}, method="GET")
+        try:
+            with build_opener(_HttpsOnlyRedirectHandler()).open(request, timeout=self.timeout) as response:
+                final_url = response.geturl()
+                final = urlparse(final_url)
+                if final.scheme != "https" or not final.netloc:
+                    raise ApiError("Image preview is unavailable", kind=ApiErrorKind.CONNECTION)
+                data = response.read(max_bytes + 1)
+        except HTTPError as exc:
+            raise ApiError("Image preview is unavailable", status_code=exc.code) from exc
+        except (URLError, TimeoutError, OSError) as exc:
+            raise ApiError("Image preview is unavailable", kind=ApiErrorKind.CONNECTION) from exc
+        if len(data) > max_bytes:
+            raise ApiError("Image preview exceeds the allowed size", kind=ApiErrorKind.VALIDATION)
+        return data
+
     def _request(self, method: str, path: str, payload: dict[str, object] | None = None) -> Any:
         headers = {"Accept": "application/json"}
         data = None
         if payload is not None:
             headers["Content-Type"] = "application/json"
             data = json.dumps(payload).encode("utf-8")
-        if self.access_token:
-            headers["Authorization"] = f"Bearer {self.access_token}"
+        return self._send(method, f"{self.base_url}{path}", data=data, headers=headers, authenticated=True)
 
-        request = Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
+    def _send(self, method: str, url: str, *, data: bytes | None, headers: dict[str, str], authenticated: bool) -> Any:
+        if authenticated and self.access_token:
+            headers = {**headers, "Authorization": f"Bearer {self.access_token}"}
+        request = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(request, timeout=self.timeout) as response:
                 body = response.read().decode("utf-8")
                 return json.loads(body) if body else None
         except HTTPError as exc:
             message = self._error_message(exc.read().decode("utf-8", errors="replace"))
-            if exc.code == 401 and self.access_token is not None:
+            if authenticated and exc.code == 401 and self.access_token is not None:
                 self.access_token = None
                 if self._unauthorized_handler is not None:
                     self._unauthorized_handler()

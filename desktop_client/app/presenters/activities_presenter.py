@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from typing import Callable, Protocol
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.presenters.activity_formatting import activity_details, activity_row
+from desktop_client.app.media_config import MAX_PREVIEW_CACHE_ENTRIES
 
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,9 @@ class ActivityServicePort(Protocol):
     def update_activity(self, activity_id: str, payload: dict[str, object]) -> dict: ...
     def deactivate_activity(self, activity_id: str) -> dict: ...
     def reactivate_activity(self, activity_id: str) -> dict: ...
+    def upload_image(self, activity_id: str, file_path: str) -> dict: ...
+    def delete_image(self, activity_id: str, image_id: str) -> dict: ...
+    def preview_bytes(self, secure_url: str) -> bytes: ...
 
 
 def validate_activity(values: dict[str, object]) -> dict[str, object]:
@@ -53,7 +58,12 @@ class ActivitiesPresenter:
         self.view, self.service, self.role = view, service, role
         self.filters: dict[str, object] = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if role == "manager" else True, "limit": limit, "offset": 0}
         self.selected_id: str | None = None; self.selected_activity: dict | None = None; self._loading = False; self._submitting = False
+        self.images: list[dict] = []
+        self.selected_image_id: str | None = None
+        self._preview_generation = 0
+        self._preview_cache: OrderedDict[tuple[str, str, str], bytes] = OrderedDict()
         self.view.set_manager_actions(role == "manager")
+        self.view.set_media_actions(role == "manager")
 
     def load(self) -> None:
         if self._loading: return
@@ -63,7 +73,7 @@ class ActivitiesPresenter:
             self.view.show_activities([activity_row(x) for x in items], offset=int(self.filters["offset"]), count=len(items), filtered=any(self.filters[k] not in (None, "") for k in ("search", "target_audience", "season", "tag", "is_active")))
             ids = {str(x["id"]) for x in items}
             if self.selected_id in ids: self.view.select_activity(self.selected_id)
-            elif self.selected_id is not None: self.selected_id = None; self.selected_activity = None; self.view.clear_details()
+            elif self.selected_id is not None: self.selected_id = None; self.selected_activity = None; self._clear_media_selection(); self.view.clear_details()
         except Exception as exc: self._show_error(exc)
         finally: self._loading = False; self.view.set_loading(False)
 
@@ -81,9 +91,10 @@ class ActivitiesPresenter:
         self.selected_id = activity_id; self.view.set_loading(True)
         try:
             activity = self.service.activity(activity_id); self.selected_activity = activity; self.view.show_details(activity_details(activity), activity)
+            self._set_images(list(activity.get("images") or []))
         except ApiError as exc:
             if exc.kind == ApiErrorKind.NOT_FOUND:
-                self.selected_id = None; self.selected_activity = None; self.view.clear_details(); self.view.show_error("הפעילות שנבחרה אינה קיימת עוד. הרשימה רועננה."); self.load()
+                self.selected_id = None; self.selected_activity = None; self._clear_media_selection(); self.view.clear_details(); self.view.show_error("הפעילות שנבחרה אינה קיימת עוד. הרשימה רועננה."); self.load()
             else: self._show_error(exc)
         except Exception as exc: self._show_error(exc)
         finally: self.view.set_loading(False)
@@ -116,6 +127,127 @@ class ActivitiesPresenter:
         item = self.selected_activity
         if self.role == "manager" and item and not item.get("is_active"):
             self._mutate(lambda: self.service.reactivate_activity(str(item["id"])), "הפעילות הופעלה מחדש.")
+
+    def select_image(self, image_id: str) -> None:
+        image = next((item for item in self.images if str(item.get("id")) == image_id), None)
+        if image is None or self.selected_id is None:
+            return
+        self.selected_image_id = image_id
+        self.view.select_image(image_id)
+        self._load_preview(image)
+
+    def upload_image(self, file_path: str) -> None:
+        if self.role != "manager" or self.selected_id is None or self._submitting or not file_path:
+            return
+        activity_id = self.selected_id
+        self._submitting = True
+        self.view.set_media_submitting(True)
+        try:
+            self.service.upload_image(activity_id, file_path)
+            self._invalidate_activity_cache(activity_id)
+            self.view.show_success("התמונה הועלתה בהצלחה.")
+            self.load()
+            self.select(activity_id)
+        except Exception as exc:
+            self._show_error(exc)
+        finally:
+            self._submitting = False
+            self.view.set_media_submitting(False)
+
+    def delete_image(self) -> None:
+        if self.role != "manager" or self.selected_id is None or self.selected_image_id is None or self._submitting:
+            return
+        image = next((item for item in self.images if str(item.get("id")) == self.selected_image_id), None)
+        if image is None or not self.view.confirm_image_deletion(str(image.get("original_filename") or "התמונה הנבחרת")):
+            return
+        activity_id, image_id = self.selected_id, self.selected_image_id
+        self._submitting = True
+        self.view.set_media_submitting(True)
+        try:
+            self.service.delete_image(activity_id, image_id)
+            self._invalidate_activity_cache(activity_id)
+            self.view.show_success("התמונה נמחקה בהצלחה.")
+            self.load()
+            self.select(activity_id)
+        except ApiError as exc:
+            if exc.kind == ApiErrorKind.NOT_FOUND:
+                self._invalidate_activity_cache(activity_id)
+                self.select(activity_id)
+            self._show_error(exc)
+        except Exception as exc:
+            self._show_error(exc)
+        finally:
+            self._submitting = False
+            self.view.set_media_submitting(False)
+
+    def retry_preview(self) -> None:
+        if self.selected_image_id:
+            image = next((item for item in self.images if str(item.get("id")) == self.selected_image_id), None)
+            if image:
+                self._load_preview(image, use_cache=False)
+
+    def clear_preview_cache(self) -> None:
+        self._preview_cache.clear()
+        self._preview_generation += 1
+
+    def _set_images(self, images: list[dict]) -> None:
+        self._preview_generation += 1
+        self.images = images
+        self.view.show_images(images)
+        if not images:
+            self.selected_image_id = None
+            self.view.show_no_images()
+            return
+        selected = next((item for item in images if item.get("is_primary")), images[0])
+        self.selected_image_id = str(selected["id"])
+        self.view.select_image(self.selected_image_id)
+        self._load_preview(selected)
+
+    def _load_preview(self, image: dict, *, use_cache: bool = True) -> None:
+        activity_id = self.selected_id
+        image_id = str(image.get("id") or "")
+        secure_url = str(image.get("secure_url") or "")
+        if not activity_id or not image_id or not secure_url:
+            self.view.show_preview_error("לא ניתן להציג את התמונה.")
+            return
+        self._preview_generation += 1
+        generation = self._preview_generation
+        key = (activity_id, image_id, secure_url)
+        self.view.set_preview_loading(True)
+        try:
+            data = self._preview_cache.get(key) if use_cache else None
+            if data is not None:
+                self._preview_cache.move_to_end(key)
+            else:
+                data = self.service.preview_bytes(secure_url)
+            if not self._preview_is_current(generation, activity_id, image_id):
+                return
+            rendered = self.view.show_preview(data)
+            if rendered is not False and key not in self._preview_cache:
+                self._preview_cache[key] = data
+                self._preview_cache.move_to_end(key)
+                while len(self._preview_cache) > MAX_PREVIEW_CACHE_ENTRIES:
+                    self._preview_cache.popitem(last=False)
+        except Exception:
+            if self._preview_is_current(generation, activity_id, image_id):
+                self.view.show_preview_error("לא ניתן להציג כרגע את התמונה. נסו שוב.")
+        finally:
+            if self._preview_is_current(generation, activity_id, image_id):
+                self.view.set_preview_loading(False)
+
+    def _preview_is_current(self, generation: int, activity_id: str, image_id: str) -> bool:
+        return generation == self._preview_generation and activity_id == self.selected_id and image_id == self.selected_image_id
+
+    def _invalidate_activity_cache(self, activity_id: str) -> None:
+        for key in [key for key in self._preview_cache if key[0] == activity_id]:
+            self._preview_cache.pop(key, None)
+        self._preview_generation += 1
+
+    def _clear_media_selection(self) -> None:
+        self._preview_generation += 1
+        self.images = []
+        self.selected_image_id = None
+        self.view.clear_media()
 
     def _mutate(self, operation: Callable, message: str) -> None:
         if self._submitting: return

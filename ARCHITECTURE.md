@@ -70,3 +70,13 @@ in `backend/app/db/system_queries.py`, raw event history is manager-only, and
 terminal booking immutability is enforced by the aggregate rather than by UI
 button state. Architecture tests scan routers, presenters, and views for these
 boundary violations.
+
+Task 19 extends the existing activity path without adding a media module:
+`ApiClient -> ActivityService -> ActivitiesPresenter -> passive
+ActivitiesView`. Authenticated upload/delete continue through FastAPI and the
+existing image Gateway. Public Cloudinary preview bytes are downloaded over
+HTTPS without the FastAPI bearer token, remain in a bounded three-entry
+memory-only LRU cache, and are never written to disk. The presenter owns request
+identity and rejects obsolete results but imports no PySide6; `ActivitiesView`
+exclusively owns `QPixmap` decoding, scaling, and rendering. Activity images
+remain conventional metadata and are not event-sourced.

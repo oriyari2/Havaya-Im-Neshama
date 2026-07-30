@@ -134,6 +134,9 @@ Implemented so far:
 - Manager textual activity management and an active-only read-only activity
   catalog for instructors/customers, including search, filters, pagination,
   detail, and soft deactivate/reactivate.
+- Manager activity-image upload/delete inside the Activities screen through the
+  existing FastAPI/Cloudinary Gateway, plus read-only previews for active
+  activities for instructors and customers (Task 19).
 - Manager instructor profile management with search/filter/page/detail and
   protected physical deletion, plus an instructor-owned read-only profile.
   Assignment/history/user dependencies return 409.
@@ -159,6 +162,22 @@ answers only from those chunks, requires inline `[n]` citations, returns
 `answer_basis="rag"` with used sources, and abstains with `answer_basis="none"`
 without calling the LLM when reliable context is unavailable. There is no
 general-knowledge or web fallback.
+
+## Desktop Activity Images
+
+Managers can select an activity and upload or delete JPEG, PNG, and WebP images
+from the existing Activities screen. Instructors and customers see previews for
+active activities without mutation controls. Upload/delete always use the
+authenticated FastAPI endpoints and backend-owned image Gateway; the desktop
+contains no Cloudinary credentials or SDK.
+
+Desktop safety defaults are centralized in
+`desktop_client/app/media_config.py`: uploads and preview downloads are limited
+to 10 MiB, and at most three successful previews are retained in a memory-only
+LRU cache. Public HTTPS preview requests omit the FastAPI bearer token. Preview
+images are never written to disk, and the cache is cleared on logout or session
+expiry. Redirects are accepted only when every target and the final response
+remain on HTTPS.
 
 ## RAG Knowledge Ingestion
 

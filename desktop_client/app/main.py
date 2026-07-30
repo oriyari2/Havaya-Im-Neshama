@@ -86,6 +86,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._complete_session_expiry)
 
     def _complete_session_expiry(self) -> None:
+        self._clear_preview_caches()
         self._presenters.clear()
         self._show_login("פג תוקף ההתחברות. יש להתחבר מחדש.")
 
@@ -110,11 +111,15 @@ class MainWindow(QMainWindow):
         activities_view.page_requested.connect(activities_presenter.page)
         activities_view.activity_selected.connect(activities_presenter.select)
         activities_view.retry_requested.connect(activities_presenter.retry)
+        activities_view.image_selected.connect(activities_presenter.select_image)
+        activities_view.preview_retry_requested.connect(activities_presenter.retry_preview)
         if session.role == "manager":
             activities_view.create_requested.connect(activities_presenter.begin_create)
             activities_view.edit_requested.connect(activities_presenter.begin_edit)
             activities_view.deactivate_requested.connect(activities_presenter.deactivate)
             activities_view.reactivate_requested.connect(activities_presenter.reactivate)
+            activities_view.upload_image_requested.connect(activities_presenter.upload_image)
+            activities_view.delete_image_requested.connect(activities_presenter.delete_image)
         self.shell.add_page("activities", activities_view)
         self._presenters["activities"] = activities_presenter
 
@@ -223,9 +228,16 @@ class MainWindow(QMainWindow):
             if presenter is not None:presenter.load()
 
     def _logout(self) -> None:
+        self._clear_preview_caches()
         self.auth_service.logout()
         self._presenters.clear()
         self._show_login()
+
+    def _clear_preview_caches(self) -> None:
+        for presenter in self._presenters.values():
+            clear_cache = getattr(presenter, "clear_preview_cache", None)
+            if clear_cache is not None:
+                clear_cache()
 
 
 def main() -> int:

@@ -3,10 +3,12 @@ from __future__ import annotations
 import io
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
+from urllib.request import Request
 from urllib.error import HTTPError, URLError
 
-from desktop_client.app.api.client import ApiClient, ApiError, ApiErrorKind
+from desktop_client.app.api.client import ApiClient, ApiError, ApiErrorKind, _HttpsOnlyRedirectHandler
+from desktop_client.app.media_config import MAX_PREVIEW_DOWNLOAD_BYTES
 
 
 class _Response:
@@ -19,11 +21,117 @@ class _Response:
     def __exit__(self, *_args):
         return None
 
-    def read(self):
-        return self.payload
+    def read(self, size=-1):
+        return self.payload if size < 0 else self.payload[:size]
+
+
+class _RawResponse:
+    def __init__(self, payload: bytes, final_url: str = "https://cdn.example/image") -> None:
+        self.payload = payload
+        self.final_url = final_url
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def read(self, size=-1):
+        return self.payload if size < 0 else self.payload[:size]
+
+    def geturl(self):
+        return self.final_url
 
 
 class ApiClientTests(unittest.TestCase):
+    def test_multipart_upload_is_authenticated_and_contains_file(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        captured = []
+
+        def respond(request, timeout):
+            captured.append(request)
+            return _Response({"id": "image-1"})
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=respond):
+            result = client.post_multipart(
+                "/activities/a1/images",
+                field_name="file",
+                filename="פלאייר.png",
+                content_type="image/png",
+                file_bytes=b"image-bytes",
+            )
+
+        request = captured[0]
+        self.assertEqual(result, {"id": "image-1"})
+        self.assertEqual(request.method, "POST")
+        self.assertEqual(request.get_header("Authorization"), "Bearer manager-token")
+        self.assertIn("multipart/form-data; boundary=", request.get_header("Content-type"))
+        self.assertIn("פלאייר.png".encode(), request.data)
+        self.assertIn(b"Content-Type: image/png", request.data)
+        self.assertIn(b"image-bytes", request.data)
+
+    def test_public_preview_is_https_bounded_and_never_authenticated(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("must-not-leak")
+        requests = []
+
+        opener = Mock()
+        opener.open.side_effect = lambda request, timeout: requests.append(request) or _RawResponse(b"1234")
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            self.assertEqual(client.get_public_bytes("https://cdn.example/image", max_bytes=10), b"1234")
+        self.assertIsNone(requests[0].get_header("Authorization"))
+        with self.assertRaises(ApiError):
+            client.get_public_bytes("http://cdn.example/image", max_bytes=10)
+        opener.open.return_value = _RawResponse(b"x" * 11)
+        opener.open.side_effect = None
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            with self.assertRaises(ApiError):
+                client.get_public_bytes("https://cdn.example/large", max_bytes=10)
+
+    def test_public_preview_redirects_remain_https_and_strip_authorization(self) -> None:
+        handler = _HttpsOnlyRedirectHandler()
+        original = Request("https://cdn.example/start", headers={"Authorization": "Bearer forbidden"})
+        redirected = handler.redirect_request(original, None, 302, "Found", {}, "https://cdn2.example/final")
+        self.assertEqual(redirected.full_url, "https://cdn2.example/final")
+        self.assertIsNone(redirected.get_header("Authorization"))
+        with self.assertRaises(URLError):
+            handler.redirect_request(original, None, 302, "Found", {}, "http://cdn2.example/final")
+
+    def test_public_preview_rejects_http_final_url_and_handles_timeout(self) -> None:
+        client = ApiClient("http://example.test")
+        opener = Mock()
+        opener.open.return_value = _RawResponse(b"image", "http://cdn.example/final")
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            with self.assertRaises(ApiError):
+                client.get_public_bytes("https://cdn.example/start", max_bytes=10)
+        opener.open.side_effect = TimeoutError()
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            with self.assertRaises(ApiError) as raised:
+                client.get_public_bytes("https://cdn.example/start", max_bytes=10)
+        self.assertEqual(raised.exception.kind, ApiErrorKind.CONNECTION)
+
+    def test_public_preview_exact_configured_boundary(self) -> None:
+        client = ApiClient("http://example.test")
+        opener = Mock()
+        opener.open.return_value = _RawResponse(b"x" * MAX_PREVIEW_DOWNLOAD_BYTES)
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            self.assertEqual(len(client.get_public_bytes("https://cdn.example/image", max_bytes=MAX_PREVIEW_DOWNLOAD_BYTES)), MAX_PREVIEW_DOWNLOAD_BYTES)
+        opener.open.return_value = _RawResponse(b"x" * (MAX_PREVIEW_DOWNLOAD_BYTES + 1))
+        with patch("desktop_client.app.api.client.build_opener", return_value=opener):
+            with self.assertRaises(ApiError):
+                client.get_public_bytes("https://cdn.example/image", max_bytes=MAX_PREVIEW_DOWNLOAD_BYTES)
+
+    def test_json_and_multipart_have_one_authorization_header(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("one-token")
+        requests = []
+        with patch("desktop_client.app.api.client.urlopen", side_effect=lambda request, timeout: requests.append(request) or _Response({"ok": True})):
+            client.post("/activities", {"name": "A"})
+            client.post_multipart("/activities/a/images", field_name="file", filename="a.png", content_type="image/png", file_bytes=b"x")
+        for request in requests:
+            authorization = [value for name, value in request.header_items() if name.lower() == "authorization"]
+            self.assertEqual(authorization, ["Bearer one-token"])
     def test_validation_details_are_readable(self) -> None:
         raw = '{"detail":[{"loc":["body","participant_count"],"msg":"Input should be greater than 0"}]}'
         self.assertEqual(ApiClient._error_message(raw), "Input should be greater than 0")

@@ -88,9 +88,15 @@ Activity image Gateway
 
 FR-ACT-03, Gateway course requirement
 
-Backend API implemented
+Backend API and desktop workflow implemented
 
-Task 07 adds activity image persistence, manager-only upload/delete endpoints, customer/instructor read visibility for active activities, activity response image URLs, and a Cloudinary adapter behind an application-owned Gateway abstraction. Desktop image UI remains not started.
+Task 07 adds activity image persistence, manager-only upload/delete endpoints,
+customer/instructor read visibility for active activities, activity response
+image URLs, and a Cloudinary adapter behind an application-owned Gateway
+abstraction. Task 19 completes the desktop slice: manager upload/delete is
+embedded in Activities, instructor/customer active-activity previews are
+read-only, public preview downloads omit the bearer token, and a bounded
+memory-only cache never writes preview images to disk.
 
 Booking Event Sourcing
 
@@ -335,7 +341,11 @@ Activity catalog can be read by non-manager roles where permitted.
 
 Mutations are restricted by role after RBAC exists.
 
-FR-ACT-01 is implemented at API level. FR-ACT-02 is implemented at API/persistence level for textual catalog data. FR-ACT-04 is implemented for backend authorization. FR-ACT-03 is implemented by Task 07 at backend/Gateway/API level; desktop media mutation remains deferred.
+FR-ACT-01 is implemented end to end for textual activity management. FR-ACT-02
+includes textual catalog data and Task 19 desktop image display. FR-ACT-04 is
+implemented for backend authorization and role-safe read-only desktop media.
+FR-ACT-03 is implemented end to end by Task 07 backend/Gateway/API support and
+Task 19 manager desktop upload/delete.
 
 Task 07 - Cloudinary Gateway and Activity Images
 
@@ -365,7 +375,10 @@ Image upload returns asset_id and secure_url.
 
 Activity details can display the saved image URL.
 
-FR-ACT-02 is implemented for textual catalog data plus activity image URL exposure at API level. FR-ACT-03 is implemented at backend/Gateway/API level. FR-ACT-04 includes read-only image visibility for customers and instructors on active activities. Desktop image mutation/display is explicitly deferred to a later media task.
+FR-ACT-02 includes textual catalog data, image URL exposure, and Task 19 desktop
+display. FR-ACT-03 is complete through the Task 07 Gateway/API and Task 19
+manager desktop workflow. FR-ACT-04 includes read-only active-activity image
+visibility for customers and instructors in both API and desktop catalog.
 
 Task 08 - Booking Event Sourcing and CQRS Core
 
@@ -522,8 +535,9 @@ Deferred:
 
 Later tasks
 
-- Activity media/Cloudinary desktop mutations through the existing Gateway.
-- Read-only AI/RAG with Ollama and approved grounded knowledge.
+- Final end-to-end acceptance, documentation audit, and academic demo packaging.
+- Authenticated grounded RAG consultation, citation/source display, desktop AI
+  chat, ingestion, and manager knowledge management are implemented.
 - Final submission/demo packaging after the remaining product tasks.
 
 Grade-Focused Priorities
