@@ -1,5 +1,10 @@
 # Task 20 PIV — Neutral Desktop UX, Accessibility, and Request-State Foundations
 
+> Current planning note: Task 20 is complete. Historical future-task numbers in
+> this PIV are superseded by `docs/PROJECT-ROADMAP.md`: UI/UX Tasks 22–25,
+> performance Tasks 26–28, AI Tasks 29–30, and stabilization/release Tasks
+> 31–33.
+
 ## Status
 
 Design and bounded implementation are complete. ChatGPT implementation audit,
@@ -66,7 +71,8 @@ shared presentation foundation is inconsistent:
 - A plain request identity defines session/module/operation/generation/resource
   currency; stale results never render.
 - Task 20 removes `processEvents()` from migrated loading behavior but does not
-  claim asynchronous execution. Task 29 owns the application-wide worker pattern.
+  claim asynchronous execution. Current Task 26 owns the application-wide
+  worker pattern.
 
 ## Architecture boundaries
 
@@ -111,7 +117,7 @@ After implementation, review and synchronize:
 - `ARCHITECTURE.md` from planned to implemented wording;
 - README only if run behavior changes;
 - actual test counts, manual screenshots/evidence, accepted limitations, and
-  deferred Task 24–29 work.
+  deferred work now sequenced across Tasks 22–30.
 
 Historical Task/PIV records remain unchanged and truthful.
 
@@ -120,7 +126,7 @@ Historical Task/PIV records remain unchanged and truthful.
 Task 20 must not choose final colors, font families, logo treatment, icons,
 photography, activity-image treatment, or branded login/dashboard/AI identity.
 Neutral tokens are temporary structural test values. Real identity work is
-blocked on Task 24 product-owner assets and approval.
+subject to Task 22 product-owner visual decisions and available assets.
 
 ## Manual-review checkpoint
 

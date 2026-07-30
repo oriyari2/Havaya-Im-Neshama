@@ -82,7 +82,7 @@ PRD manager user/role permission, User Administration screen, `FR-AUTH-01`,
 `FR-AUTH-02`, `FR-AUTH-03`, `NFR-02`, `NFR-04`, `NFR-05`, `NFR-07`,
 `NFR-09`, `NFR-10`
 
-Implemented; audit required
+Implemented, approved, committed, and pushed
 
 Task 21 implements lean manager-created user administration on the Task 20
 desktop foundation. It covers list/search/role-status filters, immediate account
@@ -98,8 +98,10 @@ session invalidation, audit/event systems, optimistic versioning, complex role/
 profile transitions, and physical deletion are explicitly excluded. Manager-
 only FastAPI authorization, safe schemas, application/repository persistence,
 the Task 20-based passive desktop View and Qt-free Presenter, and focused/full
-regression tests provide implementation evidence. Audit and commit remain
-pending; the broader project is not complete.
+regression tests provide implementation evidence. Customer creation includes
+Customer type and city; Instructor creation includes city. Final cross-screen
+and reactive role-form validation corrections are approved and committed. Task
+21 is closed; the broader project is not complete.
 
 Activity catalog
 
@@ -567,9 +569,9 @@ Implemented requirement coverage:
 - `NFR-01`: shared Hebrew/RTL layout, validation, and readable loading, empty,
   error, success, and feedback conventions.
 - `NFR-03`: semantic request-state and request-identity contracts, including
-  duplicate guards and stale Customer-detail rejection; AI
-  cancellation remains Task 28 and application-wide background execution
-  remains Task 29.
+  duplicate guards and stale Customer-detail rejection; application-wide
+  background execution is now Task 26, while remaining AI cancellation/runtime
+  work follows in Tasks 29–30 after performance closure.
 - `NFR-07`: explicit passive component and Qt-independent presenter/View state
   interfaces with focused automated tests.
 - `NFR-09`: accessible labels/names/descriptions, logical focus order, visible
@@ -594,16 +596,22 @@ Task 20 production code and focused tests implement this entry at commit
 product-owner approval. Human screen-reader certification is not claimed and
 remains a documented project limitation rather than an open Task 20 gate. Final
 colors, typography, logo treatment,
-icons, imagery, and branded screen design are explicitly deferred to the Task
-24 branding checkpoint and Tasks 25-28. Historical Task/PIV records remain
-unchanged.
+icons, imagery, and screen design are now prioritized in Phase 2 Tasks 22–25.
+Historical Task/PIV descriptions remain evidence, while their old future-task
+numbers are superseded by the authoritative roadmap.
 
 Later tasks
 
-- Final end-to-end acceptance, documentation audit, and academic demo packaging.
-- Authenticated grounded RAG consultation, citation/source display, desktop AI
-  chat, ingestion, and manager knowledge management are implemented.
-- Final submission/demo packaging after the remaining product tasks.
+- Phase 2 / Tasks 22–25: Desktop visual design, UI consistency, UX,
+  accessibility, responsive layouts, and professional presentation.
+- Phase 3 / Tasks 26–28: background execution, faster loading/API interaction,
+  refresh reduction, bounded caching, reliability, security, and measurable
+  responsiveness.
+- Phase 4 / Tasks 29–30: remaining Ollama readiness, RAG/semantic-search quality,
+  and AI experience work. Authenticated grounded retrieval, citations, desktop
+  chat, ingestion, and manager knowledge management are already implemented.
+- Phase 5 / Tasks 31–33: stabilization, performance verification, complete
+  regression, Windows packaging, submission materials, and final audit.
 
 Grade-Focused Priorities
 

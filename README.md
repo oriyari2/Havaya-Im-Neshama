@@ -10,6 +10,21 @@ event-sourced booking workflows, role-aware desktop screens, local Ollama AI
 infrastructure, approved-knowledge RAG ingestion and retrieval, and grounded
 RAG-only AI consultation with manager knowledge-source management.
 
+## Development Roadmap
+
+Tasks 01–21 are complete. The authoritative remaining order is:
+
+1. Tasks 22–25: Desktop visual design, UI consistency, UX, accessibility, and
+   responsive professional presentation.
+2. Tasks 26–28: performance, background execution, faster API/screen loading,
+   refresh reduction, bounded caching, reliability, and security.
+3. Tasks 29–30: remaining Ollama, RAG, semantic-search, and AI experience work.
+4. Tasks 31–33: stabilization, performance verification, full regression,
+   Windows packaging, submission preparation, and final audit.
+
+See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md). Task 22 is next and has
+planning-audit status only; implementation has not started.
+
 ## Project Structure
 
 ```text
@@ -128,8 +143,9 @@ Implemented so far:
   customer my-bookings screens backed by the FastAPI API.
 - Manager booking creation, confirmation, cancellation, and supported field
   edits through the event-sourced command API with optimistic concurrency.
-- Manager customer directory and nested contact management with search,
-  filters and pagination. Customers use protected physical deletion; linked
+- Manager customer directory with a single Contact-person name/phone workflow,
+  search, filters, pagination, and readable details. Historical contact rows
+  remain stored without a normal multi-contact UI. Customers use protected physical deletion; linked
   bookings/history/users return 409, while owned contacts cascade.
 - Manager textual activity management and an active-only read-only activity
   catalog for instructors/customers, including search, filters, pagination,
@@ -155,6 +171,10 @@ Implemented so far:
 - Manager-only approved knowledge-source management for pasted text and
   `.txt`/`.md` uploads, with logical source listing, replace/delete, and
   configurable role visibility metadata (Task 18).
+- Neutral shared Desktop UI/accessibility/request-state foundations (Task 20).
+- Manager-only User Administration for Manager, Customer, and Instructor
+  accounts, including atomic creation of linked Customer/Instructor business
+  entities, active status, email edit, and password reset (Task 21).
 
 Task 17 connects role-aware retrieval to `POST /api/ai/consult`. The endpoint
 retrieves approved chunks using only the authenticated role before generation,

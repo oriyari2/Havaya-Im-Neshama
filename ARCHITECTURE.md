@@ -3,6 +3,23 @@
 The PRD remains the source of truth. The desktop implementation uses explicit
 MVP and API boundaries:
 
+## Planning sequence after Task 21
+
+The authoritative execution order is defined by `docs/PROJECT-ROADMAP.md`:
+
+1. completed architecture/backend/desktop/CQRS/Event Sourcing/User
+   Administration foundation (Tasks 01–21);
+2. Desktop visual design, UI consistency, UX, accessibility, and responsive
+   layout (Tasks 22–25);
+3. background execution, API/screen performance, refresh reduction, bounded
+   caching, reliability, security, and responsiveness (Tasks 26–28);
+4. remaining Ollama/RAG/semantic-search/AI experience work (Tasks 29–30);
+5. stabilization, performance verification, regression, packaging, and final
+   release audit (Tasks 31–33).
+
+This ordering changes scheduling, not architectural ownership. Historical Task
+and PIV references to old future-task numbers are superseded by the roadmap.
+
 ```text
 desktop_client/app/
   api/          HTTP transport, bearer token, API errors
@@ -89,9 +106,10 @@ and session-expiry behavior without importing PySide6. Passive shared widgets
 render that state and emit intent; they do not classify errors, access
 services, or decide authorization. The bounded pilot is Login, Shell,
 Customers, Customer/Contact dialogs, and shared state components. Temporary
-neutral tokens are structural only; final brand decisions remain blocked on
-Task 24. Task 20 does not implement production-wide background threading; Task
-29 remains responsible for the reusable long-running-operation pattern.
+neutral tokens are structural only; Task 22 owns the next visual-system design
+and Tasks 23–25 apply it across the desktop. Task 20 does not implement
+production-wide background threading; Task 26 owns the reusable
+long-running-operation pattern.
 
 The View foundation standardizes an ordered `PageScaffold` composition
 (`PageHeader`, optional feedback/actions/filters, stretching main content with an
@@ -107,4 +125,4 @@ pilot, Shell, Task 20 dialogs/state controls, and tables explicitly configured b
 the shared helper. This preserves excluded module behavior while allowing later
 tasks to opt into the foundation deliberately. Request identities currently
 protect synchronous/reentrant Customer selection and session invalidation; they
-do not claim the Task 29 background-execution guarantee.
+do not claim the Task 26 background-execution guarantee.

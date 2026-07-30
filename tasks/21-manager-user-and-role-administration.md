@@ -2,12 +2,15 @@
 
 ## 1. Status
 
-- Design: approved lean scope.
-- Implementation: **COMPLETE; READY FOR AUDIT**.
-- Audit, commit, and push: not started.
+- Design: approved.
+- Implementation and regression corrections: complete.
+- Audit: approved.
+- Commit and push: complete.
 
-Implementation followed the approved scope. No commit or push is authorized
-until the implementation audit is approved.
+Task 21 is fully closed. Historical references below to later task numbers are
+superseded by `docs/PROJECT-ROADMAP.md`, whose current order is UI/UX Tasks
+22–25, performance Tasks 26–28, AI Tasks 29–30, and stabilization/release Tasks
+31–33.
 
 ## 2. Requirement and goal
 
@@ -94,7 +97,7 @@ No PRD change or new authentication architecture is required.
 - self-service password change;
 - separate Business Manager and Office Manager technical roles;
 - arbitrary permissions or fine-grained access-control editing;
-- login rate limiting, global correlation/log infrastructure, or Task 23 work;
+- login rate limiting or global correlation/log infrastructure (current Task 28);
 - branding changes, workflow wizards, advanced identity management, or unrelated
   screen redesign;
 - changes to Customer/Instructor profile CRUD, booking CQRS/Event Sourcing,
@@ -655,8 +658,8 @@ acceptance users are cleaned up by deactivation.
 | Last manager deactivated | not prevented; no PRD requirement and complex rule excluded |
 | Password reset with existing session | no forced invalidation; token lives until expiry unless account is deactivated |
 | Incorrect immutable role/link | deactivate account and create the correct one |
-| Brute-force protection | deferred to Task 23 |
-| Synchronous desktop calls | current CRUD convention; Task 29 owns background execution |
+| Brute-force protection | deferred to current Task 28 |
+| Synchronous desktop calls | current CRUD convention; Task 26 owns background execution |
 
 Assumptions:
 
