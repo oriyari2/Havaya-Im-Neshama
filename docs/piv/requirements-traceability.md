@@ -88,9 +88,11 @@ Task 21 implements lean manager-created user administration on the Task 20
 desktop foundation. It covers list/search/role-status filters, immediate account
 creation for the three existing roles, safe detail, email-only edit, activate/
 deactivate, direct Manager password reset, case-insensitive email uniqueness,
-create-time compatible one-to-one Customer/Instructor links, inactive-login
+atomic creation of a new Customer plus primary Contact or a new Instructor with
+the same email used as the linked User login, one-to-one links, inactive-login
 rejection, backend Manager authorization, and secret non-exposure. Role and
-profile link are immutable after creation. Public registration, verification,
+profile link are immutable after creation, and existing profiles are never
+selected or reused during normal creation. Public registration, verification,
 MFA/OTP, first-login change, reset delivery/tokens, `auth_version`, forced
 session invalidation, audit/event systems, optimistic versioning, complex role/
 profile transitions, and physical deletion are explicitly excluded. Manager-

@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from backend.app.application.services import user_admin_service as service
 from backend.app.core.auth import require_roles
 from backend.app.schemas.user_admin import (
-    EligibleProfilesResponse,
     PasswordResetRequest,
     UserCreateRequest,
     UserEmailUpdateRequest,
@@ -25,8 +24,6 @@ RequireManager = Depends(require_roles("manager"))
 def _error(exc: Exception) -> NoReturn:
     if isinstance(exc, service.UserNotFoundError):
         raise HTTPException(404, "User not found") from exc
-    if isinstance(exc, service.ProfileNotFoundError):
-        raise HTTPException(404, "Profile not found") from exc
     if isinstance(exc, service.UserConflictError):
         raise HTTPException(409, str(exc)) from exc
     raise HTTPException(500, "Could not manage user") from exc
@@ -52,15 +49,6 @@ def list_users(
 def create_user(payload: UserCreateRequest, _current_user: dict = RequireManager) -> UserResponse:
     try:
         return UserResponse(**service.create_user(payload))
-    except Exception as exc:
-        _error(exc)
-
-
-@router.get("/users/eligible-profiles", response_model=EligibleProfilesResponse)
-def eligible_profiles(_current_user: dict = RequireManager) -> EligibleProfilesResponse:
-    try:
-        customers, instructors = service.list_eligible_profiles()
-        return EligibleProfilesResponse(customers=customers, instructors=instructors)
     except Exception as exc:
         _error(exc)
 

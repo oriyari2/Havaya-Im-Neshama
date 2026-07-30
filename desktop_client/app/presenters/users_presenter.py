@@ -111,14 +111,7 @@ class UsersPresenter:
     def begin_create(self) -> None:
         if not self._allowed() or self.submitting:
             return
-        self.view.set_loading(True)
-        try:
-            profiles = self.service.eligible_profiles()
-            self.view.open_create(profiles["customers"], profiles["instructors"], self.submit_create)
-        except Exception as exc:
-            self._error(exc)
-        finally:
-            self.view.set_loading(False)
+        self.view.open_create(self.submit_create)
 
     def submit_create(self, values: dict, form) -> None:
         if self.submitting:
@@ -131,17 +124,31 @@ class UsersPresenter:
                 "email": _email(values.get("email")),
                 "password": _password(values.get("password"), values.get("password_confirmation")),
                 "role": role,
-                "customer_id": values.get("customer_id") if role == "customer" else None,
-                "instructor_id": values.get("instructor_id") if role == "instructor" else None,
             }
-            if role == "customer" and not payload["customer_id"]:
-                raise ValueError("יש לבחור פרופיל לקוח.")
-            if role == "instructor" and not payload["instructor_id"]:
-                raise ValueError("יש לבחור פרופיל מדריך.")
+            if role == "manager":
+                payload["manager_name"] = self._required(values.get("manager_name"), "יש להזין שם מנהל.")
+            elif role == "customer":
+                payload.update(
+                    customer_name=self._required(values.get("customer_name"), "יש להזין שם לקוח."),
+                    contact_name=self._required(values.get("contact_name"), "יש להזין שם איש קשר."),
+                    contact_phone=self._required(values.get("contact_phone"), "יש להזין טלפון איש קשר."),
+                )
+            elif role == "instructor":
+                payload.update(
+                    instructor_name=self._required(values.get("instructor_name"), "יש להזין שם מדריך."),
+                    instructor_phone=str(values.get("instructor_phone") or "").strip() or None,
+                )
         except ValueError as exc:
             form.show_error(str(exc))
             return
         self._submit(form, lambda: self.service.create_user(payload), "המשתמש נוצר בהצלחה.")
+
+    @staticmethod
+    def _required(value: object, message: str) -> str:
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise ValueError(message)
+        return cleaned
 
     def begin_edit(self) -> None:
         if self.selected:

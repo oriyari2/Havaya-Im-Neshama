@@ -28,7 +28,7 @@ class UsersView(StatefulWidget):
         for button, signal in ((self.create_button, self.create_requested), (self.edit_button, self.edit_requested), (self.activate_button, self.activate_requested), (self.deactivate_button, self.deactivate_requested), (self.reset_button, self.reset_password_requested)): button.clicked.connect(signal); button.setAccessibleName(button.text())
         self.scaffold.action_bar.add_action(self.deactivate_button, destructive=True); self.scaffold.action_bar.add_action(self.activate_button); self.scaffold.action_bar.add_action(self.reset_button); self.scaffold.action_bar.add_action(self.edit_button); self.scaffold.action_bar.add_action(self.create_button, primary=True); self.scaffold.action_bar.show()
         splitter = QSplitter(Qt.Orientation.Horizontal); splitter.setChildrenCollapsible(False)
-        self.table = QTableWidget(0, 5); self.table.setHorizontalHeaderLabels(["דוא״ל", "תפקיד", "פרופיל מקושר", "מצב", "עודכן"]); configure_data_table(self.table, "רשימת משתמשים", (ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.SECONDARY_TEXT), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.TECHNICAL, 120))); self.table.itemSelectionChanged.connect(self._select); self.table.itemDoubleClicked.connect(lambda _item: self._select()); splitter.addWidget(self.table)
+        self.table = QTableWidget(0, 5); self.table.setHorizontalHeaderLabels(["דוא״ל", "תפקיד", "שם", "מצב", "עודכן"]); configure_data_table(self.table, "רשימת משתמשים", (ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.SECONDARY_TEXT), ColumnPolicy(ColumnKind.COMPACT), ColumnPolicy(ColumnKind.TECHNICAL, 120))); self.table.itemSelectionChanged.connect(self._select); self.table.itemDoubleClicked.connect(lambda _item: self._select()); splitter.addWidget(self.table)
         group = QGroupBox("פרטי משתמש"); self.details = QFormLayout(group); splitter.addWidget(group); splitter.setStretchFactor(0, 2); splitter.setStretchFactor(1, 1); self.scaffold.main_content.addWidget(splitter, 1)
         self.footer = PaginationFooter(); self.footer.page_requested.connect(self.page_requested); self.scaffold.add_footer(self.footer); self.clear_details()
 
@@ -40,8 +40,8 @@ class UsersView(StatefulWidget):
     def show_users(self, rows: list[dict], *, offset: int, count: int, filtered: bool) -> None:
         self.retry.hide(); self.table.setRowCount(len(rows))
         for row_index, user in enumerate(rows):
-            profile = user.get("customer_name") or user.get("instructor_name") or "לא נדרש"
-            values = (user["email"], ROLE_LABELS.get(user["role"], user["role"]), profile, "פעיל" if user["is_active"] else "לא פעיל", str(user["updated_at"]))
+            name = user.get("display_name") or user.get("customer_name") or user.get("instructor_name") or "מנהל"
+            values = (user["email"], ROLE_LABELS.get(user["role"], user["role"]), name, "פעיל" if user["is_active"] else "לא פעיל", str(user["updated_at"]))
             for column, value in enumerate(values):
                 item = QTableWidgetItem(str(value)); direction = Qt.LayoutDirection.LeftToRight if column in {0, 4} else Qt.LayoutDirection.RightToLeft; set_item_text(self.table, row_index, column, item, tooltip_direction=direction)
                 if column == 0: item.setData(Qt.ItemDataRole.UserRole, str(user["id"])); item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
@@ -51,8 +51,14 @@ class UsersView(StatefulWidget):
 
     def show_details(self, user: dict, *, current_user_id: str) -> None:
         while self.details.rowCount(): self.details.removeRow(0)
-        profile = user.get("customer_name") or user.get("instructor_name") or "לא נדרש"
-        for label, value in (("דוא״ל", user["email"]), ("תפקיד", ROLE_LABELS.get(user["role"], user["role"])), ("פרופיל", profile), ("מצב", "פעיל" if user["is_active"] else "לא פעיל"), ("נוצר", user["created_at"]), ("עודכן", user["updated_at"])):
+        name = user.get("display_name") or user.get("customer_name") or user.get("instructor_name") or "מנהל"
+        rows = [("אימייל התחברות", user["email"]), ("תפקיד", ROLE_LABELS.get(user["role"], user["role"])), ("שם", name)]
+        if user["role"] == "customer":
+            rows.extend((("אימייל לקוח", user.get("customer_email") or user["email"]), ("איש קשר", user.get("contact_name") or "—"), ("טלפון איש קשר", user.get("contact_phone") or "—")))
+        elif user["role"] == "instructor":
+            rows.extend((("אימייל מדריך", user.get("instructor_email") or user["email"]), ("טלפון מדריך", user.get("instructor_phone") or "—")))
+        rows.extend((("מצב", "פעיל" if user["is_active"] else "לא פעיל"), ("נוצר", user["created_at"]), ("עודכן", user["updated_at"])))
+        for label, value in rows:
             content = QLabel(str(value)); content.setWordWrap(True); content.setToolTip(str(value)); self.details.addRow(label, content)
         self.edit_button.setEnabled(True); self.reset_button.setEnabled(True); self.activate_button.setEnabled(not user["is_active"]); self.deactivate_button.setEnabled(bool(user["is_active"] and str(user["id"]) != current_user_id))
         set_disabled_explanation(self.deactivate_button, "לא ניתן למחוק לוגית את החשבון המחובר" if str(user["id"]) == current_user_id else "המשתמש כבר לא פעיל" if not user["is_active"] else "מחיקה לוגית באמצעות השבתת המשתמש שנבחר")
@@ -79,7 +85,7 @@ class UsersView(StatefulWidget):
     def select_user(self, user_id: str) -> None:
         for row in range(self.table.rowCount()):
             if str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)) == user_id: self.table.selectRow(row); break
-    def open_create(self, customers, instructors, submit) -> None: self._dialog = CreateUserDialog(customers, instructors, self); self._dialog.submitted.connect(submit); self._dialog.open()
+    def open_create(self, submit) -> None: self._dialog = CreateUserDialog(self); self._dialog.submitted.connect(submit); self._dialog.open()
     def open_edit(self, user, submit) -> None: self._dialog = EditUserDialog(user, self); self._dialog.submitted.connect(submit); self._dialog.open()
     def open_reset_password(self, user, submit) -> None: self._dialog = ResetPasswordDialog(user, self); self._dialog.submitted.connect(submit); self._dialog.open()
     def confirm_deactivation(self, email: str) -> bool: return confirm_action(self, "אישור מחיקת משתמש", f"למחוק לוגית את המשתמש {email}? החשבון יושבת ולא יוכל להתחבר עד להפעלה מחדש. הנתונים לא יימחקו ממסד הנתונים.")

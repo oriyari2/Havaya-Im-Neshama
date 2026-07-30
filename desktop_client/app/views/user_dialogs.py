@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QLabel, QLineEdit, QWidget
 
@@ -8,41 +10,79 @@ from desktop_client.app.views.ui_foundations import configure_mixed_direction
 
 
 ROLE_LABELS = {"manager": "מנהל", "customer": "לקוח", "instructor": "מדריך"}
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+class StableRoleComboBox(QComboBox):
+    def wheelEvent(self, event) -> None:
+        event.ignore()
 
 
 class CreateUserDialog(_BaseFormDialog):
-    def __init__(self, customers: list[dict], instructors: list[dict], parent=None) -> None:
+    def __init__(self, parent=None) -> None:
         super().__init__("משתמש חדש", parent)
         self.fields = {}
-        self.email = QLineEdit(); self.email.setAccessibleName("דוא״ל"); configure_mixed_direction(self.email); self.form.addRow("דוא״ל *", self.email); self.fields["email"] = self.email
+        self.email = QLineEdit(); self.email.setAccessibleName("אימייל להתחברות"); configure_mixed_direction(self.email); self.form.addRow("אימייל להתחברות *", self.email); self.fields["email"] = self.email
         self.password = QLineEdit(); self.password.setEchoMode(QLineEdit.EchoMode.Password); self.password.setAccessibleName("סיסמה"); configure_mixed_direction(self.password); self.form.addRow("סיסמה *", self.password); self.fields["password"] = self.password
         self.confirmation = QLineEdit(); self.confirmation.setEchoMode(QLineEdit.EchoMode.Password); self.confirmation.setAccessibleName("אימות סיסמה"); configure_mixed_direction(self.confirmation); self.form.addRow("אימות סיסמה *", self.confirmation); self.fields["password_confirmation"] = self.confirmation
-        self.role = QComboBox(); self.role.setAccessibleName("תפקיד"); self.role.addItem("בחרו תפקיד", "")
+        self.role = StableRoleComboBox(); self.role.setAccessibleName("תפקיד"); self.role.addItem("בחר תפקיד", "")
         for value in ("manager", "customer", "instructor"): self.role.addItem(ROLE_LABELS[value], value)
         self.form.addRow("תפקיד *", self.role)
-        self.customer = QComboBox(); self.customer.setAccessibleName("פרופיל לקוח"); self.customer.addItem("בחרו לקוח", None)
-        for item in customers: self.customer.addItem(str(item["name"]), str(item["id"]))
-        self.customer_label = QLabel("פרופיל לקוח *"); self.form.addRow(self.customer_label, self.customer)
-        self.instructor = QComboBox(); self.instructor.setAccessibleName("פרופיל מדריך"); self.instructor.addItem("בחרו מדריך", None)
-        for item in instructors: self.instructor.addItem(str(item["full_name"]), str(item["id"]))
-        self.instructor_label = QLabel("פרופיל מדריך *"); self.form.addRow(self.instructor_label, self.instructor)
-        self.role.currentIndexChanged.connect(self._role_changed); self._role_changed(); self.email.setFocus()
-        order = [self.email, self.password, self.confirmation, self.role, self.customer, self.instructor, self.save_button, self.cancel_button]
+        self.manager_name = QLineEdit(); self.manager_name.setAccessibleName("שם מנהל"); self.form.addRow("שם *", self.manager_name); self.fields["manager_name"] = self.manager_name
+        self.customer_name = QLineEdit(); self.customer_name.setAccessibleName("שם לקוח"); self.form.addRow("שם לקוח *", self.customer_name); self.fields["customer_name"] = self.customer_name
+        self.contact_name = QLineEdit(); self.contact_name.setAccessibleName("שם איש קשר"); self.form.addRow("שם איש קשר *", self.contact_name); self.fields["contact_name"] = self.contact_name
+        self.contact_phone = QLineEdit(); self.contact_phone.setAccessibleName("טלפון איש קשר"); configure_mixed_direction(self.contact_phone); self.form.addRow("טלפון איש קשר *", self.contact_phone); self.fields["contact_phone"] = self.contact_phone
+        self.instructor_name = QLineEdit(); self.instructor_name.setAccessibleName("שם מדריך"); self.form.addRow("שם מדריך *", self.instructor_name); self.fields["instructor_name"] = self.instructor_name
+        self.instructor_phone = QLineEdit(); self.instructor_phone.setAccessibleName("טלפון מדריך"); configure_mixed_direction(self.instructor_phone); self.form.addRow("טלפון מדריך", self.instructor_phone); self.fields["instructor_phone"] = self.instructor_phone
+        self.role.currentIndexChanged.connect(self._role_changed)
+        for field in self.fields.values(): field.textChanged.connect(self._update_save_enabled)
+        self._role_changed(); self.email.setFocus()
+        order = [self.email, self.password, self.confirmation, self.role, self.manager_name, self.customer_name, self.contact_name, self.contact_phone, self.instructor_name, self.instructor_phone, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]): QWidget.setTabOrder(first, second)
 
     def _role_changed(self) -> None:
         role = self.role.currentData()
         customer = role == "customer"; instructor = role == "instructor"
-        self.customer_label.setVisible(customer); self.customer.setVisible(customer)
-        self.instructor_label.setVisible(instructor); self.instructor.setVisible(instructor)
-        if not customer: self.customer.setCurrentIndex(0)
-        if not instructor: self.instructor.setCurrentIndex(0)
+        manager = role == "manager"; self.form.labelForField(self.manager_name).setVisible(manager); self.manager_name.setVisible(manager)
+        if not manager: self.manager_name.clear()
+        for widget in (self.customer_name, self.contact_name, self.contact_phone):
+            self.form.labelForField(widget).setVisible(customer); widget.setVisible(customer)
+            if not customer: widget.clear()
+        for widget in (self.instructor_name, self.instructor_phone):
+            self.form.labelForField(widget).setVisible(instructor); widget.setVisible(instructor)
+            if not instructor: widget.clear()
+        self._update_save_enabled()
+
+    def _update_save_enabled(self) -> None:
+        role = self.role.currentData()
+        email = self.email.text().strip().lower()
+        password = self.password.text()
+        common_valid = bool(role) and len(email) <= 254 and bool(EMAIL.match(email))
+        common_valid = common_valid and 8 <= len(password) <= 128 and password == password.strip()
+        common_valid = common_valid and all(character.isprintable() for character in password)
+        common_valid = common_valid and password == self.confirmation.text()
+        role_valid = role == "manager" and bool(self.manager_name.text().strip())
+        role_valid = role_valid or role == "customer" and all(field.text().strip() for field in (self.customer_name, self.contact_name, self.contact_phone))
+        role_valid = role_valid or role == "instructor" and bool(self.instructor_name.text().strip())
+        self.save_button.setEnabled(bool(common_valid and role_valid))
 
     def values(self) -> dict:
-        return {"email": self.email.text(), "password": self.password.text(), "password_confirmation": self.confirmation.text(), "role": self.role.currentData(), "customer_id": self.customer.currentData(), "instructor_id": self.instructor.currentData()}
+        return {
+            "email": self.email.text(), "password": self.password.text(),
+            "password_confirmation": self.confirmation.text(), "role": self.role.currentData(),
+            "manager_name": self.manager_name.text(),
+            "customer_name": self.customer_name.text(), "contact_name": self.contact_name.text(),
+            "contact_phone": self.contact_phone.text(), "instructor_name": self.instructor_name.text(),
+            "instructor_phone": self.instructor_phone.text(),
+        }
 
     def show_error(self, message: str) -> None:
         self.password.clear(); self.confirmation.clear(); super().show_error(message)
+
+    def set_submitting(self, value: bool) -> None:
+        super().set_submitting(value)
+        if not value:
+            self._update_save_enabled()
 
 
 class EditUserDialog(_BaseFormDialog):
@@ -50,8 +90,8 @@ class EditUserDialog(_BaseFormDialog):
         super().__init__("עריכת משתמש", parent); self.fields = {}
         self.email = QLineEdit(str(user["email"])); self.email.setAccessibleName("דוא״ל"); configure_mixed_direction(self.email); self.form.addRow("דוא״ל *", self.email); self.fields["email"] = self.email
         self.role = QLabel(ROLE_LABELS.get(str(user["role"]), str(user["role"]))); self.role.setAccessibleName("תפקיד לקריאה בלבד"); self.form.addRow("תפקיד", self.role)
-        profile = user.get("customer_name") or user.get("instructor_name") or "לא נדרש"
-        self.profile = QLabel(str(profile)); self.profile.setAccessibleName("פרופיל מקושר לקריאה בלבד"); self.form.addRow("פרופיל מקושר", self.profile); self.email.setFocus()
+        name = user.get("display_name") or user.get("customer_name") or user.get("instructor_name") or "מנהל"
+        self.profile = QLabel(str(name)); self.profile.setAccessibleName("שם לקריאה בלבד"); self.form.addRow("שם", self.profile); self.email.setFocus()
 
     def values(self) -> dict: return {"email": self.email.text()}
 

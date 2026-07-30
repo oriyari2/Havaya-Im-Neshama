@@ -7,15 +7,13 @@ from psycopg.rows import dict_row
 
 from backend.app.core.security import hash_password
 from backend.app.db.connection import get_connection
+from backend.app.infrastructure.repositories import customer_repository
+from backend.app.infrastructure.repositories import instructor_repository
 from backend.app.infrastructure.repositories import user_repository as repo
 from backend.app.schemas.user_admin import PasswordResetRequest, UserCreateRequest, UserEmailUpdateRequest
 
 
 class UserNotFoundError(Exception):
-    pass
-
-
-class ProfileNotFoundError(Exception):
     pass
 
 
@@ -38,27 +36,6 @@ def get_user(user_id: UUID) -> dict:
     return user
 
 
-def list_eligible_profiles() -> tuple[list[dict], list[dict]]:
-    with get_connection() as conn:
-        with conn.cursor(row_factory=dict_row) as cur:
-            return repo.list_eligible_profiles(cur)
-
-
-def _validate_profile(cur, payload: UserCreateRequest) -> None:
-    if payload.role == "customer":
-        profile = repo.get_customer_profile(cur, payload.customer_id)
-        if profile is None:
-            raise ProfileNotFoundError
-        if not profile["is_active"]:
-            raise UserConflictError("Customer profile is inactive")
-    elif payload.role == "instructor":
-        profile = repo.get_instructor_profile(cur, payload.instructor_id)
-        if profile is None:
-            raise ProfileNotFoundError
-        if not profile["is_active"]:
-            raise UserConflictError("Instructor profile is inactive")
-
-
 def _translate_integrity_error(exc: IntegrityError) -> UserConflictError:
     constraint = str(getattr(getattr(exc, "diag", None), "constraint_name", "") or "")
     if "customer" in constraint:
@@ -72,14 +49,49 @@ def create_user(payload: UserCreateRequest) -> dict:
     with get_connection() as conn:
         try:
             with conn.cursor(row_factory=dict_row) as cur:
-                _validate_profile(cur, payload)
+                customer_id = None
+                instructor_id = None
+                if payload.role == "customer":
+                    customer = customer_repository.create_customer(cur, {
+                        "name": payload.customer_name,
+                        "customer_type": None,
+                        "city": None,
+                        "address": None,
+                        "phone": None,
+                        "email": payload.email,
+                        "notes": None,
+                        "is_active": True,
+                    })
+                    customer_id = customer["id"]
+                    customer_repository.create_contact(cur, customer_id, {
+                        "full_name": payload.contact_name,
+                        "role_title": None,
+                        "phone": payload.contact_phone,
+                        "email": None,
+                        "is_primary": True,
+                        "notes": None,
+                        "is_active": True,
+                    })
+                elif payload.role == "instructor":
+                    if instructor_repository.get_by_email(cur, payload.email):
+                        raise UserConflictError("Instructor email already exists")
+                    instructor = instructor_repository.create_instructor(cur, {
+                        "full_name": payload.instructor_name,
+                        "phone": payload.instructor_phone,
+                        "email": payload.email,
+                        "city": None,
+                        "notes": None,
+                        "is_active": True,
+                    })
+                    instructor_id = instructor["id"]
                 created = repo.create_user(
                     cur,
                     email=payload.email,
                     password_hash=hash_password(payload.password),
                     role=payload.role,
-                    customer_id=payload.customer_id,
-                    instructor_id=payload.instructor_id,
+                    display_name=payload.manager_name if payload.role == "manager" else None,
+                    customer_id=customer_id,
+                    instructor_id=instructor_id,
                 )
                 result = repo.get_safe_user(cur, created["id"])
             conn.commit()
@@ -96,8 +108,15 @@ def update_email(user_id: UUID, payload: UserEmailUpdateRequest) -> dict:
     with get_connection() as conn:
         try:
             with conn.cursor(row_factory=dict_row) as cur:
-                if repo.get_user_by_id(cur, user_id) is None:
+                existing = repo.get_user_by_id(cur, user_id)
+                if existing is None:
                     raise UserNotFoundError
+                if existing["role"] == "customer":
+                    customer_repository.update_customer(cur, existing["customer_id"], {"email": payload.email})
+                elif existing["role"] == "instructor":
+                    if instructor_repository.get_by_email(cur, payload.email, existing["instructor_id"]):
+                        raise UserConflictError("Instructor email already exists")
+                    instructor_repository.update_instructor(cur, existing["instructor_id"], {"email": payload.email})
                 repo.update_user_email(cur, user_id, payload.email)
                 result = repo.get_safe_user(cur, user_id)
             conn.commit()

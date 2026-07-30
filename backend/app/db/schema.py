@@ -74,6 +74,7 @@ CREATE_TABLE_SQL = [
         email text NOT NULL UNIQUE,
         password_hash text NOT NULL,
         role text NOT NULL CHECK (role IN ('manager', 'instructor', 'customer')),
+        display_name text,
         is_active boolean NOT NULL DEFAULT true,
         customer_id uuid REFERENCES customers(id),
         instructor_id uuid REFERENCES instructors(id),
@@ -281,6 +282,7 @@ CREATE_TABLE_SQL = [
 
 
 ALTER_TABLE_SQL = [
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text;",
     """
     DO $$
     BEGIN

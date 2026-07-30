@@ -5,14 +5,13 @@ from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.presenters.users_presenter import UsersPresenter
 
 
-USER = {"id":"u1","email":"user@example.com","role":"manager","is_active":True,"customer_id":None,"customer_name":None,"instructor_id":None,"instructor_name":None,"created_at":"","updated_at":""}
+USER = {"id":"u1","email":"user@example.com","role":"manager","display_name":"Manager","is_active":True,"customer_id":None,"customer_name":None,"instructor_id":None,"instructor_name":None,"created_at":"","updated_at":""}
 
 
 class UsersPresenterTests(TestCase):
     def setUp(self) -> None:
         self.view=Mock(); self.service=Mock()
         self.service.list_users.return_value={"items":[USER],"count":1}; self.service.user.return_value=USER
-        self.service.eligible_profiles.return_value={"customers":[{"id":"c1","name":"Customer"}],"instructors":[{"id":"i1","full_name":"Instructor"}]}
         self.presenter=UsersPresenter(self.view,self.service,current_user_id="manager-id",session_role="manager")
 
     def test_load_search_role_status_page_and_detail(self) -> None:
@@ -24,14 +23,14 @@ class UsersPresenterTests(TestCase):
         self.service.list_users.assert_not_called(); self.view.show_error.assert_called_with("אין הרשאה לניהול משתמשים.",permission=True)
 
     def test_create_role_profiles_validation_and_duplicate_guard(self) -> None:
-        self.service.eligible_profiles.return_value={"customers":[{"id":"c2","name":"Available customer"}],"instructors":[{"id":"i2","full_name":"Available instructor"}]}
         self.presenter.begin_create(); self.view.open_create.assert_called()
-        customers, instructors = self.view.open_create.call_args.args[:2]
-        self.assertEqual([item["id"] for item in customers], ["c2"]); self.assertEqual([item["id"] for item in instructors], ["i2"])
         form=Mock(); self.service.create_user.return_value={**USER,"id":"c-user"}
-        self.presenter.submit_create({"email":" C@Example.com ","password":"password1","password_confirmation":"password1","role":"customer","customer_id":"c1"},form)
-        payload=self.service.create_user.call_args.args[0]; self.assertEqual(payload["email"],"c@example.com"); self.assertEqual(payload["customer_id"],"c1"); self.assertIsNone(payload["instructor_id"]); form.close_success.assert_called()
-        self.presenter.submitting=True; self.presenter.submit_create({"email":"x@example.com"},Mock()); self.assertEqual(self.service.create_user.call_count,1)
+        self.presenter.submit_create({"email":" C@Example.com ","password":"password1","password_confirmation":"password1","role":"customer","customer_name":" Customer ","contact_name":" Contact ","contact_phone":" 050 "},form)
+        payload=self.service.create_user.call_args.args[0]; self.assertEqual(payload["email"],"c@example.com"); self.assertEqual((payload["customer_name"],payload["contact_name"],payload["contact_phone"]),("Customer","Contact","050")); self.assertNotIn("customer_id",payload); form.close_success.assert_called()
+        instructor_form=Mock(); self.service.create_user.return_value={**USER,"id":"i-user"}; self.presenter.submit_create({"email":"i@example.com","password":"password1","password_confirmation":"password1","role":"instructor","instructor_name":" Instructor ","instructor_phone":" 051 "},instructor_form)
+        instructor=self.service.create_user.call_args.args[0]; self.assertEqual((instructor["email"],instructor["instructor_name"],instructor["instructor_phone"]),("i@example.com","Instructor","051")); self.assertNotIn("instructor_id",instructor)
+        manager_form=Mock(); self.service.create_user.return_value={**USER,"id":"m-user"}; self.presenter.submit_create({"email":"m@example.com","password":"password1","password_confirmation":"password1","role":"manager","manager_name":" Manager "},manager_form); manager=self.service.create_user.call_args.args[0]; self.assertEqual(manager,{"email":"m@example.com","password":"password1","role":"manager","manager_name":"Manager"})
+        self.presenter.submitting=True; self.presenter.submit_create({"email":"x@example.com"},Mock()); self.assertEqual(self.service.create_user.call_count,3)
         self.presenter.submitting=False; invalid=Mock(); self.presenter.submit_create({"email":"bad","password":"x","password_confirmation":"y","role":"manager"},invalid); invalid.show_error.assert_called()
 
     def test_email_edit_activate_deactivate_and_reset(self) -> None:
@@ -43,4 +42,4 @@ class UsersPresenterTests(TestCase):
 
     def test_error_states_and_guard_release(self) -> None:
         for kind in (ApiErrorKind.VALIDATION,ApiErrorKind.CONFLICT,ApiErrorKind.PERMISSION,ApiErrorKind.CONNECTION,ApiErrorKind.SERVER): self.assertTrue(self.presenter.message(ApiError("raw",kind=kind)))
-        self.service.create_user.side_effect=ApiError("duplicate",status_code=409,kind=ApiErrorKind.CONFLICT); form=Mock(); self.presenter.submit_create({"email":"x@example.com","password":"password1","password_confirmation":"password1","role":"manager"},form); self.assertFalse(self.presenter.submitting); form.show_error.assert_called()
+        self.service.create_user.side_effect=ApiError("duplicate",status_code=409,kind=ApiErrorKind.CONFLICT); form=Mock(); self.presenter.submit_create({"email":"x@example.com","password":"password1","password_confirmation":"password1","role":"manager","manager_name":"Manager"},form); self.assertFalse(self.presenter.submitting); form.show_error.assert_called()

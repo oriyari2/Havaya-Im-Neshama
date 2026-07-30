@@ -4,14 +4,26 @@ from uuid import UUID
 
 
 USER_COLUMNS = (
-    "id, email, password_hash, role, is_active, customer_id, instructor_id, "
+    "id, email, password_hash, role, display_name, is_active, customer_id, instructor_id, "
     "created_at, updated_at"
 )
 
 SAFE_USER_COLUMNS = (
-    "u.id, u.email, u.role, u.is_active, u.customer_id, c.name AS customer_name, "
-    "u.instructor_id, i.full_name AS instructor_name, u.created_at, u.updated_at"
+    "u.id, u.email, u.role, u.display_name, u.is_active, u.customer_id, c.name AS customer_name, "
+    "c.email AS customer_email, cc.full_name AS contact_name, cc.phone AS contact_phone, "
+    "u.instructor_id, i.full_name AS instructor_name, i.email AS instructor_email, "
+    "i.phone AS instructor_phone, u.created_at, u.updated_at"
 )
+
+SAFE_USER_JOINS = """
+LEFT JOIN customers c ON c.id = u.customer_id
+LEFT JOIN LATERAL (
+    SELECT full_name, phone FROM customer_contacts
+    WHERE customer_id = c.id AND is_active = true
+    ORDER BY is_primary DESC, created_at ASC LIMIT 1
+) cc ON true
+LEFT JOIN instructors i ON i.id = u.instructor_id
+"""
 
 
 def get_user_by_email(cur, email: str) -> dict | None:
@@ -28,9 +40,9 @@ def list_users(cur, *, search: str | None, role: str | None, is_active: bool | N
     clauses: list[str] = []
     params: list[object] = []
     if search:
-        clauses.append("(u.email ILIKE %s OR c.name ILIKE %s OR i.full_name ILIKE %s)")
+        clauses.append("(u.email ILIKE %s OR u.display_name ILIKE %s OR c.name ILIKE %s OR i.full_name ILIKE %s)")
         term = f"%{search.strip()}%"
-        params.extend((term, term, term))
+        params.extend((term, term, term, term))
     if role:
         clauses.append("u.role = %s")
         params.append(role)
@@ -42,8 +54,7 @@ def list_users(cur, *, search: str | None, role: str | None, is_active: bool | N
         f"""
         SELECT {SAFE_USER_COLUMNS}
         FROM users u
-        LEFT JOIN customers c ON c.id = u.customer_id
-        LEFT JOIN instructors i ON i.id = u.instructor_id
+        {SAFE_USER_JOINS}
         {where}
         ORDER BY lower(u.email) ASC, u.id ASC
         LIMIT %s OFFSET %s;
@@ -58,8 +69,7 @@ def get_safe_user(cur, user_id: UUID) -> dict | None:
         f"""
         SELECT {SAFE_USER_COLUMNS}
         FROM users u
-        LEFT JOIN customers c ON c.id = u.customer_id
-        LEFT JOIN instructors i ON i.id = u.instructor_id
+        {SAFE_USER_JOINS}
         WHERE u.id = %s;
         """,
         (user_id,),
@@ -77,37 +87,14 @@ def get_instructor_profile(cur, instructor_id: UUID) -> dict | None:
     return cur.fetchone()
 
 
-def list_eligible_profiles(cur) -> tuple[list[dict], list[dict]]:
-    cur.execute(
-        """
-        SELECT c.id, c.name
-        FROM customers c
-        WHERE c.is_active = true
-          AND NOT EXISTS (SELECT 1 FROM users u WHERE u.customer_id = c.id)
-        ORDER BY lower(c.name), c.id;
-        """
-    )
-    customers = list(cur.fetchall())
-    cur.execute(
-        """
-        SELECT i.id, i.full_name
-        FROM instructors i
-        WHERE i.is_active = true
-          AND NOT EXISTS (SELECT 1 FROM users u WHERE u.instructor_id = i.id)
-        ORDER BY lower(i.full_name), i.id;
-        """
-    )
-    return customers, list(cur.fetchall())
-
-
-def create_user(cur, *, email: str, password_hash: str, role: str, customer_id: UUID | None, instructor_id: UUID | None) -> dict:
+def create_user(cur, *, email: str, password_hash: str, role: str, display_name: str | None, customer_id: UUID | None, instructor_id: UUID | None) -> dict:
     cur.execute(
         f"""
-        INSERT INTO users (email, password_hash, role, is_active, customer_id, instructor_id)
-        VALUES (%s, %s, %s, true, %s, %s)
+        INSERT INTO users (email, password_hash, role, display_name, is_active, customer_id, instructor_id)
+        VALUES (%s, %s, %s, %s, true, %s, %s)
         RETURNING {USER_COLUMNS};
         """,
-        (email, password_hash, role, customer_id, instructor_id),
+        (email, password_hash, role, display_name, customer_id, instructor_id),
     )
     return cur.fetchone()
 

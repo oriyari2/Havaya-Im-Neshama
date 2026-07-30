@@ -16,9 +16,6 @@ class UserService:
     def create_user(self, payload: dict[str, object]) -> dict:
         return self.api_client.post("/users", payload)
 
-    def eligible_profiles(self) -> dict:
-        return self.api_client.get("/users/eligible-profiles")
-
     def update_email(self, user_id: str, email: str) -> dict:
         return self.api_client.put(f"/users/{user_id}", {"email": email})
 

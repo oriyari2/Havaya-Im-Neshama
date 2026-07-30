@@ -2,8 +2,8 @@
 
 ## Status
 
-Lean design approved. Implementation is **COMPLETE; READY FOR AUDIT**. No
-commit or push has been created.
+The bounded new-entity creation correction is **COMPLETE; READY FOR AUDIT**.
+This correction is not committed or pushed.
 
 ## Approved requirement
 
@@ -38,16 +38,20 @@ Managers can:
 
 - list/search users;
 - filter by role and active status;
-- create an immediately usable active account;
+- create an immediately usable Manager account, or atomically create a new
+  Customer plus primary Contact or a new Instructor with its linked account;
 - read safe user detail;
 - edit a user's normalized email;
 - activate/deactivate users except the signed-in Manager;
 - reset a selected user's password directly.
 
-Roles remain `manager`, `instructor`, and `customer`. Manager has no profile;
-Customer has exactly one unique active Customer profile; Instructor has exactly
-one unique active Instructor profile. A database check constraint, normalized
-email unique index, and partial unique profile indexes enforce these rules.
+Roles remain `manager`, `instructor`, and `customer`. Manager stores a required
+human-readable `display_name` but has no Customer/Instructor profile.
+Customer and Instructor creation always creates a new corresponding entity and
+never selects an existing one. The submitted email is the sole login identifier
+for every role and is also stored as the Customer/Instructor email. A database
+check constraint, normalized email unique index, and partial unique profile
+indexes enforce the resulting one-to-one links.
 
 ## Selected editing policy
 
@@ -57,6 +61,9 @@ policy because the approved requirement requires role support, not role
 transition. An incorrectly created identity is deactivated and replaced with a
 correct account.
 
+Email remains the sole login identifier. Email-only Edit atomically updates the
+User and its linked Customer/Instructor email, preserving that invariant.
+
 The current Manager may Edit or Reset their own account but cannot Deactivate
 it. A simple backend self-deactivation check is required; no last-active-manager
 rule is added.
@@ -65,8 +72,6 @@ rule is added.
 
 - `GET /users`
 - `POST /users`
-- `GET /users/eligible-profiles` — active, authoritatively unlinked Customer and
-  Instructor selector options, independent of user-list pagination
 - `GET /users/{user_id}`
 - `PUT /users/{user_id}` — email only
 - `POST /users/{user_id}/activate`
@@ -83,10 +88,20 @@ table, email-or-displayed-name search, role/status filters, safe detail context,
 pagination, and visible Create User, logical Delete User, Activate, Reset
 Password, Refresh, and email-only Edit Email actions. Logical Delete is the
 existing confirmed deactivation operation; it never physically deletes a row.
-Single-click selects and updates action states; double-click explicitly displays
-email, role, linked profile, status, and created/updated dates in the side panel.
+The table and details panel use the business label `שם`: Manager display name,
+Customer name, or Instructor name. Single-click selects and updates action
+states; double-click explicitly displays email, role, name, status, and
+created/updated dates in the side panel.
 Loading, empty, validation, conflict, forbidden, connection, server, and success
 states remain supported.
+
+Create User dynamically shows common login email/password/role fields. Manager
+adds required Name. Customer
+adds Customer name, Contact name, and Contact phone. Instructor adds Instructor
+name and optional phone. Manager adds no profile fields. There are no existing-
+Customer or existing-Instructor selectors and no separate username. Backend
+creates Customer+Contact+User or Instructor+User through one connection and one
+commit; any failure rolls back the entire operation.
 
 Dialogs follow the Task 20 focus/accessibility/RTL standard. Email, passwords,
 and dates retain correct LTR behavior. Password fields are masked and cleared;
@@ -116,7 +131,7 @@ passive UsersView/dialogs
   -> generic ApiClient
   -> manager-only FastAPI users router
   -> UserAdministrationService
-  -> UserRepository
+  -> UserRepository + existing Customer/Instructor repositories
   -> PostgreSQL
 ```
 
@@ -141,8 +156,9 @@ reloads the active user on each protected request.
 
 ## Lean testing evidence required
 
-Backend design covers Manager list, non-Manager 403, creation of all roles,
-valid links, duplicate email/link, invalid role/link, email edit,
+Backend coverage includes Manager list, non-Manager 403, creation of all roles,
+atomic new Customer/Contact/User and Instructor/User creation, rollback on User
+failure, duplicate email, invalid role-specific fields, email edit,
 activate/deactivate, inactive login, reset, old-password failure,
 new-password success, and secret non-exposure.
 
@@ -171,9 +187,8 @@ Full backend/desktop regressions, compileall, architecture/security scans,
 
 ## Validation evidence
 
-- Focused Task 21/backend/desktop regression selection: 32 tests passed.
-- Full backend suite: 183 tests passed.
-- Full desktop suite: 146 tests passed.
+- Updated exact focused/full totals are recorded in the correction report after
+  final validation.
 - Compile, architecture/security scans, whitespace validation, and
   `git diff --check` are required before audit handoff and recorded in the
   final implementation report.

@@ -58,14 +58,16 @@ No PRD change or new authentication architecture is required.
 
 - Manager-only user list with search, role filter, active/inactive filter, and
   bounded offset pagination consistent with existing management screens.
-- Create active user with email, password, role, and required compatible profile.
+- Create an active Manager account, or atomically create a new Customer and
+  primary Contact or a new Instructor together with its linked User account.
 - Read a selected user for the table/detail/edit context.
 - Edit a user's normalized email only.
 - Activate and deactivate users, except self-deactivation.
 - Manager-controlled password reset.
 - Existing secure password hashing and login behavior.
 - Case-insensitive normalized email uniqueness.
-- Valid role/profile combinations and unique Customer/Instructor links.
+- Valid role/profile combinations and unique Customer/Instructor links created
+  within the account transaction.
 - Simple protection against the signed-in Manager deactivating their own account.
 - Task 20 desktop foundations, friendly states, accessibility, RTL/LTR handling,
   and focused/full regression validation.
@@ -128,7 +130,7 @@ The Edit User dialog supports email only. Active status uses explicit Activate
 and Deactivate actions, and password changes use the separate Reset Password
 dialog. This policy is the least complex compliant option because the approved
 requirement requires user management and role support, not role conversion.
-Role is assigned during registration, and immutable role/link prevents partial
+Role is assigned during account creation, and immutable role/link prevents partial
 cross-role state, complex reassignment, session-role changes, and profile
 ownership ambiguity.
 
@@ -156,7 +158,8 @@ login; authentication uses the new normalized email immediately.
   creation.
 - A Customer profile can link to at most one user.
 - An Instructor profile can link to at most one user.
-- Profile and user emails are independent; no automatic synchronization occurs.
+- User and linked Customer/Instructor emails are kept identical and updated in
+  one transaction because email is the sole login identifier.
 - User activation/deactivation does not modify the linked profile.
 - Existing Customer/Instructor protected deletion continues to reject deletion
   while any user link exists, including an inactive user.
@@ -182,18 +185,19 @@ stop with a clear local diagnostic rather than silently rewriting identities.
 ### Create
 
 1. Manager opens User Management and selects Create User.
-2. Manager enters email, password, role, and the required Customer/Instructor
-   profile when applicable.
+2. Manager enters the one login email, password, role, and the required new
+   Customer/Contact or Instructor fields when applicable.
 3. Desktop performs basic validation and submits once.
-4. Backend normalizes email, validates password/role/link, hashes the password
-   using the existing mechanism, and inserts an active user.
+4. Backend normalizes email, creates the new business entity and primary Contact
+   when applicable, hashes the password, links the active User, and commits all
+   inserts atomically.
 5. The new user can immediately log in with that email and password.
 
-Manager accounts require no profile. Customer/Instructor profile selectors use
-a Manager-only backend query that returns every active profile with no existing
-user link; it does not depend on user-list pagination. Backend create-time
-existence, active state, compatibility, uniqueness, and 409 conflict handling
-remain authoritative against races.
+Manager accounts require no profile. Customer and Instructor creation never
+selects or reuses an existing profile. For all roles, the submitted email is the
+unique User account identifier and authentication login; there is no username.
+The same email is stored on the new Customer or Instructor. Any insert failure
+rolls back the new Customer/Contact or Instructor and the User together.
 
 ### Read/list/search/filter
 
@@ -204,9 +208,10 @@ Passwords and hashes never enter list/detail responses.
 
 ### Edit
 
-Manager edits a user's email. Backend normalizes and verifies
-case-insensitive uniqueness. Role, profile links, active state, and password are
-not part of this request.
+Manager edits a user's email. Backend normalizes and verifies case-insensitive
+uniqueness, then atomically updates the User login and linked Customer or
+Instructor email so the single login identifier remains consistent. Role,
+profile links, active state, and password are not part of this request.
 
 ### Activate/deactivate
 
@@ -253,10 +258,12 @@ or recovery tokens.
 ### Role/profile
 
 - Role is a strict enum of the three lowercase values.
-- Manager rejects both profile IDs.
-- Customer requires only one valid active Customer ID.
-- Instructor requires only one valid active Instructor ID.
-- An already-linked profile returns 409.
+- Manager rejects all Customer/Instructor creation fields.
+- Customer requires Customer name, Contact name, and Contact phone; `email` is
+  both Customer email and login email.
+- Instructor requires Instructor name and permits phone; `email` is both
+  Instructor email and login email.
+- Existing Customer/Instructor IDs are forbidden in the create request.
 - Client cannot supply ID, timestamps, active state, password hash, or role/link
   changes through the email-edit request.
 
@@ -268,7 +275,6 @@ All endpoints follow the current unversioned FastAPI convention.
 |---|---|---|
 | `GET /users` | `search`, `role`, `is_active`, `limit`, `offset` | `200 list[UserResponse]` |
 | `POST /users` | `UserCreateRequest` | `201 UserResponse` |
-| `GET /users/eligible-profiles` | none | `200 EligibleProfilesResponse` |
 | `GET /users/{user_id}` | none | `200 UserResponse` |
 | `PUT /users/{user_id}` | `UserEmailUpdateRequest` | `200 UserResponse` |
 | `POST /users/{user_id}/activate` | empty JSON object | `200 UserResponse` |
@@ -280,12 +286,13 @@ first-login-change, or self-registration endpoint.
 
 ### Request/response models
 
-- `UserCreateRequest`: `email`, `password`, `role`, optional `customer_id`,
-  optional `instructor_id` subject to the truth table.
+- `UserCreateRequest`: common `email`, `password`, and `role`; Customer requires
+  `customer_name`, `contact_name`, and `contact_phone`; Instructor requires
+  `instructor_name` and permits `instructor_phone`; Manager has no profile fields.
 - `UserEmailUpdateRequest`: `email` only.
 - `PasswordResetRequest`: `new_password` only.
-- `UserResponse`: `id`, `email`, `role`, `is_active`, optional profile IDs and
-  safe profile display names, `created_at`, `updated_at`.
+- `UserResponse`: safe User fields including Manager `display_name`, plus role-appropriate Customer name/email,
+  primary Contact name/phone, or Instructor name/email/phone and timestamps.
 
 All request models use `extra="forbid"`. Responses never include password,
 password hash, bearer token, JWT data, or credentials.
@@ -304,9 +311,9 @@ Status codes:
 - 400 or 422: invalid request values/role-link combination/password.
 - 401: missing/invalid authentication.
 - 403: authenticated non-Manager.
-- 404: user or selected profile does not exist.
-- 409: duplicate email, duplicate profile link, self-deactivation, inactive
-  linked profile, or invalid activate/deactivate state.
+- 404: requested user does not exist.
+- 409: duplicate email, self-deactivation, inactive linked profile during later
+  reactivation, or invalid activate/deactivate state.
 - 500: sanitized unexpected error with no SQL/security detail.
 
 ## 12. Backend architecture
@@ -320,9 +327,10 @@ FastAPI users router
 
 - Router owns HTTP schemas, manager dependency, and safe status translation.
 - Application service owns normalization, password hashing orchestration,
-  role/link validation, self-deactivation check, and transaction boundaries.
+  role/new-profile validation, self-deactivation check, and atomic transaction
+  boundaries across Customer/Contact/Instructor/User inserts.
 - Repository owns parameterized list/get/insert/update/status/password SQL and
-  profile-existence/link queries.
+  safe joined profile reads.
 - Existing AuthService/login continues to own credential verification and active
   user rejection. It needs no new architecture or token format.
 - User management is ordinary transactional CRUD. It is not CQRS or Event
@@ -366,7 +374,7 @@ Table columns:
 |---|---|---|
 | Email | Primary/Technical | LTR with full tooltip |
 | Role | Compact | localized text/badge |
-| Linked profile | Secondary | RTL name; “not applicable” for manager |
+| Name | Secondary | Manager display name, Customer name, or Instructor name |
 | Status | Compact | active/inactive text and badge |
 | Updated | Technical | direction-safe date |
 
@@ -376,18 +384,25 @@ and 1440×900 without redesigning other pages.
 
 ### Create User dialog
 
-- Email (LTR), password (masked), password confirmation (masked), role, and
-  conditional profile selector.
-- Manager clears/hides profile fields; Customer/Instructor shows the matching
-  active-profile selector.
-- Changing role clears incompatible local selection.
+- Opens with the invalid placeholder `בחר תפקיד`, no role-specific fields, and
+  Save disabled. No role is selected by default.
+- The role combo ignores mouse-wheel changes so dialog scrolling, focus changes,
+  validation, and field visibility updates cannot alter the selected role.
+- Login email (LTR), password (masked), password confirmation (masked), role,
+  and conditional new-entity fields.
+- Manager shows common account fields only.
+- Customer shows Customer name, the same login/Customer email, Contact name,
+  and Contact phone; there is no existing-Customer selector.
+- Instructor shows Instructor name, the same login/Instructor email, and
+  optional phone; there is no existing-Instructor selector.
+- Changing role clears incompatible local fields.
 - Save creates an immediately usable active account.
 - Validation retains non-secret fields; submitted password fields are cleared
   after a server response and on close.
 
 ### Edit User dialog
 
-- Displays role/profile/status read-only and permits email edit only.
+- Displays the business Name and role/status read-only and permits email edit only.
 - Role/profile/status/password are not silently submitted.
 
 ### Reset Password dialog
@@ -410,7 +425,7 @@ and 1440×900 without redesigning other pages.
 
 - A single click selects the row and updates action availability.
 - A double click explicitly loads the selected user's complete safe response
-  into the existing details panel: email, role, linked profile, active status,
+  into the existing details panel: email, role, business Name, active status,
   created date, and updated date.
 - Create, logical Delete, Activate, Reset Password, and email-only Edit remain
   visible actions and never require double click.
@@ -432,9 +447,11 @@ and 1440×900 without redesigning other pages.
 ### Registration
 
 1. Manager opens User Management and selects Create User.
-2. Manager enters email, password, role, and required linked profile.
+2. Manager enters the one login email, password, role, and required new
+   Customer/Contact or Instructor fields.
 3. Presenter validates required fields and submits once.
-4. Backend validates and inserts the active account with a password hash.
+4. Backend atomically inserts the new business entity, primary Contact where
+   applicable, and linked active account with a password hash.
 5. Desktop refreshes/selects the new user and shows success.
 6. New user logs in normally using the created email/password.
 
@@ -443,12 +460,13 @@ and 1440×900 without redesigning other pages.
 1. Manager enters email-or-displayed-name search and optional role/status filters.
 2. Presenter loads the bounded list and ignores obsolete list results.
 3. Single-click selects the row; double-click explicitly displays all available
-   safe identity/profile/status/timestamp details in the side panel.
+   safe identity/name/status/timestamp details in the side panel.
 
 ### Edit email
 
 1. Manager selects a user and opens Edit.
-2. Email is updated after normalization/uniqueness validation.
+2. Email is updated after normalization/uniqueness validation on both the User
+   login and linked Customer/Instructor in one transaction.
 3. List/detail refresh; role, link, status, and password remain unchanged.
 
 ### Activate/deactivate
@@ -467,9 +485,8 @@ and 1440×900 without redesigning other pages.
 
 - Duplicate normalized email, including inactive account: 409.
 - Same email with different case: 409.
-- Duplicate Customer/Instructor link: 409.
-- Missing selected profile: 404.
-- Inactive selected profile at create: 409.
+- Any failure while creating Customer/Contact/Instructor/User rolls back the
+  entire account-creation transaction.
 - Manager with profile, Customer without Customer profile, Instructor without
   Instructor profile, or cross-role profile fields: 422.
 - Self-deactivation: 409; no change.
@@ -535,12 +552,12 @@ No unrelated refactoring or package restructuring is permitted.
 
 - Manager can list users and use search/role/status filters.
 - Missing authentication returns 401; Instructor and Customer return 403.
-- Create Manager with no profile.
-- Create Customer with valid active Customer link.
-- Create Instructor with valid active Instructor link.
+- Create Manager with required human-readable name and no business profile.
+- Create new Customer, primary Contact, and linked User atomically using one email.
+- Create new Instructor and linked User atomically using one email.
 - Duplicate normalized/case-variant email is rejected.
-- Duplicate Customer and Instructor links are rejected.
-- Invalid/missing/cross-role/inactive profile combinations are rejected.
+- Existing Customer/Instructor profiles are never selected or reused.
+- Invalid/missing/cross-role new-profile fields are rejected.
 - Edit email succeeds, including the Manager's own email; role/link/status/
   password cannot be edited through that request.
 - Activate and deactivate succeed; self-deactivation is rejected.
@@ -557,7 +574,8 @@ No unrelated refactoring or package restructuring is permitted.
 - Manager-only navigation/composition; non-manager direct API denial remains.
 - Load and display users; search, role filter, status filter, and pagination.
 - Select and display safe details.
-- Create dialog conditional profile fields and validation.
+- Create dialog conditional new Customer/Contact or Instructor fields, no
+  existing-profile selectors, and validation.
 - Edit dialog permits only email.
 - Reset Password dialog masks/clears secret fields.
 - Activate/deactivate action and self-action disabled explanation.
@@ -587,8 +605,8 @@ On Windows at 1024×640, 1200×760, and 1440×900:
 2. Create one Manager, Customer, and Instructor account.
 3. Log in successfully with every new account using the created password.
 4. Verify invalid credentials and inactive-account login rejection.
-5. Verify duplicate email/case variant, duplicate profile link, invalid role/link,
-   missing profile, and inactive profile errors.
+5. Verify duplicate email/case variant, invalid role-specific fields, and atomic
+   rollback behavior.
 6. Search by email; filter role and status; page/reset/refresh.
 7. Edit a user's email and confirm role/link/status remain unchanged.
 8. Deactivate another user and verify login fails; reactivate and verify login.
@@ -610,7 +628,8 @@ acceptance users are cleaned up by deactivation.
 1. Only authenticated Managers can access all user-management API/UI operations.
 2. Managers can list, search, role-filter, status-filter, and inspect safe users.
 3. Managers can create immediately usable accounts for all three roles.
-4. Role/profile truth table and unique profile links are enforced by service and DB.
+4. Role/new-profile truth table, one-to-one links, and atomic creation are
+   enforced by service and DB constraints.
 5. Email is normalized and case-insensitive unique across active/inactive users.
 6. Managers can edit a user's email without changing role/profile.
 7. Managers can activate/deactivate another user; inactive users cannot log in.
@@ -630,8 +649,8 @@ acceptance users are cleaned up by deactivation.
 
 | Item | Lean decision |
 |---|---|
-| Incorrect role/link | create-time service validation plus DB constraints |
-| Duplicate email/link race | database unique indexes mapped to 409 |
+| Incorrect role/new-profile fields | create-time schema/service validation |
+| Duplicate email race | database unique index mapped to 409; transaction rolls back |
 | Manager deactivates self | simple actor/target check |
 | Last manager deactivated | not prevented; no PRD requirement and complex rule excluded |
 | Password reset with existing session | no forced invalidation; token lives until expiry unless account is deactivated |
@@ -644,8 +663,7 @@ Assumptions:
 - one technical `manager` role remains sufficient for the MVP;
 - direct Manager-created passwords are acceptable for the academic workflow;
 - role and profile-link immutability is approved as least-complex compliance;
-- existing Customer/Instructor list endpoints can supply active selectors without
-  contract changes;
+- no existing Customer/Instructor selector is used during normal account creation;
 - existing PBKDF2 hashing and auth flow remain the approved implementation;
 - schema initialization is the current academic upgrade mechanism.
 

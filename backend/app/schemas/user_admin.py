@@ -32,8 +32,12 @@ class UserCreateRequest(BaseModel):
     email: str
     password: str
     role: UserRole
-    customer_id: UUID | None = None
-    instructor_id: UUID | None = None
+    manager_name: str | None = None
+    customer_name: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
+    instructor_name: str | None = None
+    instructor_phone: str | None = None
 
     @field_validator("email")
     @classmethod
@@ -47,16 +51,22 @@ class UserCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def role_profile_valid(self) -> "UserCreateRequest":
-        valid = (
-            self.role == "manager" and self.customer_id is None and self.instructor_id is None
-        ) or (
-            self.role == "customer" and self.customer_id is not None and self.instructor_id is None
-        ) or (
-            self.role == "instructor" and self.customer_id is None and self.instructor_id is not None
-        )
+        customer_values = (self.customer_name, self.contact_name, self.contact_phone)
+        instructor_values = (self.instructor_name, self.instructor_phone)
+        valid = self.role == "manager" and bool(self.manager_name) and not any(customer_values + instructor_values)
+        valid = valid or self.role == "customer" and not self.manager_name and all(customer_values) and not any(instructor_values)
+        valid = valid or self.role == "instructor" and not self.manager_name and bool(self.instructor_name) and not any(customer_values)
         if not valid:
-            raise ValueError("role and profile link do not match")
+            raise ValueError("role and new profile fields do not match")
         return self
+
+    @field_validator("manager_name", "customer_name", "contact_name", "contact_phone", "instructor_name", "instructor_phone")
+    @classmethod
+    def profile_text_valid(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
 
 
 class UserEmailUpdateRequest(BaseModel):
@@ -84,11 +94,17 @@ class UserResponse(BaseModel):
     id: UUID
     email: str
     role: UserRole
+    display_name: str | None = None
     is_active: bool
     customer_id: UUID | None = None
     customer_name: str | None = None
+    customer_email: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
     instructor_id: UUID | None = None
     instructor_name: str | None = None
+    instructor_email: str | None = None
+    instructor_phone: str | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -96,18 +112,3 @@ class UserResponse(BaseModel):
 class UserListResponse(BaseModel):
     items: list[UserResponse]
     count: int = Field(ge=0)
-
-
-class EligibleCustomerProfile(BaseModel):
-    id: UUID
-    name: str
-
-
-class EligibleInstructorProfile(BaseModel):
-    id: UUID
-    full_name: str
-
-
-class EligibleProfilesResponse(BaseModel):
-    customers: list[EligibleCustomerProfile]
-    instructors: list[EligibleInstructorProfile]
