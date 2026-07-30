@@ -130,6 +130,8 @@ class UsersPresenter:
             elif role == "customer":
                 payload.update(
                     customer_name=self._required(values.get("customer_name"), "יש להזין שם לקוח."),
+                    customer_type=self._required(values.get("customer_type"), "יש להזין סוג לקוח."),
+                    customer_city=self._required(values.get("customer_city"), "יש להזין עיר לקוח."),
                     contact_name=self._required(values.get("contact_name"), "יש להזין שם איש קשר."),
                     contact_phone=self._required(values.get("contact_phone"), "יש להזין טלפון איש קשר."),
                 )
@@ -137,6 +139,7 @@ class UsersPresenter:
                 payload.update(
                     instructor_name=self._required(values.get("instructor_name"), "יש להזין שם מדריך."),
                     instructor_phone=str(values.get("instructor_phone") or "").strip() or None,
+                    instructor_city=self._required(values.get("instructor_city"), "יש להזין עיר מדריך."),
                 )
         except ValueError as exc:
             form.show_error(str(exc))

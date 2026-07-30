@@ -30,14 +30,17 @@ class CreateUserDialog(_BaseFormDialog):
         self.form.addRow("תפקיד *", self.role)
         self.manager_name = QLineEdit(); self.manager_name.setAccessibleName("שם מנהל"); self.form.addRow("שם *", self.manager_name); self.fields["manager_name"] = self.manager_name
         self.customer_name = QLineEdit(); self.customer_name.setAccessibleName("שם לקוח"); self.form.addRow("שם לקוח *", self.customer_name); self.fields["customer_name"] = self.customer_name
+        self.customer_type = QLineEdit(); self.customer_type.setAccessibleName("סוג לקוח"); self.form.addRow("סוג לקוח *", self.customer_type); self.fields["customer_type"] = self.customer_type
+        self.customer_city = QLineEdit(); self.customer_city.setAccessibleName("עיר לקוח"); self.form.addRow("עיר *", self.customer_city); self.fields["customer_city"] = self.customer_city
         self.contact_name = QLineEdit(); self.contact_name.setAccessibleName("שם איש קשר"); self.form.addRow("שם איש קשר *", self.contact_name); self.fields["contact_name"] = self.contact_name
         self.contact_phone = QLineEdit(); self.contact_phone.setAccessibleName("טלפון איש קשר"); configure_mixed_direction(self.contact_phone); self.form.addRow("טלפון איש קשר *", self.contact_phone); self.fields["contact_phone"] = self.contact_phone
         self.instructor_name = QLineEdit(); self.instructor_name.setAccessibleName("שם מדריך"); self.form.addRow("שם מדריך *", self.instructor_name); self.fields["instructor_name"] = self.instructor_name
         self.instructor_phone = QLineEdit(); self.instructor_phone.setAccessibleName("טלפון מדריך"); configure_mixed_direction(self.instructor_phone); self.form.addRow("טלפון מדריך", self.instructor_phone); self.fields["instructor_phone"] = self.instructor_phone
+        self.instructor_city = QLineEdit(); self.instructor_city.setAccessibleName("עיר מדריך"); self.form.addRow("עיר *", self.instructor_city); self.fields["instructor_city"] = self.instructor_city
         self.role.currentIndexChanged.connect(self._role_changed)
         for field in self.fields.values(): field.textChanged.connect(self._update_save_enabled)
         self._role_changed(); self.email.setFocus()
-        order = [self.email, self.password, self.confirmation, self.role, self.manager_name, self.customer_name, self.contact_name, self.contact_phone, self.instructor_name, self.instructor_phone, self.save_button, self.cancel_button]
+        order = [self.email, self.password, self.confirmation, self.role, self.manager_name, self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone, self.instructor_name, self.instructor_phone, self.instructor_city, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]): QWidget.setTabOrder(first, second)
 
     def _role_changed(self) -> None:
@@ -45,10 +48,10 @@ class CreateUserDialog(_BaseFormDialog):
         customer = role == "customer"; instructor = role == "instructor"
         manager = role == "manager"; self.form.labelForField(self.manager_name).setVisible(manager); self.manager_name.setVisible(manager)
         if not manager: self.manager_name.clear()
-        for widget in (self.customer_name, self.contact_name, self.contact_phone):
+        for widget in (self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone):
             self.form.labelForField(widget).setVisible(customer); widget.setVisible(customer)
             if not customer: widget.clear()
-        for widget in (self.instructor_name, self.instructor_phone):
+        for widget in (self.instructor_name, self.instructor_phone, self.instructor_city):
             self.form.labelForField(widget).setVisible(instructor); widget.setVisible(instructor)
             if not instructor: widget.clear()
         self._update_save_enabled()
@@ -62,8 +65,8 @@ class CreateUserDialog(_BaseFormDialog):
         common_valid = common_valid and all(character.isprintable() for character in password)
         common_valid = common_valid and password == self.confirmation.text()
         role_valid = role == "manager" and bool(self.manager_name.text().strip())
-        role_valid = role_valid or role == "customer" and all(field.text().strip() for field in (self.customer_name, self.contact_name, self.contact_phone))
-        role_valid = role_valid or role == "instructor" and bool(self.instructor_name.text().strip())
+        role_valid = role_valid or role == "customer" and all(field.text().strip() for field in (self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone))
+        role_valid = role_valid or role == "instructor" and all(field.text().strip() for field in (self.instructor_name, self.instructor_city))
         self.save_button.setEnabled(bool(common_valid and role_valid))
 
     def values(self) -> dict:
@@ -71,9 +74,10 @@ class CreateUserDialog(_BaseFormDialog):
             "email": self.email.text(), "password": self.password.text(),
             "password_confirmation": self.confirmation.text(), "role": self.role.currentData(),
             "manager_name": self.manager_name.text(),
-            "customer_name": self.customer_name.text(), "contact_name": self.contact_name.text(),
+            "customer_name": self.customer_name.text(), "customer_type": self.customer_type.text(),
+            "customer_city": self.customer_city.text(), "contact_name": self.contact_name.text(),
             "contact_phone": self.contact_phone.text(), "instructor_name": self.instructor_name.text(),
-            "instructor_phone": self.instructor_phone.text(),
+            "instructor_phone": self.instructor_phone.text(), "instructor_city": self.instructor_city.text(),
         }
 
     def show_error(self, message: str) -> None:

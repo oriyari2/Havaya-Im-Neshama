@@ -30,10 +30,10 @@ class UserAdministrationTests(TestCase):
 
     def test_request_models_normalize_and_enforce_role_profile_contract(self) -> None:
         manager=UserCreateRequest(email=" USER@Example.com ", password="password1", role="manager",manager_name=" Manager "); self.assertEqual((manager.email,manager.manager_name),("user@example.com","Manager"))
-        customer = UserCreateRequest(email="c@example.com", password="password1", role="customer", customer_name=" Customer ", contact_name=" Contact ", contact_phone=" 050 ")
-        self.assertEqual((customer.email, customer.customer_name, customer.contact_name, customer.contact_phone), ("c@example.com", "Customer", "Contact", "050"))
-        instructor = UserCreateRequest(email="i@example.com", password="password1", role="instructor", instructor_name=" Instructor ", instructor_phone=" 051 ")
-        self.assertEqual((instructor.email, instructor.instructor_name, instructor.instructor_phone), ("i@example.com", "Instructor", "051"))
+        customer = UserCreateRequest(email="c@example.com", password="password1", role="customer", customer_name=" Customer ", customer_type=" School ", customer_city=" Haifa ", contact_name=" Contact ", contact_phone=" 050 ")
+        self.assertEqual((customer.email, customer.customer_name, customer.customer_type, customer.customer_city, customer.contact_name, customer.contact_phone), ("c@example.com", "Customer", "School", "Haifa", "Contact", "050"))
+        instructor = UserCreateRequest(email="i@example.com", password="password1", role="instructor", instructor_name=" Instructor ", instructor_phone=" 051 ", instructor_city=" Jerusalem ")
+        self.assertEqual((instructor.email, instructor.instructor_name, instructor.instructor_phone, instructor.instructor_city), ("i@example.com", "Instructor", "051", "Jerusalem"))
         invalid = ({"role":"manager"}, {"role":"manager","manager_name":"M","customer_name":"x"}, {"role":"customer"}, {"role":"customer","customer_name":"x","contact_name":"y"}, {"role":"instructor"}, {"role":"instructor","instructor_name":"x","customer_name":"y"}, {"role":"customer","customer_id":str(uuid4())})
         for values in invalid:
             with self.subTest(values=values), self.assertRaises(ValidationError): UserCreateRequest(email="x@example.com", password="password1", **values)
@@ -90,25 +90,25 @@ class UserAdministrationTests(TestCase):
     def test_create_customer_atomically_creates_customer_contact_and_linked_user(self, get_connection) -> None:
         connection=MagicMock(); cursor=MagicMock(); get_connection.return_value.__enter__.return_value=connection; connection.cursor.return_value.__enter__.return_value=cursor
         customer_id=uuid4(); user_id=uuid4(); public=safe_user(id=user_id,role="customer",customer_id=customer_id,customer_name="Customer",customer_email="customer@example.com",contact_name="Contact",contact_phone="050")
-        payload=UserCreateRequest(email="customer@example.com",password="password1",role="customer",customer_name="Customer",contact_name="Contact",contact_phone="050")
+        payload=UserCreateRequest(email="customer@example.com",password="password1",role="customer",customer_name="Customer",customer_type="School",customer_city="Haifa",contact_name="Contact",contact_phone="050")
         with patch.object(service.customer_repository,"create_customer",return_value={"id":customer_id}) as create_customer, patch.object(service.customer_repository,"create_contact") as create_contact, patch.object(repo,"create_user",return_value={"id":user_id}) as create_user, patch.object(repo,"get_safe_user",return_value=public):
             result=service.create_user(payload)
-        self.assertEqual(create_customer.call_args.args[1]["email"],payload.email); self.assertEqual(create_contact.call_args.args[2]["full_name"],"Contact"); self.assertEqual(create_contact.call_args.args[2]["phone"],"050")
+        self.assertEqual(create_customer.call_args.args[1]["email"],payload.email); self.assertEqual((create_customer.call_args.args[1]["customer_type"],create_customer.call_args.args[1]["city"]),("School","Haifa")); self.assertEqual(create_contact.call_args.args[2]["full_name"],"Contact"); self.assertEqual(create_contact.call_args.args[2]["phone"],"050")
         self.assertEqual(create_user.call_args.kwargs["customer_id"],customer_id); self.assertIsNone(create_user.call_args.kwargs["instructor_id"]); self.assertEqual(result["customer_email"],payload.email); connection.commit.assert_called_once()
 
     @patch.object(service, "get_connection")
     def test_create_instructor_atomically_creates_instructor_and_linked_user(self, get_connection) -> None:
         connection=MagicMock(); cursor=MagicMock(); get_connection.return_value.__enter__.return_value=connection; connection.cursor.return_value.__enter__.return_value=cursor
         instructor_id=uuid4(); user_id=uuid4(); public=safe_user(id=user_id,role="instructor",instructor_id=instructor_id,instructor_name="Instructor",instructor_email="instructor@example.com",instructor_phone="051")
-        payload=UserCreateRequest(email="instructor@example.com",password="password1",role="instructor",instructor_name="Instructor",instructor_phone="051")
+        payload=UserCreateRequest(email="instructor@example.com",password="password1",role="instructor",instructor_name="Instructor",instructor_phone="051",instructor_city="Jerusalem")
         with patch.object(service.instructor_repository,"get_by_email",return_value=None), patch.object(service.instructor_repository,"create_instructor",return_value={"id":instructor_id}) as create_instructor, patch.object(repo,"create_user",return_value={"id":user_id}) as create_user, patch.object(repo,"get_safe_user",return_value=public):
             result=service.create_user(payload)
-        data=create_instructor.call_args.args[1]; self.assertEqual((data["full_name"],data["email"],data["phone"]),("Instructor",payload.email,"051")); self.assertEqual(create_user.call_args.kwargs["instructor_id"],instructor_id); self.assertIsNone(create_user.call_args.kwargs["customer_id"]); self.assertEqual(result["instructor_email"],payload.email); connection.commit.assert_called_once()
+        data=create_instructor.call_args.args[1]; self.assertEqual((data["full_name"],data["email"],data["phone"],data["city"]),("Instructor",payload.email,"051","Jerusalem")); self.assertEqual(create_user.call_args.kwargs["instructor_id"],instructor_id); self.assertIsNone(create_user.call_args.kwargs["customer_id"]); self.assertEqual(result["instructor_email"],payload.email); connection.commit.assert_called_once()
 
     @patch.object(service, "get_connection")
     def test_profile_creation_rolls_back_when_user_creation_fails(self, get_connection) -> None:
         connection=MagicMock(); cursor=MagicMock(); get_connection.return_value.__enter__.return_value=connection; connection.cursor.return_value.__enter__.return_value=cursor
-        payload=UserCreateRequest(email="customer@example.com",password="password1",role="customer",customer_name="Customer",contact_name="Contact",contact_phone="050")
+        payload=UserCreateRequest(email="customer@example.com",password="password1",role="customer",customer_name="Customer",customer_type="School",customer_city="Haifa",contact_name="Contact",contact_phone="050")
         with patch.object(service.customer_repository,"create_customer",return_value={"id":uuid4()}), patch.object(service.customer_repository,"create_contact"), patch.object(repo,"create_user",side_effect=IntegrityError("duplicate")), self.assertRaises(service.UserConflictError): service.create_user(payload)
         connection.rollback.assert_called_once(); connection.commit.assert_not_called()
 

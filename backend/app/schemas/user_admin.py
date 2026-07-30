@@ -34,10 +34,13 @@ class UserCreateRequest(BaseModel):
     role: UserRole
     manager_name: str | None = None
     customer_name: str | None = None
+    customer_type: str | None = None
+    customer_city: str | None = None
     contact_name: str | None = None
     contact_phone: str | None = None
     instructor_name: str | None = None
     instructor_phone: str | None = None
+    instructor_city: str | None = None
 
     @field_validator("email")
     @classmethod
@@ -51,16 +54,16 @@ class UserCreateRequest(BaseModel):
 
     @model_validator(mode="after")
     def role_profile_valid(self) -> "UserCreateRequest":
-        customer_values = (self.customer_name, self.contact_name, self.contact_phone)
-        instructor_values = (self.instructor_name, self.instructor_phone)
+        customer_values = (self.customer_name, self.customer_type, self.customer_city, self.contact_name, self.contact_phone)
+        instructor_values = (self.instructor_name, self.instructor_phone, self.instructor_city)
         valid = self.role == "manager" and bool(self.manager_name) and not any(customer_values + instructor_values)
         valid = valid or self.role == "customer" and not self.manager_name and all(customer_values) and not any(instructor_values)
-        valid = valid or self.role == "instructor" and not self.manager_name and bool(self.instructor_name) and not any(customer_values)
+        valid = valid or self.role == "instructor" and not self.manager_name and bool(self.instructor_name) and bool(self.instructor_city) and not any(customer_values)
         if not valid:
             raise ValueError("role and new profile fields do not match")
         return self
 
-    @field_validator("manager_name", "customer_name", "contact_name", "contact_phone", "instructor_name", "instructor_phone")
+    @field_validator("manager_name", "customer_name", "customer_type", "customer_city", "contact_name", "contact_phone", "instructor_name", "instructor_phone", "instructor_city")
     @classmethod
     def profile_text_valid(cls, value: str | None) -> str | None:
         if value is None:

@@ -722,3 +722,8 @@ Instructor-role account atomically creates Instructor + User. The list APIs have
 no cache and expose those active business records immediately after refresh.
 Account activation/deactivation affects login eligibility only and does not
 delete or deactivate the linked business profile or Contact data.
+
+The final creation-field completion also carries the existing Customer type and
+city fields through Create User into the new Customer, and carries the existing
+city field into the new Instructor. These are required fields in the combined
+account-creation dialog; no new domain concept, module, or screen is introduced.

@@ -248,3 +248,9 @@ every smoke account. Because the approved cleanup policy forbids physical
 deletion, the final counts are 22 Customers / 7 Customer Users and 16
 Instructors / 7 Instructor Users. The unlinked seed counts remain 15 and 9, and
 the final active smoke-account count is zero.
+
+The post-closure field completion adds only existing business attributes to the
+same atomic creation transaction: Customer creation now requires and persists
+Customer type and city, while Instructor creation requires and persists city.
+The desktop role form, Qt-free presenter payload, backend request validation,
+and existing Customer/Instructor repository payloads remain synchronized.

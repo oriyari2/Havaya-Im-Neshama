@@ -54,8 +54,8 @@ def create_user(payload: UserCreateRequest) -> dict:
                 if payload.role == "customer":
                     customer = customer_repository.create_customer(cur, {
                         "name": payload.customer_name,
-                        "customer_type": None,
-                        "city": None,
+                        "customer_type": payload.customer_type,
+                        "city": payload.customer_city,
                         "address": None,
                         "phone": None,
                         "email": payload.email,
@@ -79,7 +79,7 @@ def create_user(payload: UserCreateRequest) -> dict:
                         "full_name": payload.instructor_name,
                         "phone": payload.instructor_phone,
                         "email": payload.email,
-                        "city": None,
+                        "city": payload.instructor_city,
                         "notes": None,
                         "is_active": True,
                     })
