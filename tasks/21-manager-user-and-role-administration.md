@@ -8,8 +8,8 @@
 - Commit and push: complete.
 
 Task 21 is fully closed. Historical references below to later task numbers are
-superseded by `docs/PROJECT-ROADMAP.md`, whose current order is UI/UX Tasks
-22–25, performance Tasks 26–28, AI Tasks 29–30, and stabilization/release Tasks
+superseded by `docs/PROJECT-ROADMAP.md`, whose current order is performance Tasks
+22–24, UI/UX Tasks 25–28, AI Tasks 29–30, and stabilization/release Tasks
 31–33.
 
 ## 2. Requirement and goal
@@ -97,7 +97,7 @@ No PRD change or new authentication architecture is required.
 - self-service password change;
 - separate Business Manager and Office Manager technical roles;
 - arbitrary permissions or fine-grained access-control editing;
-- login rate limiting or global correlation/log infrastructure (current Task 28);
+- login rate limiting or global correlation/log infrastructure (current Task 24);
 - branding changes, workflow wizards, advanced identity management, or unrelated
   screen redesign;
 - changes to Customer/Instructor profile CRUD, booking CQRS/Event Sourcing,
@@ -658,8 +658,8 @@ acceptance users are cleaned up by deactivation.
 | Last manager deactivated | not prevented; no PRD requirement and complex rule excluded |
 | Password reset with existing session | no forced invalidation; token lives until expiry unless account is deactivated |
 | Incorrect immutable role/link | deactivate account and create the correct one |
-| Brute-force protection | deferred to current Task 28 |
-| Synchronous desktop calls | current CRUD convention; Task 26 owns background execution |
+| Brute-force protection | deferred to current Task 24 |
+| Synchronous desktop calls | current CRUD convention; Task 22 owns background execution |
 
 Assumptions:
 

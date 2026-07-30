@@ -3,7 +3,7 @@
 > Planning supersession note (post-Task 21): Task 20 is complete. References in
 > this historical specification to future Tasks 24–29 preserve the design record
 > but no longer define execution order. `docs/PROJECT-ROADMAP.md` now schedules
-> Desktop visual/UX work in Tasks 22–25, performance in Tasks 26–28, remaining
+> performance work in Tasks 22–24, Desktop visual/UX work in Tasks 25–28, remaining
 > AI work in Tasks 29–30, and stabilization/release in Tasks 31–33.
 
 ## 1. Context
@@ -12,7 +12,7 @@ Tasks 01–19 deliver the functional FastAPI/PySide6 MVP, role-safe desktop
 modules, booking CQRS/Event Sourcing, Cloudinary images, and grounded RAG. The
 authoritative remaining-work sequence in `docs/PROJECT-ROADMAP.md` begins with a
 neutral desktop foundation before Task 21 adds User Administration and before
-Current Task 22 supplies the visual-system and approved brand decisions.
+Current Task 25 supplies the visual-system and approved brand decisions.
 
 Task 20 is a structural PySide6 task. It must preserve behavior, role access,
 MVP, passive Views, backend contracts, Hebrew/RTL support, and the existing
@@ -91,7 +91,7 @@ Task 21 a stable table/form/page foundation. It must not choose final branding.
 - Redesigning Dashboard, Activities, Instructors, Bookings, Open Events,
   profiles, Knowledge Management, or AI Chat beyond compatibility fixes.
 - Application-wide worker/thread conversion; under the current roadmap that
-  belongs to Task 26.
+  belongs to Task 22.
 - AI-specific cancellation/chat semantics; under the current roadmap that
   belongs to Tasks 29–30 after performance closure.
 - New business workflows, data fields, permissions, APIs, or backend changes.
@@ -182,7 +182,7 @@ Presenter (Qt-free)
 - Existing feature protocols may gain narrowly scoped semantic methods such as
   `render_request_state(state)` only where the pilot proves the need. They must
   not accept Qt objects.
-- Task 20 defines identity fields for future work; current Task 26 implements reusable
+- Task 20 defines identity fields for future work; current Task 22 implements reusable
   background execution across slow workflows.
 
 ## 9. Shared token design
@@ -431,7 +431,7 @@ transport errors.
 - `operation_key` identifying list/detail/save/login/etc.;
 - `retryable`;
 - `blocks_primary_action`;
-- optional non-sensitive `diagnostic_id` for current Task 28 support.
+- optional non-sensitive `diagnostic_id` for current Task 24 support.
 
 `RequestIdentity` defines, but does not yet globally execute, the comparison
 contract:
@@ -483,7 +483,7 @@ calls asynchronous.
 10. Tables have accessible names, row selection semantics, readable headers,
     and keyboard selection.
 11. Contrast is measured for neutral tokens; brand contrast is revalidated in
-    current Tasks 22/23 rather than assumed.
+    current Tasks 25/26 rather than assumed.
 12. Modal dialogs have title, parent, initial focus, logical tab cycle, and one
     default primary action.
 
@@ -575,7 +575,7 @@ and retained values. They validate shared dialog/form conventions for Task 21.
 
 `StatefulWidget`/`RetryState` migration validates loading, empty, validation,
 authorization, connection/server error, success, retry, and duplicate-action
-contracts. Other screens keep compatibility wrappers until current Tasks 23–25
+contracts. Other screens keep compatibility wrappers until current Tasks 26–28
 and the AI-specific Task 30.
 
 Dashboard, Bookings, Activities, Instructors, Open Events, Knowledge, AI, and
@@ -590,7 +590,7 @@ compatibility. Its title maps to `PageHeader`; request feedback maps to
 supports its titles, summary values, cards, table density, spacing, and focus
 states. `RequestState` is independent of Dashboard query data and therefore does
 not require a new presenter/backend contract. At the minimum size, its three-
-column grid and shortcut row must be able to wrap during its current Task 23
+column grid and shortcut row must be able to wrap during its current Task 26
 migration. No Dashboard code, layout, behavior, API, graph, or branding is
 changed in Task 20, and this compatibility finding does not add Dashboard to the
 pilot.
@@ -607,7 +607,7 @@ pilot.
 7. Add focused widget/protocol/accessibility/resize/RTL/state tests.
 8. Run the full desktop/backend regression suites and architecture scans.
 9. Perform manual Windows review at 1024×640, 1200×760, and a larger window.
-10. Record remaining module-specific migration work for current Tasks 23–26 and 30.
+10. Record remaining module-specific migration work for current Tasks 22 and 26–28 and 30.
 
 ## 17. File-level implementation plan
 
@@ -784,21 +784,21 @@ On the supported Windows environment:
 | Presenter/View boundary erosion | Plain state models only; architecture scans; no Qt objects in protocols |
 | Temporary styling treated as brand | Name/document tokens as temporary; no logo/font/final palette claims |
 | Accessibility inferred rather than proven | Automated properties plus keyboard/screen-size manual review |
-| `processEvents()` removal mistaken for async support | Document synchronous limitation; current Task 26 owns background closure |
+| `processEvents()` removal mistaken for async support | Document synchronous limitation; current Task 22 owns background closure |
 | State component hides valid content | Operation-local state; retain valid content on recoverable errors |
 | RTL changes disrupt technical values | Explicit per-widget direction for email/URL/ID/date tests |
-| Broad repository churn | Only pilot screens migrate; later modules remain current Tasks 23–26 and 30 |
+| Broad repository churn | Only pilot screens migrate; later modules remain current Tasks 25–28 and 30 |
 
 ## 23. Deferred work under the current Tasks 22–30
 
-- Task 22: visual-system decisions, approved logo/brand inputs when available,
+- Task 25: visual-system decisions, approved logo/brand inputs when available,
   typography guidance, imagery, and visual
   tone checkpoint.
-- Task 23: Shell/Login/Dashboard and purposeful operational graph.
-- Task 24: remaining manager screen migration and data-quality completion.
-- Task 25: Instructor/Customer and AI-surface visual consistency.
+- Task 26: Shell/Login/Dashboard and purposeful operational graph.
+- Task 27: remaining manager screen migration and data-quality completion.
+- Task 28: Instructor/Customer and AI-surface visual consistency.
 - Task 30: professional AI/Knowledge UX and AI-specific cancellation.
-- Task 26: reusable application-wide background execution and remaining slow
+- Task 22: reusable application-wide background execution and remaining slow
   workflow closure.
 
 ## 24. Product-owner decisions
@@ -811,7 +811,7 @@ must confirm only:
 - Hebrew wording for shared loading/empty/error/success states;
 - that screenshots may show temporary neutral styling and are not final design.
 
-Official identity decisions remain Task 22 inputs when available.
+Official identity decisions remain Task 25 inputs when available.
 
 ## 25. Definition of done
 
@@ -897,7 +897,7 @@ scope:
 This remains synchronous request orchestration. The generation/session/resource
 contract protects the currently implemented reentrant/stale boundaries and is
 ready for later workers, but it is not represented as application-wide async
-protection; current Task 26 remains responsible for that work. Automated tests validate
+protection; current Task 22 remains responsible for that work. Automated tests validate
 Qt metadata and keyboard events only. Human screen-reader/assistive-technology
 and interactive Windows visual review remain pending.
 

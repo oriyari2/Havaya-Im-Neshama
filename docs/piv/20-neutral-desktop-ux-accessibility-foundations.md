@@ -1,8 +1,8 @@
 # Task 20 PIV — Neutral Desktop UX, Accessibility, and Request-State Foundations
 
 > Current planning note: Task 20 is complete. Historical future-task numbers in
-> this PIV are superseded by `docs/PROJECT-ROADMAP.md`: UI/UX Tasks 22–25,
-> performance Tasks 26–28, AI Tasks 29–30, and stabilization/release Tasks
+> this PIV are superseded by `docs/PROJECT-ROADMAP.md`: performance Tasks 22–24,
+> UI/UX Tasks 25–28, AI Tasks 29–30, and stabilization/release Tasks
 > 31–33.
 
 ## Status
@@ -71,7 +71,7 @@ shared presentation foundation is inconsistent:
 - A plain request identity defines session/module/operation/generation/resource
   currency; stale results never render.
 - Task 20 removes `processEvents()` from migrated loading behavior but does not
-  claim asynchronous execution. Current Task 26 owns the application-wide
+  claim asynchronous execution. Current Task 22 owns the application-wide
   worker pattern.
 
 ## Architecture boundaries
@@ -126,7 +126,7 @@ Historical Task/PIV records remain unchanged and truthful.
 Task 20 must not choose final colors, font families, logo treatment, icons,
 photography, activity-image treatment, or branded login/dashboard/AI identity.
 Neutral tokens are temporary structural test values. Real identity work is
-subject to Task 22 product-owner visual decisions and available assets.
+subject to Task 25 product-owner visual decisions and available assets.
 
 ## Manual-review checkpoint
 

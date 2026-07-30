@@ -14,16 +14,17 @@ RAG-only AI consultation with manager knowledge-source management.
 
 Tasks 01–21 are complete. The authoritative remaining order is:
 
-1. Tasks 22–25: Desktop visual design, UI consistency, UX, accessibility, and
-   responsive professional presentation.
-2. Tasks 26–28: performance, background execution, faster API/screen loading,
+1. Tasks 22–24: performance, background execution, faster API/screen loading,
    refresh reduction, bounded caching, reliability, and security.
+2. Tasks 25–28: Desktop visual design, UI consistency, UX, accessibility, and
+   responsive professional presentation.
 3. Tasks 29–30: remaining Ollama, RAG, semantic-search, and AI experience work.
 4. Tasks 31–33: stabilization, performance verification, full regression,
    Windows packaging, submission preparation, and final audit.
 
-See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md). Task 22 is next and has
-planning-audit status only; implementation has not started.
+See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md). Task 22 is the
+non-blocking Desktop/background-execution foundation and has planning-audit
+status only; implementation has not started.
 
 ## Project Structure
 

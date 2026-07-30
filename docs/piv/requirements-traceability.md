@@ -570,7 +570,7 @@ Implemented requirement coverage:
   error, success, and feedback conventions.
 - `NFR-03`: semantic request-state and request-identity contracts, including
   duplicate guards and stale Customer-detail rejection; application-wide
-  background execution is now Task 26, while remaining AI cancellation/runtime
+  background execution is now Task 22, while remaining AI cancellation/runtime
   work follows in Tasks 29–30 after performance closure.
 - `NFR-07`: explicit passive component and Qt-independent presenter/View state
   interfaces with focused automated tests.
@@ -596,17 +596,18 @@ Task 20 production code and focused tests implement this entry at commit
 product-owner approval. Human screen-reader certification is not claimed and
 remains a documented project limitation rather than an open Task 20 gate. Final
 colors, typography, logo treatment,
-icons, imagery, and screen design are now prioritized in Phase 2 Tasks 22–25.
+icons, imagery, and screen design are prioritized after performance in Phase 3
+Tasks 25–28.
 Historical Task/PIV descriptions remain evidence, while their old future-task
 numbers are superseded by the authoritative roadmap.
 
 Later tasks
 
-- Phase 2 / Tasks 22–25: Desktop visual design, UI consistency, UX,
-  accessibility, responsive layouts, and professional presentation.
-- Phase 3 / Tasks 26–28: background execution, faster loading/API interaction,
+- Phase 2 / Tasks 22–24: background execution, faster loading/API interaction,
   refresh reduction, bounded caching, reliability, security, and measurable
   responsiveness.
+- Phase 3 / Tasks 25–28: Desktop visual design, UI consistency, UX,
+  accessibility, responsive layouts, and professional presentation.
 - Phase 4 / Tasks 29–30: remaining Ollama readiness, RAG/semantic-search quality,
   and AI experience work. Authenticated grounded retrieval, citations, desktop
   chat, ingestion, and manager knowledge management are already implemented.

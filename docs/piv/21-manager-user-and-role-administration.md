@@ -7,7 +7,7 @@ Create User validation regression fix are **COMPLETE, APPROVED, COMMITTED, AND
 PUSHED**. Task 21 is fully closed.
 
 Current future-task sequencing is authoritative only in
-`docs/PROJECT-ROADMAP.md`: UI/UX Tasks 22–25, performance Tasks 26–28, AI Tasks
+`docs/PROJECT-ROADMAP.md`: performance Tasks 22–24, UI/UX Tasks 25–28, AI Tasks
 29–30, and stabilization/release Tasks 31–33.
 
 ## Approved requirement

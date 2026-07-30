@@ -18,14 +18,14 @@ The approved priority is now:
 
 ```text
 Phase 1 — completed foundations
-  -> Phase 2 — Desktop visual design, UI consistency, and UX
-  -> Phase 3 — performance and responsiveness
+  -> Phase 2 — performance and responsiveness
+  -> Phase 3 — Desktop visual design, UI consistency, and UX
   -> Phase 4 — remaining AI/RAG/Ollama work
   -> Phase 5 — stabilization, verification, and release preparation
 ```
 
-No Phase 3 implementation starts before the Phase 2 acceptance gate. No
-remaining AI expansion starts before the performance foundation is verified.
+No Phase 3 visual redesign starts before the Phase 2 performance acceptance
+gate. No remaining AI expansion starts before both foundations are verified.
 
 ## 2. Status tracking
 
@@ -38,13 +38,13 @@ audit, commit, and push.
 | Task | Phase | Title | Status | Design | Implementation | Audit | Commit/push |
 |---|---:|---|---|---|---|---|---|
 | 01–21 | 1 | Core/backend/desktop/CQRS/Event Sourcing/User Administration baseline | Committed and pushed | Complete | Complete | Approved | Complete |
-| 22 | 2 | Desktop Visual Design System and UI/UX Cohesion | Audit complete; design not started | Not started | Not started | Planning audit complete | Not started |
-| 23 | 2 | Shell, Login, Navigation, and Dashboard Experience | Planned | Not started | Not started | Not started | Not started |
-| 24 | 2 | Manager Operational Screens UI/UX Completion | Planned | Not started | Not started | Not started | Not started |
-| 25 | 2 | Instructor, Customer, and AI-Surface Visual Consistency | Planned | Not started | Not started | Not started | Not started |
-| 26 | 3 | Desktop Background Execution and Responsive Interaction | Planned | Not started | Not started | Not started | Not started |
-| 27 | 3 | API Performance, Refresh Reduction, and Safe Caching | Planned | Not started | Not started | Not started | Not started |
-| 28 | 3 | Reliability, Security, Observability, and Performance Closure | Planned | Not started | Not started | Not started | Not started |
+| 22 | 2 | Desktop Background Execution and Non-Blocking UI | Audit complete; design not started | Not started | Not started | Planning audit complete | Not started |
+| 23 | 2 | API Performance, Refresh Reduction, and Safe Local Caching | Planned | Not started | Not started | Not started | Not started |
+| 24 | 2 | Reliability, Security, Observability, and Performance Closure | Planned | Not started | Not started | Not started | Not started |
+| 25 | 3 | Desktop Visual Design System and UI/UX Cohesion | Planned | Not started | Not started | Not started | Not started |
+| 26 | 3 | Shell, Login, Navigation, and Dashboard Experience | Planned | Not started | Not started | Not started | Not started |
+| 27 | 3 | Manager Operational Screens UI/UX Completion | Planned | Not started | Not started | Not started | Not started |
+| 28 | 3 | Instructor, Customer, and AI-Surface Visual Consistency | Planned | Not started | Not started | Not started | Not started |
 | 29 | 4 | Ollama and RAG Runtime Readiness | Planned | Not started | Not started | Not started | Not started |
 | 30 | 4 | AI/RAG, Semantic Search, and Professional AI Experience Completion | Planned | Not started | Not started | Not started | Not started |
 | 31 | 5 | End-to-End Stabilization and Performance Verification | Planned | Not started | Not started | Not started | Not started |
@@ -72,28 +72,7 @@ Completed scope:
 
 Phase 1 is closed. Future work must preserve these boundaries and contracts.
 
-### Phase 2 — Desktop visual design, consistency, and UX (Tasks 22–25)
-
-Priority outcomes:
-
-- one coherent professional desktop visual language;
-- application-wide use of approved tokens and shared components;
-- consistent page hierarchy, spacing, typography, controls, dialogs, feedback,
-  tables, filters, details panels, focus, and accessibility;
-- responsive layouts across supported Windows sizes;
-- improved shell, dashboard, manager, Instructor, Customer, and AI-surface UX;
-- professional look and feel without changing domain behavior.
-
-Phase 2 is primarily desktop work. Backend changes are prohibited unless a real
-blocking contract defect is documented and separately approved. Branding assets
-may be incorporated only when supplied or explicitly approved; their absence
-must not block neutral professional consistency.
-
-Phase 2 exit gate: all included screens use the shared design language, remain
-keyboard/RTL accessible, preserve MVP, and pass desktop regression plus manual
-Windows review.
-
-### Phase 3 — Performance and responsiveness (Tasks 26–28)
+### Phase 2 — Performance and responsiveness (Tasks 22–24)
 
 Priority outcomes:
 
@@ -106,9 +85,29 @@ Priority outcomes:
 - API/query performance, reliability, idempotency, logging, and diagnostics are
   verified without weakening Event Sourcing, CQRS, or authorization.
 
-Phase 3 exit gate: defined latency/responsiveness scenarios pass, obsolete
+Phase 2 exit gate: defined latency/responsiveness scenarios pass, obsolete
 results never overwrite current state, caches are bounded and cleared safely,
 and full regression passes.
+
+### Phase 3 — Desktop visual design, consistency, and UX (Tasks 25–28)
+
+Priority outcomes:
+
+- one coherent professional desktop visual language;
+- application-wide use of approved tokens and shared components;
+- consistent page hierarchy, spacing, typography, controls, dialogs, feedback,
+  tables, filters, details panels, focus, and accessibility;
+- responsive layouts across supported Windows sizes;
+- improved shell, dashboard, manager, Instructor, Customer, and AI-surface UX;
+- professional look and feel without changing domain behavior.
+
+Phase 3 is primarily desktop View work. Backend changes are prohibited unless a
+real blocking contract defect is documented and separately approved. Branding
+assets may be incorporated only when supplied or explicitly approved.
+
+Phase 3 exit gate: all included screens use the shared design language, remain
+keyboard/RTL accessible, preserve MVP, and pass desktop regression plus manual
+Windows review.
 
 ### Phase 4 — Remaining AI/RAG/Ollama work (Tasks 29–30)
 
@@ -142,80 +141,77 @@ Task 33 is the final release gate. It must not implement features.
 
 ## 4. Remaining-task specifications
 
-### Task 22 — Desktop Visual Design System and UI/UX Cohesion
+### Task 22 — Desktop Background Execution and Non-Blocking UI
 
-First Phase 2 task and the next unfinished task. It establishes the visual and
-interaction system consumed by Tasks 23–25. See
-`tasks/22-desktop-visual-design-ui-ux-cohesion.md` for the approved planning
-audit. A full design proposal and product-owner approval are required before
-implementation.
+First Phase 2 task and the next unfinished task. Introduce one reusable, bounded
+worker/lifecycle pattern for justified slow desktop operations. Preserve passive
+Views and Qt-free Presenters by placing Qt execution mechanics in an approved
+adapter/composition boundary. Cover stale results, cancellation, logout/session
+expiry, duplicate actions, safe shutdown, and responsive progress/error state.
+See `tasks/22-desktop-background-execution-non-blocking-ui.md` for the planning
+audit. A full design proposal and approval are required before implementation.
 
-Bounded outcome: finalize professional non-domain visual foundations, audit all
-desktop screens against them, implement the approved shared primitives/tokens,
-and migrate only the pilot explicitly selected in the later design proposal.
+### Task 23 — API Performance, Refresh Reduction, and Safe Local Caching
 
-### Task 23 — Shell, Login, Navigation, and Dashboard Experience
+Measure representative screen/API flows, eliminate redundant requests and
+refresh cascades, optimize supported queries, and add bounded authorization-safe
+local caches only where evidence justifies them. Every cache requires size/TTL
+or current-entity bounds, invalidation, logout/session clearing, and tests.
 
-Apply Task 22 foundations to the application frame, login/session states,
+Dependency: Task 22 lifecycle contract.
+
+### Task 24 — Reliability, Security, Observability, and Performance Closure
+
+Close remaining API reliability, idempotency, safe-error, correlation/logging,
+rate-limit, and measurable performance gaps. Preserve booking Event Sourcing,
+CQRS, Gateway boundaries, and secret-safe logging. This task establishes the
+stable platform required before visual redesign and remaining AI expansion.
+
+Dependency: Tasks 22–23.
+
+### Task 25 — Desktop Visual Design System and UI/UX Cohesion
+
+Establish the professional visual and interaction system consumed by Tasks
+26–28. Finalize professional non-domain visual foundations, audit all desktop
+screens, implement approved shared primitives/tokens, and migrate only the pilot
+selected by its later design proposal.
+
+Dependency: Phase 2 complete.
+
+### Task 26 — Shell, Login, Navigation, and Dashboard Experience
+
+Apply Task 25 foundations to the application frame, login/session states,
 navigation hierarchy, dashboard summaries, responsive cards/tables, and one
 purposeful operational visualization if still justified by the PRD. Do not
 change dashboard data semantics or authorization.
 
-Dependency: Task 22 approved and committed.
+Dependency: Task 25 approved and committed.
 
-### Task 24 — Manager Operational Screens UI/UX Completion
+### Task 27 — Manager Operational Screens UI/UX Completion
 
 Apply the established system to Customers, Users, Instructors, Activities,
 Bookings, Booking Details/history/assignments, images, and Knowledge Management.
 Close inconsistent filters, dialogs, detail panels, table geometry, action
 hierarchy, validation, duplicate warnings where required, and responsive layout.
 
-Dependency: Tasks 22–23.
+Dependency: Tasks 25–26.
 
-### Task 25 — Instructor, Customer, and AI-Surface Visual Consistency
+### Task 28 — Instructor, Customer, and AI-Surface Visual Consistency
 
 Complete role-specific desktop visual/interaction consistency for Instructor
 and Customer dashboards, activities, bookings, profiles, Open Events, and the
 existing AI consultation surface. This task is visual/UX only; AI behavior and
 runtime work remain Phase 4.
 
-Dependency: Tasks 22–24.
-
-### Task 26 — Desktop Background Execution and Responsive Interaction
-
-Introduce one reusable, bounded worker/lifecycle pattern for justified slow
-desktop operations. Preserve passive Views and Qt-free Presenters by placing Qt
-execution mechanics in an approved adapter/composition boundary. Cover stale
-results, cancellation, logout/session expiry, duplicate action prevention, and
-safe shutdown.
-
-Dependency: Phase 2 complete.
-
-### Task 27 — API Performance, Refresh Reduction, and Safe Caching
-
-Measure representative screen/API flows, eliminate redundant requests and
-refresh cascades, optimize supported queries, and add bounded authorization-safe
-caches only where evidence justifies them. Every cache requires size/TTL or
-current-entity bounds, invalidation, logout/session clearing, and tests.
-
-Dependency: Task 26 lifecycle contract.
-
-### Task 28 — Reliability, Security, Observability, and Performance Closure
-
-Close remaining API reliability, idempotency, safe-error, correlation/logging,
-rate-limit, and measurable performance gaps. Preserve booking Event Sourcing,
-CQRS, Gateway boundaries, and secret-safe logging. This task establishes the
-stable platform required before remaining AI expansion.
-
-Dependency: Tasks 26–27.
+Dependency: Tasks 25–27.
 
 ### Task 29 — Ollama and RAG Runtime Readiness
 
 Add Docker/Ollama health checks, model readiness/preflight, unified diagnostics,
-documented startup/recovery, and responsive failure handling. Reuse Phase 3
+documented startup/recovery, and responsive failure handling. Reuse Phase 2
 execution/cancellation contracts. Do not add unrelated AI product behavior.
 
-Dependency: Phase 3 complete.
+Dependency: Phases 2–3 complete.
 
 ### Task 30 — AI/RAG, Semantic Search, and Professional AI Experience Completion
 
@@ -224,7 +220,7 @@ verification, source/citation distinction, retry/reset/cancel behavior, and
 knowledge-management usability. AI remains grounded, role-aware, and read-only;
 there is no web fallback or operational mutation.
 
-Dependency: Task 29 and the Phase 2 visual system.
+Dependency: Task 29 and the Phase 3 visual system.
 
 ### Task 31 — End-to-End Stabilization and Performance Verification
 
@@ -259,20 +255,20 @@ Dependency: Task 32.
 Tasks 01–21 complete
         |
         v
-Task 22 Visual System / UI-UX Cohesion
+Task 22 Desktop Background Execution / Non-Blocking UI
         v
-Task 23 Shell / Login / Dashboard
+Task 23 API Performance / Refresh / Safe Caching
         v
-Task 24 Manager Operational UX
-        v
-Task 25 Instructor / Customer / AI-Surface Visual Consistency
+Task 24 Reliability / Security / Performance Closure
         |
         v
-Task 26 Desktop Background Execution
+Task 25 Visual System / UI-UX Cohesion
         v
-Task 27 API Performance / Refresh / Caching
+Task 26 Shell / Login / Dashboard
         v
-Task 28 Reliability / Security / Performance Closure
+Task 27 Manager Operational UX
+        v
+Task 28 Instructor / Customer / AI-Surface Visual Consistency
         |
         v
 Task 29 Ollama / RAG Runtime Readiness
@@ -309,6 +305,7 @@ Task 33 Final Audit
 
 ## 7. Immediate next action
 
-Task 22 is audited but not designed or implemented. The next action is a
-documentation-only Task 22 design proposal for ChatGPT and product-owner review.
-No Task 22 production or test work is authorized by this roadmap update.
+Task 22 performance/background-execution work is audited but not designed or
+implemented. The next action is a documentation-only Task 22 design proposal
+for ChatGPT and product-owner review. No Task 22 production or test work is
+authorized by this roadmap update.

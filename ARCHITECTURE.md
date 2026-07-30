@@ -9,10 +9,10 @@ The authoritative execution order is defined by `docs/PROJECT-ROADMAP.md`:
 
 1. completed architecture/backend/desktop/CQRS/Event Sourcing/User
    Administration foundation (Tasks 01–21);
-2. Desktop visual design, UI consistency, UX, accessibility, and responsive
-   layout (Tasks 22–25);
-3. background execution, API/screen performance, refresh reduction, bounded
-   caching, reliability, security, and responsiveness (Tasks 26–28);
+2. background execution, API/screen performance, refresh reduction, bounded
+   caching, reliability, security, and responsiveness (Tasks 22–24);
+3. Desktop visual design, UI consistency, UX, accessibility, and responsive
+   layout (Tasks 25–28);
 4. remaining Ollama/RAG/semantic-search/AI experience work (Tasks 29–30);
 5. stabilization, performance verification, regression, packaging, and final
    release audit (Tasks 31–33).
@@ -106,9 +106,9 @@ and session-expiry behavior without importing PySide6. Passive shared widgets
 render that state and emit intent; they do not classify errors, access
 services, or decide authorization. The bounded pilot is Login, Shell,
 Customers, Customer/Contact dialogs, and shared state components. Temporary
-neutral tokens are structural only; Task 22 owns the next visual-system design
-and Tasks 23–25 apply it across the desktop. Task 20 does not implement
-production-wide background threading; Task 26 owns the reusable
+neutral tokens are structural only; Task 25 owns the next visual-system design
+and Tasks 26–28 apply it across the desktop. Task 20 does not implement
+production-wide background threading; Task 22 owns the reusable
 long-running-operation pattern.
 
 The View foundation standardizes an ordered `PageScaffold` composition
@@ -125,4 +125,4 @@ pilot, Shell, Task 20 dialogs/state controls, and tables explicitly configured b
 the shared helper. This preserves excluded module behavior while allowing later
 tasks to opt into the foundation deliberately. Request identities currently
 protect synchronous/reentrant Customer selection and session invalidation; they
-do not claim the Task 26 background-execution guarantee.
+do not claim the Task 22 background-execution guarantee.
