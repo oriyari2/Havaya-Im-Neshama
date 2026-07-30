@@ -2,27 +2,29 @@
 
 ## 1. Purpose and authority
 
-This document is the authoritative planning baseline for work after Task 19.
+This document is the authoritative planning baseline for remaining work after
+Task 20.
 It is subordinate to `docs/PRD.md` and `AGENTS.md`, but supersedes stale
-"next task" suggestions in historical task and PIV records. Tasks 01–19 are
+"next task" suggestions in historical task and PIV records. Tasks 01–20 are
 complete and must not be redefined. The baseline commit is
-`1783cdc01ef731eb51ecb68565c994455cfc11b4` (`Task 19: Desktop activity image
-workflow`).
+`6e5be718b1257b0c89b97c7d72d036faae2f70de` (`Task 20: Implement neutral
+desktop UX, accessibility, and shared UI foundations`).
 
 The roadmap is evidence-based: a folder, class, route, test, or document alone
 does not establish completion. "Complete" below means that the capability has
 an intended application path and credible end-to-end demonstration evidence.
 The roadmap does not declare the wider project complete.
 
-No Task 20+ specification is created here. Before implementation, each roadmap
-item requires its own approved design proposal and normal PIV cycle.
+Each Task 20+ item requires its own approved design proposal and normal PIV
+cycle before implementation. Task 20 is complete; Task 21 implementation is
+complete and awaiting audit.
 
 ### Roadmap status tracking
 
 | Task | Title | Status | Product-owner input | Design | Implementation | Audit | Commit/push |
 |---|---|---|---|---|---|---|---|
-| 20 | Neutral Desktop UX, Accessibility, and Request-State Foundations | Audit required | Manual visual review and ChatGPT audit required | Design approved | Complete | Audit required | Not started |
-| 21 | Manager User and Role Administration | Planned | Identity-policy decisions required | Not started | Not started | Not started | Not started |
+| 20 | Neutral Desktop UX, Accessibility, and Request-State Foundations | Committed and pushed | Approved | Design approved | Complete | Approved | Complete |
+| 21 | Manager User and Role Administration | Audit required | Approved | Design approved | Complete | Audit required | Not started |
 | 22 | Runtime Readiness and Ollama/Docker Operations | Planned | Demo hardware/model confirmation required | Not started | Not started | Not started | Not started |
 | 23 | API Reliability, Security, Idempotency, and Observability | Planned | Error-language approval helpful | Not started | Not started | Not started | Not started |
 | 24 | Mandatory Branding and Content Approval Checkpoint | Awaiting product-owner input | Mandatory brand/content assets and rules | Not started | Not applicable | Not started | Not started |
@@ -36,13 +38,14 @@ item requires its own approved design proposal and normal PIV cycle.
 | 32 | Submission Documentation, Windows Packaging, and Demo Materials | Planned | Submission assets/screenshots approval required | Not started | Not started | Not started | Not started |
 | 33 | Final Architecture, Security, Product, UX, and Submission Audit | Planned | Final approval required | Not started | Not started | Not started | Not started |
 
-Allowed lifecycle states are `Planned`, `Awaiting product-owner input`,
-`Design approved`, `In implementation`, `Audit required`, `Fixes required`,
-`Approved`, and `Committed and pushed`. The roadmap must be updated after every
+Allowed lifecycle states are `Planned`, `Design proposed`,
+`Awaiting product-owner input`, `Design approved`, `In implementation`,
+`Audit required`, `Fixes required`, `Approved`, and `Committed and pushed`.
+The roadmap must be updated after every
 approved task and again after its clean commit and push. Status must describe
 actual repository state, not intended progress.
 
-## 2. Current baseline after Task 19
+## 2. Current baseline after Task 20
 
 The system is a working academic modular monolith with:
 
@@ -59,11 +62,11 @@ The system is a working academic modular monolith with:
 - Ollama generation and embedding clients, Docker Compose, pgvector ingestion
   and retrieval, role-aware grounding, abstention, citations, desktop chat, and
   manager knowledge management;
-- 169 backend and 111 desktop tests at the Task 19 baseline.
+- 183 backend and 146 desktop tests after Task 21 implementation.
 
-This is a strong functional baseline, not a submission-ready product. The
-largest mandatory gap is user and role administration. Runtime readiness,
-consistent API reliability/observability, professional UI/UX, AI interaction
+This is a strong functional baseline, not a submission-ready product. The user
+and role administration gap is implemented and awaiting audit. Runtime
+readiness, consistent API reliability/observability, professional UI/UX, AI interaction
 quality, purposeful graph evidence, complete manual acceptance, branding, and
 submission packaging also remain.
 
@@ -86,13 +89,13 @@ The planning review covered:
   endpoints, and Windows setup commands;
 - backend and desktop automated tests, architecture scans, authorization tests,
   replay/concurrency tests, Gateway tests, and RAG tests;
-- current Git state and the Task 19 baseline commit.
+- current Git state and the Task 20 baseline commit.
 
 ## 4. Course-requirement compliance matrix
 
 | Requirement | Repository evidence | End-to-end user-visible evidence | Status | Remaining gap | Closing task | Manual submission proof |
 |---|---|---|---|---|---|---|
-| User management | `users` table, user repository, seeded accounts | Users can sign in, but no user administration route or screen exists | Missing | Manager cannot create, activate/deactivate, link, or role-manage users | Task 21 | Manager creates a user, assigns an allowed role/profile, disables it, and disabled login fails |
+| User management | Manager-only users API/application/repository, constrained `users` table, and Task 20-based desktop module | Manager can list/search/filter users, create linked role accounts, edit email, activate/deactivate, and reset passwords | Implemented; audit required | Final audit and live acceptance proof | Task 21 | Manager creates each role, disables/reactivates an account, resets its password, and proves inactive/updated login behavior |
 | Authentication | `/auth/login`, `/auth/me`, password hashing, JWT, desktop login | All three demo roles can sign in and enter a scoped workspace | Complete | Final clean-environment/live proof only | Task 31 | Successful and failed sign-in plus session expiry |
 | Role-based behavior | `require_roles`, resource checks, role navigation, role-safe schemas | Manager/instructor/customer see different modules and data | Complete | Final matrix regression and screenshots | Tasks 27, 31 | Execute one allowed and one denied action per role |
 | Data search | Customer/activity/instructor/booking queries and desktop filters | Module-specific searches and filters are usable | Complete | Consistency/usability polish; no cross-module search is justified | Tasks 26, 27 | Search Hebrew data in each demonstrated module |
@@ -377,18 +380,20 @@ Gateway. Decorative API use is forbidden.
    User Administration screen; only seeded/login users currently exist.
 3. **Evidence:** `auth.py` exposes login/me only; navigation has no user module;
    the user repository is read-only for authentication.
-4. **User-visible outcome:** Managers can list, create, inspect, update, and
-   deactivate users, with safe role-compatible customer/instructor links.
-5. **Main scope:** Approved password policy; password hashing/non-exposure;
-   unique normalized email; role-compatible profile linkage; prevention of
-   duplicate profile links; safe role transitions; last-active-manager and
-   self-deactivation protection; session behavior after deactivation;
-   audit-safe administration events/logs; manager-only API/UI; and an explicit
-   login-abuse/rate-limit decision. Deactivation is the default instead of
-   physical deletion unless the product owner explicitly approves otherwise.
-6. **Out of scope:** Self-registration, reset-email delivery, MFA, enterprise
-   identity, Supabase Auth migration, fine-grained permissions, and physical
-   deletion by default.
+4. **User-visible outcome:** Managers can list/search/filter users, create an
+   immediately usable account for any existing role, edit email, activate or
+   deactivate another user, and set a new password.
+5. **Main scope:** Existing email/password authentication and hashing; manager-
+   only API/UI; normalized case-insensitive email uniqueness; create-time
+   role-compatible Customer/Instructor links with database uniqueness; immutable
+   role/profile link after creation; email edit; activate/deactivate; direct
+   Manager password reset; inactive-login rejection; password/hash/token
+   non-exposure; and simple self-deactivation prevention.
+6. **Out of scope:** Public registration, email/SMS verification, MFA/OTP,
+   first-login password change, reset email/link/token flows, `auth_version`,
+   forced session invalidation, audit/event systems, optimistic versioning,
+   complex role transition/profile reassignment, physical deletion, enterprise
+   IAM, and fine-grained permissions.
 7. **Roles affected:** Manager directly; instructor/customer session lifecycle
    indirectly.
 8. **Architecture:** Schema/repository/application/router plus desktop
@@ -396,17 +401,17 @@ Gateway. Decorative API use is forbidden.
 9. **Course requirements:** User management, authentication, RBAC, security,
    data entry/search/details/tables, MVP, FastAPI, cloud database, PIV.
 10. **Dependencies:** Task 20.
-11. **Automated acceptance:** Password policy/hash/non-exposure; unique email;
-    role/link rules; duplicate-link rejection; safe role transitions;
-    last-manager and self-deactivation guards; disabled-session/login behavior;
-    audit-safe evidence; manager authorization; rate-limit decision tests where
-    adopted; presenter/View tests and full regressions.
-12. **Manual acceptance:** Manager creates each role, tests invalid links and
-    self/last-manager protection, changes a safe role, deactivates another user,
-    verifies session/login behavior, and reviews loading/error/empty states,
-    RTL, resize, and screenshots.
-13. **Product-owner input:** Approve password policy, password-reset scope,
-    deactivation/deletion policy, and session invalidation expectation.
+11. **Automated acceptance:** Manager/non-manager authorization; create all three
+    roles; normalized duplicate email and duplicate-profile rejection; invalid
+    role/link rejection; email edit; activate/deactivate; inactive-login
+    rejection; password reset with old/new login proof; secret non-exposure;
+    Presenter/View tests and full regressions.
+12. **Manual acceptance:** Manager creates and logs in as each role, searches and
+    filters, tests invalid links and self-deactivation, edits email, deactivates/
+    reactivates another user, resets a password, and reviews all Task 20 states,
+    keyboard/RTL/resize behavior, and screenshots.
+13. **Product-owner input:** Final approval of the lean design and immutable
+    role/profile-link editing policy.
 14. **Size:** Large.
 15. **Risk:** High because identity linkage and authorization are critical.
 
@@ -856,9 +861,8 @@ the final roadmap task and a read-only release gate.
 
 ## 14. Recommended execution sequence
 
-1. Approve and specify Task 20 to establish neutral UX, accessibility, and
-   request-state foundations before adding another screen.
-2. Implement Task 21 user administration on those foundations.
+1. Audit and approve the completed Task 21 implementation, then commit it.
+2. Design Task 22 runtime readiness on the approved Task 21 baseline.
 3. Complete Task 22 runtime readiness and Task 23 reliability/security
    contracts before broad visual closure.
 4. Hold the mandatory Task 24 branding checkpoint; do not guess assets.
@@ -1011,22 +1015,20 @@ not include:
 
 ## 21. Open product-owner decisions
 
-1. May a manager reset passwords, and must users always be deactivated rather
-   than deleted?
-2. What are the official logo variants, colors, fonts, image assets, visual
+1. What are the official logo variants, colors, fonts, image assets, visual
    tone, and usage restrictions?
-3. Which real images and screenshots may appear in the academic submission?
-4. Which prices, capacities, equipment lists, and preparation instructions are
+2. Which real images and screenshots may appear in the academic submission?
+3. Which prices, capacities, equipment lists, and preparation instructions are
    approved, and which remain explicitly demo-only?
-5. Which Ollama generation model is supported by the final demonstration
+4. Which Ollama generation model is supported by the final demonstration
    hardware?
-6. Does the course assessor accept Cloudinary as the required domain-relevant
+5. Does the course assessor accept Cloudinary as the required domain-relevant
    external service? If not, which single real planning need and provider should
    be approved?
-7. Should instructor claiming remain disabled, as currently assumed?
-8. Which manager dashboard graph best supports actual daily decisions?
-9. What suggested AI questions and proposal-draft disclaimer should be shown?
-10. Are any actions exclusive to a future Business Manager versus Office
+6. Should instructor claiming remain disabled, as currently assumed?
+7. Which manager dashboard graph best supports actual daily decisions?
+8. What suggested AI questions and proposal-draft disclaimer should be shown?
+9. Are any actions exclusive to a future Business Manager versus Office
     Manager? The roadmap retains the current single `manager` role unless this
     is promoted into MVP scope.
 

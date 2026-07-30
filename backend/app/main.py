@@ -10,6 +10,7 @@ from backend.app.routers.customers import router as customers_router
 from backend.app.routers.instructors import router as instructors_router
 from backend.app.routers.knowledge import router as knowledge_router
 from backend.app.routers.system import router as system_router
+from backend.app.routers.users import router as users_router
 
 load_backend_env()
 
@@ -20,6 +21,7 @@ app = FastAPI(
 
 app.include_router(system_router)
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(customers_router)
 app.include_router(instructors_router)
 app.include_router(activities_router)

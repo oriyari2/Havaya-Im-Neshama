@@ -18,6 +18,7 @@ from desktop_client.app.presenters.knowledge_presenter import KnowledgeManagemen
 from desktop_client.app.presenters.customers_presenter import CustomerProfilePresenter, CustomersPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
 from desktop_client.app.presenters.open_events_presenter import OpenEventsPresenter
+from desktop_client.app.presenters.users_presenter import UsersPresenter
 from desktop_client.app.services.auth_service import AuthService
 from desktop_client.app.services.booking_service import BookingService
 from desktop_client.app.services.assignment_service import AssignmentService
@@ -26,6 +27,7 @@ from desktop_client.app.services.ai_chat_service import AIChatService
 from desktop_client.app.services.customer_service import CustomerService
 from desktop_client.app.services.instructor_service import InstructorService
 from desktop_client.app.services.knowledge_service import KnowledgeService
+from desktop_client.app.services.user_service import UserService
 from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.activities_view import ActivitiesView
 from desktop_client.app.views.ai_chat_view import AIChatView
@@ -37,6 +39,7 @@ from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.login_view import LoginView
 from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.shell_view import ShellView
+from desktop_client.app.views.users_view import UsersView
 from desktop_client.app.views.design_tokens import build_neutral_stylesheet
 
 
@@ -60,6 +63,7 @@ class MainWindow(QMainWindow):
         self.customer_service = CustomerService(self.api_client)
         self.instructor_service = InstructorService(self.api_client)
         self.knowledge_service = KnowledgeService(self.api_client)
+        self.user_service = UserService(self.api_client)
         self._presenters: dict[str, object] = {}
         self._show_login()
 
@@ -122,6 +126,20 @@ class MainWindow(QMainWindow):
             instructor_profile=InstructorProfileView();instructor_profile_presenter=InstructorProfilePresenter(instructor_profile,self.instructor_service);instructor_profile.retry_requested.connect(instructor_profile_presenter.retry);self.shell.add_page("my_profile",instructor_profile);self._presenters["my_profile"]=instructor_profile_presenter
 
         if session.role == "manager":
+            users_view = UsersView()
+            users_presenter = UsersPresenter(users_view, self.user_service, current_user_id=session.user_id, session_role=session.role)
+            users_view.filters_requested.connect(users_presenter.apply_filters)
+            users_view.page_requested.connect(users_presenter.page)
+            users_view.user_selected.connect(users_presenter.select)
+            users_view.retry_requested.connect(users_presenter.retry)
+            users_view.create_requested.connect(users_presenter.begin_create)
+            users_view.edit_requested.connect(users_presenter.begin_edit)
+            users_view.activate_requested.connect(users_presenter.activate)
+            users_view.deactivate_requested.connect(users_presenter.deactivate)
+            users_view.reset_password_requested.connect(users_presenter.begin_reset_password)
+            self.shell.add_page("users", users_view)
+            self._presenters["users"] = users_presenter
+
             customers_view = CustomersView()
             customers_presenter = CustomersPresenter(customers_view, self.customer_service)
             customers_view.filters_requested.connect(customers_presenter.apply_filters)

@@ -76,6 +76,29 @@ Backend implemented and hardened
 
 Task 05 adds login, current-user retrieval, hashed demo users, PyJWT bearer tokens, environment-backed AUTH_SECRET_KEY configuration, reusable auth helpers, manager-only customer/contact mutations, authenticated customer/contact reads, customer-owned customer/contact reads, instructor read denial until a clear relationship exists, and local-only guarded /system/init-db. Task 09 implements booking ownership and Task 10 implements role-based desktop navigation and authenticated API sessions for `FR-AUTH-03` and `FR-AUTH-04`.
 
+Manager User and Role Administration
+
+PRD manager user/role permission, User Administration screen, `FR-AUTH-01`,
+`FR-AUTH-02`, `FR-AUTH-03`, `NFR-02`, `NFR-04`, `NFR-05`, `NFR-07`,
+`NFR-09`, `NFR-10`
+
+Implemented; audit required
+
+Task 21 implements lean manager-created user administration on the Task 20
+desktop foundation. It covers list/search/role-status filters, immediate account
+creation for the three existing roles, safe detail, email-only edit, activate/
+deactivate, direct Manager password reset, case-insensitive email uniqueness,
+create-time compatible one-to-one Customer/Instructor links, inactive-login
+rejection, backend Manager authorization, and secret non-exposure. Role and
+profile link are immutable after creation. Public registration, verification,
+MFA/OTP, first-login change, reset delivery/tokens, `auth_version`, forced
+session invalidation, audit/event systems, optimistic versioning, complex role/
+profile transitions, and physical deletion are explicitly excluded. Manager-
+only FastAPI authorization, safe schemas, application/repository persistence,
+the Task 20-based passive desktop View and Qt-free Presenter, and focused/full
+regression tests provide implementation evidence. Audit and commit remain
+pending; the broader project is not complete.
+
 Activity catalog
 
 FR-ACT-01, FR-ACT-02, FR-ACT-04
@@ -535,7 +558,7 @@ Deferred:
 
 Task 20 - Neutral Desktop UX, Accessibility, and Request-State Foundations
 
-Status: Implemented; audit and manual visual approval pending.
+Status: Implemented, approved, committed, and pushed.
 
 Implemented requirement coverage:
 
@@ -561,11 +584,13 @@ Implemented requirement coverage:
 - Implemented styling bounds prevent pilot control/table geometry from being
   imposed on excluded modules. Focused tests cover presenter-owned identity and
   guard behavior, all semantic phases, non-pilot construction, dialog keyboard
-  behavior, and meaningful pilot geometry at 1024x640. Human assistive-technology
-  and interactive Windows review remain pending.
+  behavior, meaningful pilot geometry at 1024x640, and the final approved
+  semantic table-layout correction.
 
-Task 20 production code and focused tests now implement this entry. It remains
-uncommitted pending ChatGPT audit and product-owner manual visual approval. Final
+Task 20 production code and focused tests implement this entry at commit
+`6e5be718b1257b0c89b97c7d72d036faae2f70de`, after final ChatGPT and
+product-owner approval. Human screen-reader certification is not claimed and
+remains a documented project limitation rather than an open Task 20 gate. Final
 colors, typography, logo treatment,
 icons, imagery, and branded screen design are explicitly deferred to the Task
 24 branding checkpoint and Tasks 25-28. Historical Task/PIV records remain

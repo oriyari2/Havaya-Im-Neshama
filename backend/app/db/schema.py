@@ -78,7 +78,12 @@ CREATE_TABLE_SQL = [
         customer_id uuid REFERENCES customers(id),
         instructor_id uuid REFERENCES instructors(id),
         created_at timestamptz NOT NULL DEFAULT now(),
-        updated_at timestamptz NOT NULL DEFAULT now()
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        CONSTRAINT users_role_profile_check CHECK (
+            (role = 'manager' AND customer_id IS NULL AND instructor_id IS NULL)
+            OR (role = 'customer' AND customer_id IS NOT NULL AND instructor_id IS NULL)
+            OR (role = 'instructor' AND customer_id IS NULL AND instructor_id IS NOT NULL)
+        )
     );
     """,
     """
@@ -276,6 +281,22 @@ CREATE_TABLE_SQL = [
 
 
 ALTER_TABLE_SQL = [
+    """
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'users_role_profile_check'
+              AND conrelid = 'users'::regclass
+        ) THEN
+            ALTER TABLE users ADD CONSTRAINT users_role_profile_check CHECK (
+                (role = 'manager' AND customer_id IS NULL AND instructor_id IS NULL)
+                OR (role = 'customer' AND customer_id IS NOT NULL AND instructor_id IS NULL)
+                OR (role = 'instructor' AND customer_id IS NULL AND instructor_id IS NOT NULL)
+            );
+        END IF;
+    END $$;
+    """,
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS target_audience text;",
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS duration_minutes integer;",
     "ALTER TABLE activities ADD COLUMN IF NOT EXISTS recommended_capacity integer;",
@@ -303,7 +324,10 @@ ALTER_TABLE_SQL = [
 
 CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_normalized_unique ON users(lower(email));",
     "CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_customer_unique ON users(customer_id) WHERE customer_id IS NOT NULL;",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_instructor_unique ON users(instructor_id) WHERE instructor_id IS NOT NULL;",
     "CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);",
     "CREATE INDEX IF NOT EXISTS idx_customers_city ON customers(city);",
     "CREATE INDEX IF NOT EXISTS idx_customer_contacts_customer_id ON customer_contacts(customer_id);",
