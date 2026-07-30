@@ -4,6 +4,11 @@
 
 **DESIGN APPROVED — IMPLEMENTATION COMPLETE — VALIDATION COMPLETE**
 
+Post-closure native-lifecycle correction is included. Three reproducible
+`python.exe` access violations observed during the original native measurement
+runs invalidated the earlier closure claim until the ownership fix and repeated
+native stress evidence described in PIV 23 were completed.
+
 Task 23 is the second Phase 2 performance increment. It completes the
 whole-desktop migration onto Task 22's bounded execution boundary, adds a
 session-safe request/cache boundary, and reduces redundant HTTP and rendering
@@ -245,3 +250,19 @@ Synchronize this task, PIV 23, traceability, roadmap, and the approved
 architecture section. README changes only if operator instructions change.
 Task 23 closes only after exact test totals and validation evidence are recorded,
 the exact commit is pushed to `origin/main`, and the tree is clean.
+
+## Native lifecycle acceptance addendum
+
+- Cancelling/invalidation must retain a running runnable, its Python wrapper,
+  completion payload, and callback record until native execution finishes.
+- A private `QThreadPool` must never be destroyed while a runnable is active.
+- Executor shutdown must be UI-thread-only, idempotent, wait for native work,
+  drain queued completion MetaCalls, and leave no posted event for a later
+  QApplication/test cycle.
+- Cache refresh workers must be non-daemon, joined, and detached from Qt-facing
+  subscribers before QApplication teardown.
+- Logout/session replacement must prevent an obsolete request's 401 from
+  clearing the newer session token.
+- The exact previously crashing native measurement must exit zero, the broader
+  native lifecycle suite must pass, and at least 50 repeated lifecycle cycles
+  must complete with zero access violations and zero post-shutdown callbacks.

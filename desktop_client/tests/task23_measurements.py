@@ -139,6 +139,9 @@ def main() -> int:
         navigation.append({"page": page, "submission_ms": submission_ms, "useful_ms": _milliseconds(started), "http_requests": underlying - before_requests, "active_page": window._active_page, "timed_out": bool(window.operation_executor.active_count)})
         if output_path:
             Path(output_path).write_text(json.dumps({"role": session.role, "login_ms": login_ms, "reads": measurements, "navigation": navigation, "render": render_metrics, "cache": client.performance_snapshot()}, ensure_ascii=False), encoding="utf-8")
+    cache_before_close = client.performance_snapshot()
+    window.close()
+    app.processEvents()
     report = json.dumps(
             {
                 "role": session.role,
@@ -146,7 +149,8 @@ def main() -> int:
                 "reads": measurements,
                 "navigation": navigation,
                 "render": render_metrics,
-                "cache": client.performance_snapshot(),
+                "cache_before_close": cache_before_close,
+                "cache_after_close": client.performance_snapshot(),
             },
             ensure_ascii=False,
         )
@@ -154,8 +158,6 @@ def main() -> int:
         Path(output_path).write_text(report, encoding="utf-8")
     else:
         print(report, flush=True)
-    window.close()
-    app.processEvents()
     return 0
 
 

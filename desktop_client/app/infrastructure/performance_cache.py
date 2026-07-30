@@ -112,6 +112,8 @@ class SessionPerformanceCache:
         self._inflight: dict[str, _Flight] = {}
         self._bytes = 0
         self._refreshing: set[str] = set()
+        self._refresh_threads: set[threading.Thread] = set()
+        self._shutdown = False
         self.stats = CacheStats()
         self._refresh_failure_handler: Callable[[str], None] | None = None
 
@@ -143,6 +145,8 @@ class SessionPerformanceCache:
         if not user_id or role not in {"manager", "customer", "instructor"}:
             raise ValueError("A valid authenticated cache scope is required")
         with self._lock:
+            if self._shutdown:
+                raise RuntimeError("Performance cache is shut down")
             self._generation += 1
             self._clear_locked()
             self._scope = SessionScope(str(user_id), role, self._generation)
@@ -183,12 +187,13 @@ class SessionPerformanceCache:
                 stale = copy.deepcopy(entry.value)
                 if key not in self._refreshing and len(self._refreshing) < MAX_BACKGROUND_REFRESHES:
                     self._refreshing.add(key)
-                    threading.Thread(
+                    refresh_thread = threading.Thread(
                         target=self._refresh,
                         args=(key, policy, scope, loader),
                         name="desktop-cache-refresh",
-                        daemon=True,
-                    ).start()
+                    )
+                    self._refresh_threads.add(refresh_thread)
+                    refresh_thread.start()
                 return stale
             if entry is not None:
                 self._remove_locked(key)
@@ -283,6 +288,7 @@ class SessionPerformanceCache:
                 "estimated_bytes": self._bytes,
                 "inflight": len(self._inflight),
                 "refreshing": len(self._refreshing),
+                "refresh_threads": len(self._refresh_threads),
                 "hits": self.stats.hits,
                 "misses": self.stats.misses,
                 "coalesced": self.stats.coalesced,
@@ -295,7 +301,19 @@ class SessionPerformanceCache:
             }
 
     def shutdown(self) -> None:
-        self.clear_session()
+        with self._lock:
+            if self._shutdown:
+                return
+            self._shutdown = True
+            self._generation += 1
+            self._scope = None
+            self._refresh_failure_handler = None
+            self._clear_locked()
+            threads = tuple(self._refresh_threads)
+        current = threading.current_thread()
+        for thread in threads:
+            if thread is not current:
+                thread.join()
 
     @staticmethod
     def _normalize(value: Any) -> Any:
@@ -350,12 +368,13 @@ class SessionPerformanceCache:
         except Exception:
             with self._lock:
                 self.stats.refresh_failures += 1
-                handler = self._refresh_failure_handler if self._scope == scope else None
-            if handler is not None:
-                handler(policy.resource)
+                handler = self._refresh_failure_handler if not self._shutdown and self._scope == scope else None
+                if handler is not None:
+                    handler(policy.resource)
         finally:
             with self._lock:
                 self._refreshing.discard(key)
+                self._refresh_threads.discard(threading.current_thread())
 
     def _remove_locked(self, key: str) -> None:
         entry = self._entries.pop(key, None)

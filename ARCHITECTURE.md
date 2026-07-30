@@ -144,6 +144,16 @@ shutdown invalidate all outstanding callback identities. Cancellation means
 cooperative suppression of obsolete results and does not claim to reverse a
 mutation already committed by FastAPI.
 
+Native lifetime ownership is explicit. A `QRunnable` uses `autoDelete=False`
+and remains owned by its UI-thread operation record until the executor receives
+its single queued completion or completes shutdown. Cancelling a running task
+marks it obsolete but does not release its runnable/callback ownership early.
+Shutdown is UI-thread-only and idempotent: reject new work, invalidate callback
+identities, remove work that is still queued, wait without timeout for the
+private pool to finish, synchronously drain its queued MetaCalls, and only then
+release records and allow QObject teardown. This prevents a private pool,
+runnable, Python wrapper, or queued completion from surviving its window.
+
 The bounded Task 22 pilot covers Login, Dashboard, Customers and owned Customer
 profile, Instructors and owned Instructor profile, and manager User
 Administration. Task 23 extends the same boundary as documented below. Backend
@@ -164,6 +174,14 @@ are 128 entries, an 8 MiB serialized-size estimate, 32 in-flight identities,
 and two refresh workers. Authentication, password/reset data, AI consultation,
 mutations, errors, tokens/secrets, and public preview bytes are never cached;
 there is no disk persistence.
+
+SWR refresh threads are non-daemon and globally bounded. Cache shutdown is
+idempotent, clears session/subscribers and Qt-facing failure handlers, and joins
+every refresh thread before Qt teardown. Main-window close first detaches the
+ApiClient unauthorized callback and cache freshness signal, joins cache work,
+then shuts down the Qt executor. An obsolete request's 401 may clear a token
+only when that request used the still-current token, so an old session cannot
+expire a newer login.
 
 The cache coalesces only complete identical GET identities. Mutation success
 causes targeted resource invalidation; failure does not alter authoritative

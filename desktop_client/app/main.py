@@ -287,10 +287,12 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._invalidate_presenter_requests()
-        self.operation_executor.shutdown()
+        self.api_client.set_unauthorized_handler(None)
         performance_cache = getattr(self.api_client, "performance_cache", None)
         if performance_cache is not None:
+            performance_cache.set_refresh_failure_handler(None)
             performance_cache.shutdown()
+        self.operation_executor.shutdown()
         super().closeEvent(event)
 
 

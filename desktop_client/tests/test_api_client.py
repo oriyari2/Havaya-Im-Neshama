@@ -44,6 +44,22 @@ class _RawResponse:
 
 
 class ApiClientTests(unittest.TestCase):
+    def test_obsolete_request_401_cannot_expire_new_session_token(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("old-token")
+        notified = []
+        client.set_unauthorized_handler(lambda: notified.append(True))
+
+        def fail(_request, timeout):
+            client.set_access_token("new-token")
+            raise HTTPError("http://example.test/customers", 401, "Unauthorized", {}, io.BytesIO(b'{"detail":"expired"}'))
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=fail):
+            with self.assertRaises(ApiError):
+                client.get("/customers")
+        self.assertEqual(client.access_token, "new-token")
+        self.assertEqual(notified, [])
+
     def test_multipart_upload_is_authenticated_and_contains_file(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("manager-token")

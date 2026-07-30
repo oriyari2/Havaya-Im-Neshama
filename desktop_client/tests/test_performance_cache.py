@@ -253,6 +253,29 @@ class PerformanceCacheTests(unittest.TestCase):
             time.sleep(0.005)
         self.assertEqual(self.cache.snapshot()["refreshing"], 0)
 
+    def test_shutdown_joins_refresh_worker_and_detaches_failure_handler(self) -> None:
+        warnings = []
+        self.cache.set_refresh_failure_handler(warnings.append)
+        self.cache.get_or_load("/customers", {}, lambda: ["stale"])
+        self.clock.now += 31
+        entered = threading.Event()
+        release = threading.Event()
+
+        def fail_after_release():
+            entered.set()
+            release.wait(1)
+            raise RuntimeError("offline")
+
+        self.cache.get_or_load("/customers", {}, fail_after_release)
+        self.assertTrue(entered.wait(1))
+        threading.Timer(0.05, release.set).start()
+        started = time.perf_counter()
+        self.cache.shutdown()
+        self.assertGreaterEqual(time.perf_counter() - started, 0.03)
+        self.assertEqual(self.cache.snapshot()["refresh_threads"], 0)
+        self.assertEqual(warnings, [])
+        self.cache.shutdown()
+
     def test_api_client_reuses_reads_and_invalidates_after_successful_mutation(self) -> None:
         client = ApiClient("http://example.test", performance_cache=self.cache)
         calls: list[tuple[str, str]] = []

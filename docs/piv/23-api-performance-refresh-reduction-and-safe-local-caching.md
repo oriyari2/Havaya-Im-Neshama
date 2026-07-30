@@ -26,6 +26,7 @@ Services/ApiClient/FastAPI ownership, and all authorization/domain contracts.
 - `desktop_client/app/infrastructure/performance_cache.py`
 - `desktop_client/tests/test_performance_cache.py`
 - `desktop_client/tests/task23_measurements.py`
+- `desktop_client/tests/task23_native_lifecycle_stress.py`
 - `tasks/23-api-performance-refresh-reduction-and-safe-local-caching.md`
 - `docs/piv/23-api-performance-refresh-reduction-and-safe-local-caching.md`
 
@@ -37,7 +38,8 @@ Services/ApiClient/FastAPI ownership, and all authorization/domain contracts.
 - Presenters: Activities, AI Chat, Booking Assignments, Bookings, Customers,
   Dashboard, Instructors, Knowledge, Open Events, and Users
 - Services: Activity, Auth, Booking, Customer, Instructor, Knowledge, and User
-- Tests: background operations and Customers presenter
+- Tests: API client, background operations, performance cache, measurement
+  harness, native lifecycle stress, and Customers presenter
 - Documentation: `ARCHITECTURE.md`, `docs/PROJECT-ROADMAP.md`, and
   `docs/piv/requirements-traceability.md`
 
@@ -175,8 +177,8 @@ run of all 44 requested gestures is not claimed.
 
 ## Validation commands and final evidence
 
-- Focused Task 23/affected desktop: 115 passed.
-- Full desktop: 175 passed.
+- Focused native lifecycle/View/foundation regression suite: 63 passed.
+- Full desktop: 179 passed.
 - Full backend: 185 passed.
 - Native Windows Qt lifecycle/View/foundation: 34 passed.
 - `python -m compileall backend desktop_client rag`: passed.
@@ -184,6 +186,97 @@ run of all 44 requested gestures is not claimed.
 - Presenter Qt, passive View/data access, desktop direct DB, secret retention,
   cache/session isolation, queue/worker bounds, stale callback, TODO/FIXME/
   debug, and backend-change scans: passed with no architecture violation.
+
+## Post-closure native Qt lifecycle correction
+
+### Observed failure and classification
+
+The original Task 23 native measurement was launched three times with the Qt
+`windows` platform. Windows displayed both `python.exe - Application Error`
+(`memory could not be read`) and the Just-In-Time Debugger prompt for an
+unhandled Win32 exception. These were process access violations during teardown,
+not Python exceptions, ordinary Qt warnings, application-runtime business
+failures, or backend failures. The original managed command returned no Python
+trace/output because the native process failed while closing.
+
+The triggering command family was:
+
+```powershell
+$env:QT_QPA_PLATFORM='windows'
+$env:PYTHONFAULTHANDLER='1'
+.\.venv\Scripts\python.exe -X faulthandler -m desktop_client.tests.task23_measurements
+```
+
+The sequence was: Dashboard/read work started; rapid navigation cancelled the
+operation record; the HTTP runnable was already running; `active_count` falsely
+reached zero; the harness closed the window; shutdown waited only 3 seconds;
+the private child `QThreadPool` and callback/QObject ownership were released
+while native work or a queued completion still existed. A second deterministic
+reproduction occurred only when multiple lifecycle tests shared one
+`QApplication`: a completion MetaCall from an earlier executor was delivered by
+a later `processEvents()` during session-expiry teardown. A single isolated test
+passed, confirming cumulative teardown leakage rather than screen logic.
+
+No matching Python application entry was available from the accessible Windows
+Application event log (`NO_PYTHON_APPLICATION_EVENTS_FOUND`). Faulthandler did
+identify the later access violation at `test_views.py` session-expiry
+`processEvents()`, which localized the leaked queued native callback.
+
+### Root cause and correction
+
+- Running cancellation used to remove `_OperationRecord` before native
+  completion, releasing the Python wrapper/Bridge lifetime too early.
+- Default `QRunnable` auto-delete allowed the native runnable to be deleted on a
+  worker while Python still retained or later touched its wrapper.
+- Per-operation Bridge QObjects plus three queued signals left native MetaCalls
+  across executor/window/test teardown.
+- Timed `waitForDone(3000)` allowed the child pool to be destroyed after timeout
+  while HTTP still ran.
+- Daemon SWR threads could survive interpreter teardown and retained a Qt-facing
+  freshness callback; an obsolete request's 401 could also target a newer token.
+
+The corrected executor uses one executor-owned completion signal, one completion
+per runnable, `autoDelete=False`, and UI-owned records. Cancellation marks a
+running record obsolete but retains it; only successfully removed queued work is
+released early. Shutdown is UI-thread-only and idempotent, rejects new work,
+invalidates callbacks, waits without timeout for the private pool, synchronously
+drains executor MetaCalls, clears records on the UI thread, and removes remaining
+posted events. There is no callback after target teardown and no cross-test
+MetaCall.
+
+Cache refresh workers are now non-daemon, tracked, globally bounded, joined, and
+detached from freshness subscribers before Qt teardown. Main-window close first
+detaches unauthorized/freshness callbacks and shuts down cache work, then shuts
+down Qt work. A 401 expires authentication only when the request token is still
+the current token.
+
+### Regression and stress evidence
+
+Deterministic tests assert running-cancel ownership, idempotent shutdown waiting,
+no post-shutdown callback, joined refresh shutdown, detached refresh failure,
+and obsolete-token 401 isolation. The new native harness is:
+
+```powershell
+$env:QT_QPA_PLATFORM='windows'
+$env:PYTHONFAULTHANDLER='1'
+.\.venv\Scripts\python.exe -X faulthandler `
+  -m desktop_client.tests.task23_native_lifecycle_stress --iterations 50
+```
+
+Final exit code was `0`, stdout reported 50 startup/shutdown cycles, 50 rapid
+navigation cycles, 170 Customers/Users transitions, 63 close-during-read paths,
+13 logout-during-read paths, 25 logout-during-SWR paths, 50 SWR shutdowns, 12
+close-with-completion-waiting paths, 12 navigation-during-mutation paths, zero
+post-shutdown callbacks, and zero crashes. Stderr and faulthandler output were
+empty. Roles cycle Manager/Instructor/Customer, so repeated logout and window
+teardown cover all three scopes.
+
+The exact real-backend native measurement was then rerun after the final fix:
+exit code `0`, no crash/dialog, no timed-out navigation, and its post-close
+snapshot contained zero entries, bytes, in-flight reads, refreshes, and refresh
+threads. The broader native Qt lifecycle/View suite passed 63 tests. Crash count
+is therefore three before correction and zero across 50 final stress iterations
+plus the exact reproduction and native suite after correction.
 
 ## Limitations and remaining work
 

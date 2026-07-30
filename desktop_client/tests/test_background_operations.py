@@ -79,6 +79,42 @@ class BackgroundOperationTests(unittest.TestCase):
         self.assertEqual(delivered, [])
         executor.shutdown()
 
+    def test_running_cancel_retains_native_ownership_until_worker_finishes(self) -> None:
+        executor = QtOperationExecutor(max_workers=1)
+        entered = threading.Event()
+        release = threading.Event()
+        delivered = []
+        handle = executor.submit(
+            OperationContext(0, "test", "owned", 1),
+            lambda: (entered.set(), release.wait(1), "obsolete")[2],
+            delivered.append,
+            delivered.append,
+        )
+        self.assertTrue(entered.wait(1))
+        handle.cancel()
+        self.assertEqual(executor.active_count, 1)
+        release.set()
+        self.wait_until(lambda: executor.active_count == 0)
+        self.assertEqual(delivered, [])
+        executor.shutdown()
+
+    def test_shutdown_waits_for_running_work_is_idempotent_and_suppresses_callbacks(self) -> None:
+        executor = QtOperationExecutor(max_workers=1)
+        delivered = []
+        executor.submit(
+            OperationContext(0, "test", "shutdown", 1),
+            lambda: (time.sleep(0.06), "late")[1],
+            delivered.append,
+            delivered.append,
+        )
+        started = time.perf_counter()
+        executor.shutdown()
+        self.assertGreaterEqual(time.perf_counter() - started, 0.04)
+        executor.shutdown()
+        self.app.processEvents()
+        self.assertEqual(executor.active_count, 0)
+        self.assertEqual(delivered, [])
+
     def test_capacity_is_bounded_and_reports_friendly_adapter_error(self) -> None:
         executor = QtOperationExecutor(max_workers=1, max_pending=1)
         errors = []

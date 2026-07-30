@@ -177,8 +177,9 @@ class ApiClient:
         return self._send(method, f"{self.base_url}{path}", data=data, headers=headers, authenticated=True)
 
     def _send(self, method: str, url: str, *, data: bytes | None, headers: dict[str, str], authenticated: bool) -> Any:
-        if authenticated and self.access_token:
-            headers = {**headers, "Authorization": f"Bearer {self.access_token}"}
+        request_token = self.access_token if authenticated else None
+        if request_token:
+            headers = {**headers, "Authorization": f"Bearer {request_token}"}
         request = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(request, timeout=self.timeout) as response:
@@ -186,7 +187,7 @@ class ApiClient:
                 return json.loads(body) if body else None
         except HTTPError as exc:
             message = self._error_message(exc.read().decode("utf-8", errors="replace"))
-            if authenticated and exc.code == 401 and self.access_token is not None:
+            if request_token is not None and self.access_token == request_token:
                 self.access_token = None
                 if self._unauthorized_handler is not None:
                     self._unauthorized_handler()
