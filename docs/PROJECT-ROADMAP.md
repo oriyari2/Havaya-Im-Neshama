@@ -21,7 +21,7 @@ item requires its own approved design proposal and normal PIV cycle.
 
 | Task | Title | Status | Product-owner input | Design | Implementation | Audit | Commit/push |
 |---|---|---|---|---|---|---|---|
-| 20 | Neutral Desktop UX, Accessibility, and Request-State Foundations | Planned | Not required for neutral structure | Not started | Not started | Not started | Not started |
+| 20 | Neutral Desktop UX, Accessibility, and Request-State Foundations | Audit required | Manual visual review and ChatGPT audit required | Design approved | Complete | Audit required | Not started |
 | 21 | Manager User and Role Administration | Planned | Identity-policy decisions required | Not started | Not started | Not started | Not started |
 | 22 | Runtime Readiness and Ollama/Docker Operations | Planned | Demo hardware/model confirmation required | Not started | Not started | Not started | Not started |
 | 23 | API Reliability, Security, Idempotency, and Observability | Planned | Error-language approval helpful | Not started | Not started | Not started | Not started |

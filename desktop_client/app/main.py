@@ -37,21 +37,10 @@ from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.login_view import LoginView
 from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.shell_view import ShellView
+from desktop_client.app.views.design_tokens import build_neutral_stylesheet
 
 
-APP_STYLE = """
-QWidget { font-size: 14px; }
-QMainWindow { background: #f5f2eb; }
-#screenTitle { font-size: 25px; font-weight: 700; color: #45372c; }
-#summaryValue { font-size: 28px; font-weight: 700; color: #8b5e3c; }
-#sidebar { background: #49392f; color: white; }
-#sidebar QLabel { color: white; }
-#brand { font-size: 20px; font-weight: 700; }
-#errorLabel { color: #a12622; }
-QPushButton { padding: 8px 12px; }
-QGroupBox { font-weight: 600; margin-top: 10px; }
-QTableWidget { background: white; alternate-background-color: #faf7f2; }
-"""
+APP_STYLE = build_neutral_stylesheet()
 
 
 class MainWindow(QMainWindow):
@@ -59,6 +48,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle("חוויה עם נשמה — מערכת ניהול")
         self.resize(1200, 760)
+        self.setMinimumSize(1024, 640)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.api_client = api_client or ApiClient()
         self.auth_service = AuthService(self.api_client)
@@ -86,6 +76,7 @@ class MainWindow(QMainWindow):
         QTimer.singleShot(0, self._complete_session_expiry)
 
     def _complete_session_expiry(self) -> None:
+        self._invalidate_presenter_requests()
         self._clear_preview_caches()
         self._presenters.clear()
         self._show_login("פג תוקף ההתחברות. יש להתחבר מחדש.")
@@ -228,6 +219,7 @@ class MainWindow(QMainWindow):
             if presenter is not None:presenter.load()
 
     def _logout(self) -> None:
+        self._invalidate_presenter_requests()
         self._clear_preview_caches()
         self.auth_service.logout()
         self._presenters.clear()
@@ -238,6 +230,12 @@ class MainWindow(QMainWindow):
             clear_cache = getattr(presenter, "clear_preview_cache", None)
             if clear_cache is not None:
                 clear_cache()
+
+    def _invalidate_presenter_requests(self) -> None:
+        for presenter in self._presenters.values():
+            invalidate = getattr(presenter, "invalidate_requests", None)
+            if invalidate is not None:
+                invalidate()
 
 
 def main() -> int:

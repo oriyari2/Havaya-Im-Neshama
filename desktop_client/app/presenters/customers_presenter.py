@@ -4,6 +4,7 @@ import re
 from typing import Callable, Protocol
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
+from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
 from desktop_client.app.presenters.customer_formatting import contact_row, customer_details, customer_row
 
 
@@ -18,6 +19,8 @@ class FormPort(Protocol):
 
 class CustomersViewPort(Protocol):
     def set_loading(self, loading: bool) -> None: ...
+    def set_detail_loading(self, loading: bool) -> None: ...
+    def render_request_state(self, state: RequestState) -> None: ...
     def show_error(self, message: str, *, retriable: bool = False, permission: bool = False) -> None: ...
     def show_success(self, message: str) -> None: ...
     def show_customers(self, rows: list[dict], *, offset: int, count: int, filtered: bool) -> None: ...
@@ -85,14 +88,38 @@ class CustomersPresenter:
         self.selected_customer: dict | None = None
         self._loading = False
         self._submitting = False
+        self._generation = 0
+        self._session_epoch = 0
+        self._current_requests: dict[str, RequestIdentity] = {}
+
+    def _begin_request(self, operation_key: str, resource_id: str | None = None) -> RequestIdentity:
+        self._generation += 1
+        identity = RequestIdentity(self._session_epoch, "customers", operation_key, self._generation, resource_id)
+        self._current_requests[operation_key] = identity
+        return identity
+
+    def _is_current(self, identity: RequestIdentity) -> bool:
+        current = self._current_requests.get(identity.operation_key)
+        return current is not None and identity.is_current(current)
+
+    def invalidate_requests(self) -> None:
+        self._session_epoch += 1
+        self._current_requests.clear()
+
+    def _render_state(self, state: RequestState) -> None:
+        self.view.render_request_state(state)
 
     def load(self) -> None:
         if self._loading:
             return
         self._loading = True
+        identity = self._begin_request("list")
+        self._render_state(RequestState(RequestPhase.LOADING, "טוען לקוחות…", "list", blocks_primary_action=True))
         self.view.set_loading(True)
         try:
             payload = self.service.list_customers(dict(self.filters))
+            if not self._is_current(identity):
+                return
             items = payload["items"]
             self.view.show_customers(
                 [customer_row(item) for item in items], offset=int(self.filters["offset"]),
@@ -104,6 +131,7 @@ class CustomersPresenter:
             elif self.selected_id is not None:
                 self.selected_id = self.selected_customer = None
                 self.view.clear_details()
+            self._render_state(RequestState(RequestPhase.EMPTY if not items else RequestPhase.IDLE, "אין לקוחות להצגה." if not items else "", "list"))
         except Exception as exc:
             self._show_error(exc)
         finally:
@@ -124,11 +152,16 @@ class CustomersPresenter:
 
     def select(self, customer_id: str) -> None:
         self.selected_id = customer_id
-        self.view.set_loading(True)
+        identity = self._begin_request("detail", customer_id)
+        self._render_state(RequestState(RequestPhase.LOADING, "טוען פרטי לקוח…", "detail", blocks_primary_action=True))
+        self.view.set_detail_loading(True)
         try:
             customer = self.service.customer(customer_id)
+            if not self._is_current(identity) or self.selected_id != customer_id:
+                return
             self.selected_customer = customer
             self.view.show_details(customer_details(customer), customer, [contact_row(x) for x in customer.get("contacts", [])])
+            self._render_state(RequestState(RequestPhase.IDLE, operation_key="detail"))
         except ApiError as exc:
             if exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = self.selected_customer = None
@@ -140,7 +173,8 @@ class CustomersPresenter:
         except Exception as exc:
             self._show_error(exc)
         finally:
-            self.view.set_loading(False)
+            if self._is_current(identity):
+                self.view.set_detail_loading(False)
 
     def begin_create(self) -> None:
         self.view.open_customer_form(None, self.submit_create)
@@ -201,7 +235,7 @@ class CustomersPresenter:
                 self.view.clear_details()
                 self.load()
             elif exc.kind == ApiErrorKind.CONFLICT:
-                self.view.show_error(str(exc))
+                self.view.show_error("לא ניתן למחוק את הלקוח כל עוד קיימות רשומות תלויות.")
                 self.select(customer_id)
             else:
                 self._show_error(exc)
@@ -302,7 +336,10 @@ class CustomersPresenter:
     def _show_error(self, exc: Exception) -> None:
         permission = isinstance(exc, ApiError) and exc.kind == ApiErrorKind.PERMISSION
         retriable = isinstance(exc, ApiError) and exc.retriable
-        self.view.show_error(self._message(exc), retriable=retriable, permission=permission)
+        message = self._message(exc)
+        phase = RequestPhase.AUTHORIZATION_ERROR if permission else RequestPhase.CONNECTION_ERROR if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONNECTION else RequestPhase.SERVER_ERROR
+        self._render_state(RequestState(phase, message, "customers", retryable=retriable))
+        self.view.show_error(message, retriable=retriable, permission=permission)
 
     @staticmethod
     def _message(exc: Exception) -> str:
@@ -311,13 +348,17 @@ class CustomersPresenter:
                 return "אין הרשאה לצפות או לשנות לקוחות."
             if exc.kind == ApiErrorKind.CONFLICT:
                 return "הלקוח השתנה במקביל. הרשומה רועננה; נסו שוב."
-            if exc.kind in {ApiErrorKind.VALIDATION, ApiErrorKind.NOT_FOUND}:
-                return str(exc)
+            if exc.kind == ApiErrorKind.VALIDATION:
+                return "הנתונים שנשלחו אינם תקינים. בדקו את השדות ונסו שוב."
+            if exc.kind == ApiErrorKind.NOT_FOUND:
+                return "הרשומה המבוקשת אינה זמינה עוד."
             if exc.kind == ApiErrorKind.CONNECTION:
                 return "לא ניתן להתחבר לשרת. נסו שוב לאחר שהחיבור יחזור."
             if exc.kind == ApiErrorKind.SERVER:
                 return "השרת לא הצליח להשלים את הפעולה. נסו שוב."
-        return str(exc) or "הפעולה נכשלה."
+        if isinstance(exc, ValueError):
+            return str(exc)
+        return "לא ניתן להשלים את הפעולה. נסו שוב."
 
 
 class CustomerProfilePresenter:

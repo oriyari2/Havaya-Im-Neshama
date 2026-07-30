@@ -4,6 +4,7 @@ import unittest
 
 from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError
+from desktop_client.app.api.client import ApiErrorKind
 from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, FormValidationError, validate_create_booking
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
@@ -40,9 +41,13 @@ class _View:
         self.input_cleared = False
         self.cancellation_confirmed = True
         self.command_status = ""
+        self.request_states = []
 
     def set_loading(self, loading: bool) -> None:
         self.loading.append(loading)
+
+    def render_request_state(self, state) -> None:
+        self.request_states.append(state)
 
     def show_error(self, message: str) -> None:
         self.error = message
@@ -236,6 +241,32 @@ class PresenterTests(unittest.TestCase):
         presenter.login("customer@example.com", "secret")
         self.assertEqual(authenticated, [expected])
         self.assertEqual(view.loading, [True, False])
+        self.assertEqual(view.request_states[0].phase.value, "loading")
+
+    def test_login_presenter_sanitizes_failures_and_releases_guard(self) -> None:
+        for error, expected in (
+            (ApiError("secret transport", kind=ApiErrorKind.CONNECTION), "לא ניתן להתחבר לשרת"),
+            (ApiError("secret backend", kind=ApiErrorKind.SERVER), "השרת לא הצליח"),
+            (ApiError("raw auth", kind=ApiErrorKind.AUTHENTICATION), "פרטי ההתחברות"),
+            (RuntimeError("internal secret"), "לא ניתן להשלים"),
+        ):
+            view = _View()
+            class Auth:
+                def login(self, email, password): raise error
+            LoginPresenter(view, Auth(), lambda _session: None).login("user@example.com", "secret")
+            self.assertIn(expected, view.error)
+            self.assertNotIn("secret", view.error)
+            self.assertEqual(view.loading, [True, False])
+            self.assertEqual(view.request_states[-1].operation_key, "login")
+
+    def test_login_presenter_rejects_reentrant_duplicate(self) -> None:
+        view = _View(); calls = []
+        class Auth:
+            def login(inner_self, email, password):
+                calls.append((email, password)); presenter.login(email, password)
+                return Session("token", "id", email, "customer")
+        presenter = LoginPresenter(view, Auth(), lambda _session: None); presenter.login("user@example.com", "secret")
+        self.assertEqual(calls, [("user@example.com", "secret")]); self.assertFalse(presenter._loading)
 
     def test_dashboard_loads_role_specific_sections(self) -> None:
         for role, expected_call in (("manager", "list"), ("instructor", "list"), ("customer", "mine")):

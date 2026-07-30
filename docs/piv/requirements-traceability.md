@@ -533,6 +533,44 @@ Deferred:
 - Retrieval, embeddings, approved knowledge ingestion, citations, FastAPI AI
   endpoints, and desktop AI screens.
 
+Task 20 - Neutral Desktop UX, Accessibility, and Request-State Foundations
+
+Status: Implemented; audit and manual visual approval pending.
+
+Implemented requirement coverage:
+
+- `NFR-01`: shared Hebrew/RTL layout, validation, and readable loading, empty,
+  error, success, and feedback conventions.
+- `NFR-03`: semantic request-state and request-identity contracts, including
+  duplicate guards and stale Customer-detail rejection; AI
+  cancellation remains Task 28 and application-wide background execution
+  remains Task 29.
+- `NFR-07`: explicit passive component and Qt-independent presenter/View state
+  interfaces with focused automated tests.
+- `NFR-09`: accessible labels/names/descriptions, logical focus order, visible
+  focus, measured contrast, disabled explanations, and usable errors.
+- `NFR-10`: evidence-based 1024x640 minimum Windows window (checked against
+  Shell, Dashboard, and Customers), plus resize, wrapping, scroll, table
+  overflow, tooltip, splitter, and dialog behavior.
+- Course PySide6/MVP/modular-UI evidence: a bounded pilot for Login, Shell,
+  Customers, Customer/Contact dialogs, and shared state components.
+- Shared UI implementation defines an authoritative `PageScaffold` hierarchy, complete
+  neutral token categories, one dialog standard, and one feedback-mechanism
+  decision matrix. Dashboard compatibility is assessed without adding Dashboard
+  to the implementation pilot.
+- Implemented styling bounds prevent pilot control/table geometry from being
+  imposed on excluded modules. Focused tests cover presenter-owned identity and
+  guard behavior, all semantic phases, non-pilot construction, dialog keyboard
+  behavior, and meaningful pilot geometry at 1024x640. Human assistive-technology
+  and interactive Windows review remain pending.
+
+Task 20 production code and focused tests now implement this entry. It remains
+uncommitted pending ChatGPT audit and product-owner manual visual approval. Final
+colors, typography, logo treatment,
+icons, imagery, and branded screen design are explicitly deferred to the Task
+24 branding checkpoint and Tasks 25-28. Historical Task/PIV records remain
+unchanged.
+
 Later tasks
 
 - Final end-to-end acceptance, documentation audit, and academic demo packaging.

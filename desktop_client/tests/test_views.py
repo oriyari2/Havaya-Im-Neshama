@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from unittest.mock import Mock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -168,6 +169,15 @@ class ViewTests(unittest.TestCase):
         self.assertTrue(window.login_view.error_label.isVisibleTo(window.login_view))
         self.assertIsNone(api.token)
         window.close()
+
+    def test_logout_and_session_expiry_invalidate_presenter_requests(self) -> None:
+        class Api:
+            def set_unauthorized_handler(self, handler): self.handler = handler
+            def set_access_token(self, token): self.token = token
+        for operation in ("logout", "expiry"):
+            window = MainWindow(Api()); presenter = Mock(spec=["invalidate_requests"]); window._presenters = {"customers": presenter}
+            window._logout() if operation == "logout" else window._complete_session_expiry()
+            presenter.invalidate_requests.assert_called_once_with(); window.close()
 
 
 if __name__ == "__main__":

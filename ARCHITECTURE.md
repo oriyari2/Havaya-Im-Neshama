@@ -80,3 +80,31 @@ memory-only LRU cache, and are never written to disk. The presenter owns request
 identity and rejects obsolete results but imports no PySide6; `ActivitiesView`
 exclusively owns `QPixmap` decoding, scaling, and rendering. Activity images
 remain conventional metadata and are not event-sourced.
+
+Task 20 adds neutral shared View foundations without changing these MVP
+boundaries. A Qt-independent semantic `RequestState`/`RequestIdentity` contract
+lets presenters describe idle,
+loading, success, empty, validation, authorization, connection/server, stale,
+and session-expiry behavior without importing PySide6. Passive shared widgets
+render that state and emit intent; they do not classify errors, access
+services, or decide authorization. The bounded pilot is Login, Shell,
+Customers, Customer/Contact dialogs, and shared state components. Temporary
+neutral tokens are structural only; final brand decisions remain blocked on
+Task 24. Task 20 does not implement production-wide background threading; Task
+29 remains responsible for the reusable long-running-operation pattern.
+
+The View foundation standardizes an ordered `PageScaffold` composition
+(`PageHeader`, optional feedback/actions/filters, stretching main content with an
+optional details pane, and optional footer), centralized neutral tokens, dialog
+behavior, and feedback selection. These are View-layer contracts only.
+Compatibility was checked against the existing Dashboard without placing it in
+the Task 20 pilot. They do not redefine MVP, add dependencies, alter desktop or
+backend responsibilities, or change any backend/API boundary.
+
+The application-level neutral background/type roles are shared, while control
+geometry, focus borders, and table density selectors are bounded to the Task 20
+pilot, Shell, Task 20 dialogs/state controls, and tables explicitly configured by
+the shared helper. This preserves excluded module behavior while allowing later
+tasks to opt into the foundation deliberately. Request identities currently
+protect synchronous/reentrant Customer selection and session invalidation; they
+do not claim the Task 29 background-execution guarantee.
