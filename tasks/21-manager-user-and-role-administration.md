@@ -349,10 +349,12 @@ UsersView / User dialogs (passive PySide6)
 
 Use Task 20 `PageScaffold` with:
 
-- Page Header and Create User action;
+- visible action bar with Create User (`יצירת משתמש`), logical Delete User
+  (`מחיקת משתמש` through deactivation), Activate, Reset Password, and the
+  existing email-only Edit Email action;
 - Filter Area containing email-or-displayed-name search, role filter, status filter, apply/reset,
   and refresh;
-- Main Content containing responsive semantic table and optional safe details;
+- Main Content containing responsive semantic table and safe details panel;
 - pagination footer;
 - `StatePanel` for initial loading/empty/blocking read failure;
 - `FeedbackBanner` for mutation success/conflict/forbidden/connection failure
@@ -396,11 +398,23 @@ and 1440×900 without redesigning other pages.
 
 ### Activate/deactivate
 
-- Selection-dependent explicit action; Deactivate uses Task 20 destructive
-  confirmation naming the target and login consequence.
+- Selection-dependent explicit actions. The visible Delete User action is a
+  conventional label for logical deletion and calls the existing Deactivate
+  operation after Task 20 destructive confirmation naming the target and login
+  consequence; no row is physically deleted.
 - Self-deactivation is disabled in the View/Presenter and rejected by backend.
-- Activate requires confirmation only if existing shared conventions demand it;
-  it is not destructive and must not use a destructive default.
+- Activate is enabled only for an inactive selection and does not use a
+  destructive confirmation.
+
+### Selection and safe details
+
+- A single click selects the row and updates action availability.
+- A double click explicitly loads the selected user's complete safe response
+  into the existing details panel: email, role, linked profile, active status,
+  created date, and updated date.
+- Create, logical Delete, Activate, Reset Password, and email-only Edit remain
+  visible actions and never require double click.
+- Passwords, hashes, tokens, and secrets never appear in the table or details.
 
 ### States and errors
 
@@ -428,7 +442,8 @@ and 1440×900 without redesigning other pages.
 
 1. Manager enters email-or-displayed-name search and optional role/status filters.
 2. Presenter loads the bounded list and ignores obsolete list results.
-3. Selecting a row shows only safe identity/profile/status details.
+3. Single-click selects the row; double-click explicitly displays all available
+   safe identity/profile/status/timestamp details in the side panel.
 
 ### Edit email
 

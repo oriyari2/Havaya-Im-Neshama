@@ -79,9 +79,14 @@ first-login-change, self-registration, or session-version endpoint.
 ## Desktop design
 
 The Manager-only page uses Task 20 `PageScaffold`, responsive semantic user
-table, email-or-displayed-name search, role/status filters, safe detail context, pagination,
-Create User, Edit Email, Reset Password, Activate/Deactivate, loading, empty,
-validation, conflict, forbidden, connection, server, and success states.
+table, email-or-displayed-name search, role/status filters, safe detail context,
+pagination, and visible Create User, logical Delete User, Activate, Reset
+Password, Refresh, and email-only Edit Email actions. Logical Delete is the
+existing confirmed deactivation operation; it never physically deletes a row.
+Single-click selects and updates action states; double-click explicitly displays
+email, role, linked profile, status, and created/updated dates in the side panel.
+Loading, empty, validation, conflict, forbidden, connection, server, and success
+states remain supported.
 
 Dialogs follow the Task 20 focus/accessibility/RTL standard. Email, passwords,
 and dates retain correct LTR behavior. Password fields are masked and cleared;
