@@ -23,6 +23,10 @@ class ContactNotFoundError(Exception):
     pass
 
 
+class ContactConflictError(Exception):
+    pass
+
+
 class CustomerAccessDeniedError(Exception):
     pass
 
@@ -51,6 +55,17 @@ def _require_contact(cur, contact_id: UUID) -> dict:
     if contact is None:
         raise ContactNotFoundError
     return contact
+
+
+def _current_contact(cur, customer_id: UUID, *, excluding: UUID | None = None) -> dict | None:
+    contacts = repo.list_contacts(cur, customer_id, True)
+    candidates = [item for item in contacts if excluding is None or item["id"] != excluding]
+    return next((item for item in candidates if item.get("is_primary")), candidates[0] if candidates else None)
+
+
+def _current_contact_list(cur, customer_id: UUID) -> list[dict]:
+    contact = _current_contact(cur, customer_id)
+    return [contact] if contact else []
 
 
 def _require_customer_access(current_user: dict, customer_id: UUID) -> None:
@@ -89,7 +104,7 @@ def get_customer(customer_id: UUID) -> tuple[dict, list[dict]]:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             customer = _require_customer(cur, customer_id)
-            contacts = repo.list_contacts(cur, customer_id)
+            contacts = _current_contact_list(cur, customer_id)
     return customer, contacts
 
 
@@ -98,16 +113,24 @@ def get_customer_for_user(customer_id: UUID, current_user: dict) -> tuple[dict, 
         with conn.cursor(row_factory=dict_row) as cur:
             customer = _require_customer(cur, customer_id)
             _require_customer_access(current_user, customer["id"])
-            contacts = repo.list_contacts(cur, customer_id)
+            contacts = _current_contact_list(cur, customer_id)
     return customer, contacts
 
 
-def create_customer(payload: CustomerCreate) -> dict:
+def create_customer(payload: CustomerCreate) -> tuple[dict, list[dict]]:
+    data = payload.model_dump()
+    contact_name = data.pop("contact_name")
+    contact_phone = data.pop("contact_phone")
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            customer = repo.create_customer(cur, payload.model_dump())
+            customer = repo.create_customer(cur, data)
+            contact = repo.create_contact(cur, customer["id"], {
+                "full_name": contact_name, "role_title": None,
+                "phone": contact_phone, "email": None, "is_primary": True,
+                "notes": None, "is_active": True,
+            })
             conn.commit()
-    return customer
+    return customer, [contact]
 
 
 def update_customer(customer_id: UUID, payload: CustomerUpdate) -> tuple[dict, list[dict]]:
@@ -118,8 +141,17 @@ def update_customer(customer_id: UUID, payload: CustomerUpdate) -> tuple[dict, l
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             _require_customer(cur, customer_id)
-            customer = repo.update_customer(cur, customer_id, update_data)
-            contacts = repo.list_contacts(cur, customer_id)
+            contact_name = update_data.pop("contact_name", None)
+            contact_phone = update_data.pop("contact_phone", None)
+            customer = repo.update_customer(cur, customer_id, update_data) if update_data else _require_customer(cur, customer_id)
+            if contact_name is not None:
+                contact = _current_contact(cur, customer_id)
+                contact_data = {"full_name": contact_name, "phone": contact_phone, "is_primary": True, "is_active": True}
+                if contact:
+                    repo.update_contact(cur, contact["id"], contact_data)
+                else:
+                    repo.create_contact(cur, customer_id, {**contact_data, "role_title": None, "email": None, "notes": None})
+            contacts = _current_contact_list(cur, customer_id)
             conn.commit()
     return customer, contacts
 
@@ -162,13 +194,17 @@ def list_customer_contacts_for_user(
         with conn.cursor(row_factory=dict_row) as cur:
             _require_customer(cur, customer_id)
             _require_customer_access(current_user, customer_id)
-            return repo.list_contacts(cur, customer_id, True if is_active is None else is_active)
+            if is_active is None or is_active is True:
+                return _current_contact_list(cur, customer_id)
+            return repo.list_contacts(cur, customer_id, False)
 
 
 def create_customer_contact(customer_id: UUID, payload: CustomerContactCreate) -> dict:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             _require_customer(cur, customer_id)
+            if payload.is_active and _current_contact(cur, customer_id) is not None:
+                raise ContactConflictError("Customer already has an active contact person")
             if payload.is_primary:
                 repo.clear_primary_contacts(cur, customer_id)
             contact = repo.create_contact(cur, customer_id, payload.model_dump())
@@ -190,6 +226,9 @@ def update_customer_contact(contact_id: UUID, payload: CustomerContactUpdate) ->
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
             existing = _require_contact(cur, contact_id)
+            becoming_active = update_data.get("is_active") is True and not existing.get("is_active")
+            if becoming_active and _current_contact(cur, existing["customer_id"], excluding=contact_id) is not None:
+                raise ContactConflictError("Customer already has an active contact person")
             if update_data.get("is_primary") is True:
                 repo.clear_primary_contacts(cur, existing["customer_id"], contact_id)
             contact = repo.update_contact(cur, contact_id, update_data)

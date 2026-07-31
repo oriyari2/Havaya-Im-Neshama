@@ -633,6 +633,17 @@ Task 24 implementation evidence
 - Activities and Bookings share the Presenter workflow and retain Task 22/23
   execution, cache, session, and teardown guarantees.
 
+Task 24.1 implementation evidence
+
+- `FR-CUS-02`: Manager and Customer profile screens expose one contact-person
+  name/phone and no collection controls. Current reads return one active contact;
+  create/update is one backend transaction, and second-active create/reactivation
+  is rejected without deleting history.
+- The route-to-Desktop audit found no other unreachable approved business
+  capability. Maintenance/diagnostic endpoints remain intentionally non-UI.
+- Booking notes and other role-editable fields are consistent across creation,
+  immutable event, projection, details, and authorized reads.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request

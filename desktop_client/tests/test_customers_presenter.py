@@ -14,7 +14,7 @@ class CustomersPresenterTests(TestCase):
         self.presenter.load(); self.view.show_customers.reset_mock(); self.view.set_loading.reset_mock(); self.presenter.load(); self.view.show_customers.assert_not_called(); self.assertNotIn(call(True),self.view.set_loading.call_args_list)
     def test_select_and_customer_mutations(self):
         self.presenter.select("c1"); self.view.show_details.assert_called(); self.presenter.begin_edit(); self.view.open_customer_form.assert_called()
-        form=Mock(); self.service.update_customer.return_value=CUSTOMER; self.presenter.submit_edit({"name":"Task","email":"ok@example.com","contact_name":"Updated","contact_phone":"051"},form); form.close_success.assert_called_once(); self.service.update_contact.assert_called_once(); self.assertNotIn("contact_name",self.service.update_customer.call_args.args[1])
+        form=Mock(); self.service.update_customer.return_value=CUSTOMER; self.presenter.submit_edit({"name":"Task","email":"ok@example.com","contact_name":"Updated","contact_phone":"051"},form); form.close_success.assert_called_once(); self.assertEqual(self.service.update_customer.call_args.args[1]["contact_name"], "Updated")
         self.view.confirm_customer_deletion.return_value=True; self.presenter.delete(); self.service.delete_customer.assert_called_once_with("c1"); self.view.clear_details.assert_called(); self.assertIsNone(self.presenter.selected_id)
     def test_delete_conflict_preserves_selection_and_duplicate_guard(self):
         self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("customer has bookings",status_code=409,kind=ApiErrorKind.CONFLICT)
@@ -26,7 +26,7 @@ class CustomersPresenterTests(TestCase):
         self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=False; self.presenter.delete(); self.service.delete_customer.assert_not_called()
         self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("gone",status_code=404,kind=ApiErrorKind.NOT_FOUND); self.presenter.delete(); self.assertIsNone(self.presenter.selected_id); self.view.clear_details.assert_called()
     def test_create_customer_creates_one_primary_contact(self):
-        form=Mock(); self.service.create_customer.return_value={**CUSTOMER,"contacts":[]}; self.presenter.submit_create({"name":"New","contact_name":"Contact","contact_phone":"050"},form); self.service.create_customer.assert_called_once(); self.service.create_contact.assert_called_once_with("c1",{"full_name":"Contact","role_title":None,"phone":"050","email":None,"is_primary":True,"notes":None,"is_active":True}); form.close_success.assert_called_once()
+        form=Mock(); self.service.create_customer.return_value={**CUSTOMER,"contacts":[CONTACT]}; self.presenter.submit_create({"name":"New","contact_name":"Contact","contact_phone":"050"},form); payload=self.service.create_customer.call_args.args[0]; self.assertEqual(payload["contact_name"], "Contact"); self.assertEqual(payload["contact_phone"], "050"); form.close_success.assert_called_once()
     def test_validation_preserves_form(self):
         form=Mock(); self.presenter.submit_create({"name":"","email":"bad"},form); form.show_error.assert_called(); form.close_success.assert_not_called()
         with self.assertRaises(ValueError): validate_customer({"name":"A","email":"bad","contact_name":"Contact","contact_phone":"050"})

@@ -4,7 +4,7 @@ from datetime import datetime
 import re
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -53,8 +53,10 @@ class CustomerBase(BaseModel):
 
 class CustomerCreate(CustomerBase):
     name: str
+    contact_name: str
+    contact_phone: str
 
-    @field_validator("name")
+    @field_validator("name", "contact_name", "contact_phone")
     @classmethod
     def validate_name(cls, value: str) -> str:
         return _validate_required_text(value, "name")
@@ -69,6 +71,8 @@ class CustomerUpdate(BaseModel):
     email: str | None = None
     notes: str | None = None
     is_active: bool | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
 
     @field_validator("name")
     @classmethod
@@ -86,6 +90,19 @@ class CustomerUpdate(BaseModel):
     @classmethod
     def validate_email(cls, value: str | None) -> str | None:
         return _validate_email(value)
+
+    @field_validator("contact_name", "contact_phone")
+    @classmethod
+    def validate_contact_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_required_text(value, "contact")
+
+    @model_validator(mode="after")
+    def contact_fields_are_updated_together(self):
+        if (self.contact_name is None) != (self.contact_phone is None):
+            raise ValueError("contact_name and contact_phone must be supplied together")
+        return self
 
 
 class CustomerContactBase(BaseModel):

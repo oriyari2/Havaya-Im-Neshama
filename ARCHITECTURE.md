@@ -137,6 +137,16 @@ Customer identity and controls initial administrative fields. Instructors are
 denied before command dispatch. Activities and Bookings reuse the same
 Presenter/form workflow.
 
+### Task 24.1 single current Customer contact
+
+`customer_contacts` remains compatibility/history storage, but the product
+boundary exposes exactly one current active contact person. Customer reads
+select the active primary contact (or first active fallback); active create or
+reactivation conflicts when another current contact exists. Desktop Views render
+only contact name and phone in Customer details and expose no contact collection
+or independent contact lifecycle controls. Customer and contact-person
+create/update are committed by the backend in one transaction.
+
 ### Task 22 desktop execution boundary
 
 Task 22 adds a bounded scheduling boundary without changing MVP ownership.

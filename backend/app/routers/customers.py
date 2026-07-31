@@ -93,11 +93,11 @@ def get_customer(
 @router.post("/customers", response_model=CustomerResponse, status_code=201)
 def create_customer(payload: CustomerCreate, _current_user: dict = RequireManager) -> CustomerResponse:
     try:
-        customer = customer_service.create_customer(payload)
+        customer, contacts = customer_service.create_customer(payload)
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not create customer") from exc
 
-    return _customer_response(customer)
+    return _customer_response(customer, contacts)
 
 
 @router.put("/customers/{customer_id}", response_model=CustomerResponse)
@@ -168,6 +168,8 @@ def create_customer_contact(
         contact = customer_service.create_customer_contact(customer_id, payload)
     except customer_service.CustomerNotFoundError as exc:
         _raise_not_found(exc)
+    except customer_service.ContactConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not create contact") from exc
 
@@ -187,6 +189,8 @@ def update_customer_contact(
         contact = customer_service.update_customer_contact(contact_id, payload)
     except customer_service.ContactNotFoundError as exc:
         _raise_not_found(exc)
+    except customer_service.ContactConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not update contact") from exc
 

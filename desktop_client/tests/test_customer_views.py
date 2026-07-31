@@ -32,14 +32,22 @@ class CustomerViewTests(TestCase):
         customer = {"name": "לקוח", "is_active": True}
         contact = {"id": "ct1", "full_name": "איש קשר", "phone": "050-1", "is_primary": True, "is_active": True}
         customer["contacts"] = [contact]
-        view.show_details(customer_details(customer), customer, [contact])
+        view.show_details(customer_details(customer), customer)
         rendered = " ".join(
             view.details.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
             for row in range(view.details.rowCount())
         )
         self.assertIn("איש קשר", rendered)
         self.assertIn("050-1", rendered)
-        CustomerProfileView()
+        profile = CustomerProfileView()
+        self.assertFalse(hasattr(profile, "contacts"))
+        profile.show_profile(customer_details(customer))
+        profile_rendered = " ".join(
+            profile.details.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
+            for row in range(profile.details.rowCount())
+        )
+        self.assertIn("איש קשר", profile_rendered)
+        self.assertIn("050-1", profile_rendered)
 
     def test_dialog_exposes_single_contact_name_and_phone(self):
         dialog = CustomerDialog({"name": "Task 21 Customer", "contact_name": "Person", "contact_phone": "050"})

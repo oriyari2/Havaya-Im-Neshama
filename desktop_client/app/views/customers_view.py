@@ -237,7 +237,7 @@ class CustomersView(StatefulWidget):
         elif self.state_label.text() != "טוען נתונים…":
             self.state_label.hide()
 
-    def show_details(self, details, customer, contacts) -> None:
+    def show_details(self, details, customer) -> None:
         while self.details.rowCount():
             self.details.removeRow(0)
         for label, value in details:

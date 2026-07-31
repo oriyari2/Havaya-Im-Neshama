@@ -44,12 +44,3 @@ def customer_details(item: dict) -> list[tuple[str, str]]:
         ("עודכן", _date(item.get("updated_at"))),
     ))
     return rows
-
-
-def contact_row(item: dict) -> dict[str, str | bool]:
-    return {
-        "id": str(item["id"]), "full_name": item.get("full_name") or "—",
-        "role_title": item.get("role_title") or "—", "phone": item.get("phone") or "—",
-        "email": item.get("email") or "—", "is_primary": bool(item.get("is_primary")),
-        "is_active": bool(item.get("is_active")),
-    }

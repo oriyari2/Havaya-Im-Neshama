@@ -6,7 +6,7 @@ from typing import Callable, Protocol
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
 from desktop_client.app.models.operation import NON_CANCELLABLE_OPERATION_KEYS, ImmediateOperationExecutor, OperationExecutor, PresenterOperations
-from desktop_client.app.presenters.customer_formatting import contact_row, customer_details, customer_row
+from desktop_client.app.presenters.customer_formatting import customer_details, customer_row
 
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -25,7 +25,7 @@ class CustomersViewPort(Protocol):
     def show_error(self, message: str, *, retriable: bool = False, permission: bool = False) -> None: ...
     def show_success(self, message: str) -> None: ...
     def show_customers(self, rows: list[dict], *, offset: int, count: int, filtered: bool) -> None: ...
-    def show_details(self, details: list[tuple[str, str]], customer: dict, contacts: list[dict]) -> None: ...
+    def show_details(self, details: list[tuple[str, str]], customer: dict) -> None: ...
     def clear_details(self) -> None: ...
     def select_customer(self, customer_id: str) -> None: ...
     def open_customer_form(self, initial: dict | None, submit: Callable) -> None: ...
@@ -38,8 +38,6 @@ class CustomerServicePort(Protocol):
     def create_customer(self, payload: dict[str, object]) -> dict: ...
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict: ...
     def delete_customer(self, customer_id: str) -> None: ...
-    def create_contact(self, customer_id: str, payload: dict[str, object]) -> dict: ...
-    def update_contact(self, contact_id: str, payload: dict[str, object]) -> dict: ...
 
 
 def validate_customer(values: dict[str, object]) -> dict[str, object]:
@@ -171,7 +169,7 @@ class CustomersPresenter:
             if not self._is_current(identity) or self.selected_id != customer_id:
                 return
             self.selected_customer = customer
-            self.view.show_details(customer_details(customer), customer, [contact_row(x) for x in customer.get("contacts", [])])
+            self.view.show_details(customer_details(customer), customer)
             self._render_state(RequestState(RequestPhase.IDLE, operation_key="detail"))
         def failed(exc: Exception) -> None:
             if not self._is_current(identity):
@@ -223,24 +221,7 @@ class CustomersPresenter:
         identity = self._begin_request("submit", customer_id)
 
         def operation():
-            contact_name = str(payload.pop("contact_name"))
-            contact_phone = str(payload.pop("contact_phone"))
-            customer = self.service.update_customer(customer_id, payload) if customer_id else self.service.create_customer(payload)
-            contact = self._current_contact(self.selected_customer) if customer_id else None
-            contact_payload = {
-                "full_name": contact_name,
-                "role_title": None,
-                "phone": contact_phone,
-                "email": None,
-                "is_primary": True,
-                "notes": None,
-                "is_active": True,
-            }
-            if contact:
-                self.service.update_contact(str(contact["id"]), contact_payload)
-            else:
-                self.service.create_contact(str(customer["id"]), contact_payload)
-            return customer
+            return self.service.update_customer(customer_id, payload) if customer_id else self.service.create_customer(payload)
 
         def succeeded(customer: dict) -> None:
             if not self._is_current(identity):
@@ -375,7 +356,7 @@ class CustomerProfilePresenter:
         def success(customer):
             if not self._operations.is_current(context):
                 return
-            self.view.show_profile(customer_details(customer), [contact_row(x) for x in customer.get("contacts", [])])
+            self.view.show_profile(customer_details(customer))
 
         def failure(exc):
             if not self._operations.is_current(context):

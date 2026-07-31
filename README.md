@@ -149,7 +149,9 @@ Implemented so far:
   Instructors cannot create.
 - Manager customer directory with a single Contact-person name/phone workflow,
   search, filters, pagination, and readable details. Historical contact rows
-  remain stored without a normal multi-contact UI. Customers use protected physical deletion; linked
+  remain stored without a multi-contact UI; the Customer-owned profile also
+  renders contact name/phone as ordinary details. The API prevents a second
+  active contact. Customers use protected physical deletion; linked
   bookings/history/users return 409, while owned contacts cascade.
 - Manager textual activity management and an active-only read-only activity
   catalog for instructors/customers, including search, filters, pagination,

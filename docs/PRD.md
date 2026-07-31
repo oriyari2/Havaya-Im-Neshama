@@ -199,7 +199,7 @@ Requirements use the priority labels Must, Should, and Could.
 | ID | Requirement | Priority | Acceptance criterion |
 |---|---|---|---|
 | FR-CUS-01 | Managers shall create, view, update, search, and deactivate customers. | Must | CRUD and deactivation work through UI and API |
-| FR-CUS-02 | A customer record shall contain name, phone, optional email, contact role, city, institution type, institution name, notes, active status, and timestamps. | Must | Required fields are validated and persisted |
+| FR-CUS-02 | A customer shall expose exactly one current contact person (name and phone) together with Customer name, optional phone/email, city, type, notes, active status, and timestamps. Historical inactive contact rows may remain internal and are not a multi-contact product workflow. | Must | Desktop shows one contact name/phone and the API prevents a second active contact |
 | FR-CUS-03 | The system shall search customers by name, phone, institution, or city. | Should | Matching records are returned using at least one supported filter |
 | FR-CUS-04 | The system shall warn about a likely duplicate phone or email. | Should | Duplicate normalized values produce a visible warning before save |
 
