@@ -44,6 +44,16 @@ class _RawResponse:
 
 
 class ApiClientTests(unittest.TestCase):
+    def test_successful_customer_delete_204_keeps_the_authenticated_session(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        expired = []
+        client.set_unauthorized_handler(lambda: expired.append(True))
+        with patch("desktop_client.app.api.client.urlopen", return_value=_RawResponse(b"")):
+            self.assertIsNone(client.delete("/customers/customer-1"))
+        self.assertEqual(client.access_token, "manager-token")
+        self.assertEqual(expired, [])
+
     def test_obsolete_request_401_cannot_expire_new_session_token(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("old-token")

@@ -5,20 +5,21 @@
 The Manager Customer screen was rebuilt as a focused browse-to-details flow.
 The list is now the dominant surface, with a concise search row, one obvious
 Customer-creation action, four decision-relevant columns, and one contextual
-View Details action. Advanced sort, city, Customer type, and status controls
-remain available but are collapsed until requested.
+View Details action. Search remains a normal text search over the supported
+Customer fields. Sorting is a single immediate selection with no secondary
+editor, filter panel, or Apply action.
 
 Customer Details is a dedicated internal Desktop page within the same passive
 View. It owns Edit and Delete actions and provides a clear Back action. The
-stacked-page design preserves the live table, search text, advanced-filter
-state, pagination, scroll position, and selected row instead of rebuilding the
+stacked-page design preserves the live table, search text, selected sort,
+pagination, scroll position, and selected row instead of rebuilding the
 list when the user returns.
 
 The final polish completes all directly owned Customer surfaces. The list uses
 a shorter Customer-specific header, tighter scaffold spacing, a right-first RTL
-search flow, a visually primary Search action, stronger name/city column
-weighting, more table height, and a compact centered pager. Expanded filters
-have an explicit optional-use explanation and aligned field groups. Customer
+search flow, a visually primary Search action, immediate single-field sorting,
+stronger name/city column weighting, more table height, and a compact centered
+pager. Customer
 Details separates the record into Customer Information, Contact Information,
 and System Information groups. Create and Edit dialogs share a visible heading,
 sectioned fields, required-field guidance, comfortable fixed bounds with
@@ -35,15 +36,15 @@ show a first-Customer action, while filtered zero-results show guidance and a
 Reset action; neither state displays an empty table or irrelevant pager.
 
 Create/Edit dialogs are finalized as an 820×650 two-column RTL Desktop form:
-Customer Information starts on the right, Contact Information and Notes sit on
-the left, all fields are visible without horizontal or vertical scrolling, and
-the existing Create/Save signal and validation behavior are unchanged.
+Customer Information, Contact Information, and Notes follow one clear vertical
+reading flow. Content scrolls when needed while action buttons remain outside
+the scroll area; existing Create/Save signals and validation are unchanged.
 
 The completion pass replaces the expanded advanced-filter row with a compact
 RTL `סינון לפי` menu. It reveals only the editor selected by the manager and
-allows more filters to be added deliberately. Name, city, type, status, email,
-phone, and creation/update date editors are available without permanently
-crowding the list. Deleting a Customer now always returns to the preserved
+is now one immediate single-value sort selection. No extra editor, date picker,
+filter row, or Apply button appears. Deleting a Customer now always returns to
+the preserved
 list; if the deletion leaves the current page empty, the preceding valid page
 is requested automatically while search, filters, sorting, and list context
 remain intact. Confirmation and session-expired dialogs use RTL alignment and
@@ -187,6 +188,16 @@ Compilation is validated with:
 - [Edit dialog before final UX polish](../screenshots/task-25-1-customer-edit-before-final-ux-polish.png)
 - [First-use empty state finalized](../screenshots/task-25-1-customers-empty-after.png)
 - [Filtered no-results state finalized](../screenshots/task-25-1-customers-no-results-after.png)
+
+## Final completion amendment
+
+- Search and sort are separate: search accepts text, while sorting is one
+  immediate single-selection control with no secondary inputs or Apply button.
+- Create and Edit now share one vertical RTL form; the content scrolls while
+  the primary and cancel actions remain outside the scroll region.
+- A successful HTTP 204 Customer delete is explicitly regression-tested to
+  retain its authenticated session, and the Customer view returns to the list.
+- No screenshots, images, mockups, or other visual assets were created.
 
 ## Next task
 

@@ -682,11 +682,11 @@ Task 25.0.1 implementation evidence
 
 Task 25.1 implementation evidence
 
-- `FR-CUS-01` and `FR-CUS-02`: Manager Customer browsing, search, full advanced
-  filtering, creation, details, edit, and protected deletion remain available
+- `FR-CUS-01` and `FR-CUS-02`: Manager Customer browsing, text search, immediate
+  single-field sorting, creation, details, edit, and protected deletion remain available
   through the existing Presenter and service contracts.
-- `NFR-01`: the Customer list now prioritizes search, selection, and a
-  full-width four-column table; advanced filters are progressively disclosed.
+- `NFR-01`: the Customer list now prioritizes text search, a single immediate
+  sort control, selection, and a full-width four-column table.
 - `NFR-09`: single-click selection, double-click/Enter/dedicated-action opening,
   explicit Back/Escape navigation, accessible descriptions, and contextual
   disabled actions provide a conventional keyboard-accessible Desktop flow.
@@ -705,6 +705,10 @@ Task 25.1 implementation evidence
   first-use and filtered-empty states, lighter borderless grouping, RTL header
   alignment, clearer `לקוחות • N` counts, and no-scroll two-column Customer
   dialogs while preserving the same passive View signals and Presenter calls.
+
+- Task 25.1 final correction removes the advanced filter menu and replaces it
+  with immediate single-field sorting; Create/Edit are vertical RTL forms and
+  successful HTTP 204 Customer deletion is verified not to expire a session.
 
 Later tasks
 

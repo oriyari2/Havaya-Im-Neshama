@@ -5,7 +5,6 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
-    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -124,25 +123,15 @@ class CustomerDialog(_BaseFormDialog):
         self.root.insertWidget(0, heading)
 
         self.body_layout.removeItem(self.form)
-        columns = QHBoxLayout()
-        columns.setDirection(QHBoxLayout.Direction.RightToLeft)
-        columns.setSpacing(DIALOG_SECTION_GAP)
-        customer_column = QVBoxLayout()
-        customer_column.setSpacing(SPACE_3)
-        customer_column.addWidget(self._section_label("פרטי לקוח"))
+        self.body_layout.setSpacing(DIALOG_SECTION_GAP)
+        self.body_layout.addWidget(self._section_label("פרטי לקוח"))
         self._configure_form(self.form)
-        customer_column.addLayout(self.form)
-        customer_column.addStretch()
-        contact_column = QVBoxLayout()
-        contact_column.setSpacing(SPACE_3)
-        contact_column.addWidget(self._section_label("פרטי איש קשר"))
+        self.body_layout.addLayout(self.form)
+        self.body_layout.addWidget(self._section_label("פרטי איש קשר"))
         self.contact_form = QFormLayout()
         self._configure_form(self.contact_form)
-        contact_column.addLayout(self.contact_form)
-        contact_column.addWidget(self._section_label("הערות"))
-        columns.addLayout(contact_column, 1)
-        columns.addLayout(customer_column, 1)
-        self.body_layout.addLayout(columns)
+        self.body_layout.addLayout(self.contact_form)
+        self.body_layout.addWidget(self._section_label("הערות"))
 
         self.fields = {}
         for key, label in (
@@ -164,8 +153,7 @@ class CustomerDialog(_BaseFormDialog):
         self.notes = QPlainTextEdit(str(initial.get("notes") or ""))
         self.notes.setAccessibleName("הערות")
         self.notes.setMinimumHeight(132)
-        contact_column.addWidget(self.notes, 1)
-        contact_column.addStretch()
+        self.body_layout.addWidget(self.notes)
         self.save_button.setObjectName("customerDialogPrimary")
         self.save_button.setText("שמירת שינויים" if initial else "יצירת לקוח")
         self.save_button.style().unpolish(self.save_button)

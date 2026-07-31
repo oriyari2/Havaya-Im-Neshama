@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QComboBox, QDateEdit, QFormLayout, QLineEdit, QWidget
+from PySide6.QtWidgets import QApplication, QFormLayout
 
 from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
@@ -83,9 +83,9 @@ class CustomerViewTests(TestCase):
         self.assertEqual(dialog.save_button.text(), "יצירת לקוח")
         self.assertEqual(dialog.save_button.objectName(), "customerDialogPrimary")
         self.assertGreaterEqual(dialog.notes.minimumHeight(), 88)
-        self.assertEqual(dialog.scroll.verticalScrollBar().maximum(), 0)
         self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
-        self.assertGreater(dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topLeft()).x(), dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).x())
+        self.assertLess(dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topLeft()).y(), dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).y())
+        self.assertLess(dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).y(), dialog.notes.mapTo(dialog, dialog.notes.rect().topLeft()).y())
         dialog.close()
 
     def test_list_selection_open_paths_and_return_preserve_list_state(self):
@@ -112,26 +112,29 @@ class CustomerViewTests(TestCase):
         view.table.cellDoubleClicked.emit(0, 0)
         self.assertIs(view.pages.currentWidget(), view.details_page)
 
-    def test_filter_menu_progressively_adds_only_requested_editors(self):
+    def test_details_header_and_actions_keep_rtl_regions(self):
+        view = CustomersView()
+        customer = {"id": "c1", "name": "לקוח", "is_active": True, "contacts": []}
+        view.resize(1200, 760)
+        view.show()
+        view.show_customers([{**customer, "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com"}], offset=0, count=1, filtered=False)
+        view.show_details(customer_details(customer), customer)
+        view.select_customer("c1")
+        view._open_selected_customer()
+        self.app.processEvents()
+        self.assertGreater(view.detail_title.geometry().x(), view.edit_button.geometry().x())
+        self.assertGreater(view.back_button.geometry().x(), view.edit_button.geometry().x())
+        view.close()
+
+    def test_sort_by_is_a_single_immediate_selection_without_extra_editors(self):
         view = CustomersView()
         emitted = []
         view.filters_requested.connect(emitted.append)
-        self.assertTrue(view.filter_panel.isHidden())
-        self.assertEqual(len(view.active_filters), 0)
-        for key in ("name", "city", "customer_type", "is_active", "email", "phone", "created_at", "updated_at"):
-            view._add_filter(key)
-        self.assertFalse(view.filter_panel.isHidden())
-        self.assertIsInstance(view.active_filters["name"].findChild(QWidget, "filterEditor"), QLineEdit)
-        self.assertIsInstance(view.active_filters["is_active"].findChild(QWidget, "filterEditor"), QComboBox)
-        self.assertIsInstance(view.active_filters["created_at"].findChild(QWidget, "filterEditor"), QDateEdit)
-        view.active_filters["city"].findChild(QLineEdit, "filterEditor").setText("חיפה")
-        view.active_filters["customer_type"].findChild(QLineEdit, "filterEditor").setText("עסקי")
-        status = view.active_filters["is_active"].findChild(QComboBox, "filterEditor")
-        status.setCurrentIndex(status.findData(True))
-        view.apply_filters_button.click()
-        self.assertEqual(emitted[-1]["city"], "חיפה")
-        self.assertEqual(emitted[-1]["customer_type"], "עסקי")
-        self.assertIs(emitted[-1]["is_active"], True)
+        self.assertEqual(view.sort_by.count(), 2)
+        self.assertFalse(hasattr(view, "filter_panel"))
+        self.assertFalse(hasattr(view, "apply_filters_button"))
+        view.sort_by.setCurrentIndex(view.sort_by.findData("created_at"))
+        self.assertEqual(emitted[-1], {"order_by": "created_at"})
         self.assertEqual(emitted[-1]["order_by"], "created_at")
 
     def test_final_list_polish_prioritizes_search_table_and_compact_pager(self):
@@ -141,7 +144,7 @@ class CustomerViewTests(TestCase):
         self.app.processEvents()
         self.assertEqual(view.toolbar.search_button.objectName(), "customerSearchButton")
         self.assertGreater(view.toolbar.search_input.geometry().x(), view.toolbar.search_button.geometry().x())
-        self.assertTrue(view.filter_panel.isHidden())
+        self.assertEqual(view.sort_by.currentData(), "name")
         self.assertLessEqual(view.footer.width(), 440)
         self.assertGreater(view.table.height(), 350)
         self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
@@ -149,22 +152,19 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
         view.close()
 
-    def test_reset_clears_all_filter_state_and_returns_to_first_page(self):
+    def test_reset_clears_search_sort_and_selection_and_returns_to_first_page(self):
         view = CustomersView()
         emitted = []
         view.filters_requested.connect(emitted.append)
         view.toolbar.search_input.setText("לקוח")
-        for key in ("city", "customer_type", "is_active"):
-            view._add_filter(key)
-        view.active_filters["city"].findChild(QLineEdit, "filterEditor").setText("חיפה")
-        view.active_filters["customer_type"].findChild(QLineEdit, "filterEditor").setText("עסקי")
-        status = view.active_filters["is_active"].findChild(QComboBox, "filterEditor")
-        status.setCurrentIndex(status.findData(True))
+        view.sort_by.setCurrentIndex(view.sort_by.findData("created_at"))
+        view.show_customers([{"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
+        view.select_customer("c1")
         view.toolbar.refresh_button.click()
-        self.assertEqual(emitted[-1], {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name"})
+        self.assertEqual(emitted[-1], {"search": None, "order_by": "name", "_clear_selection": True})
         self.assertEqual(view.toolbar.search_input.text(), "")
-        self.assertEqual(view.active_filters, {})
-        self.assertTrue(view.filter_panel.isHidden())
+        self.assertEqual(view.sort_by.currentData(), "name")
+        self.assertIsNone(view._selected_customer_id)
 
     def test_empty_states_offer_create_or_filter_reset_without_empty_table(self):
         view = CustomersView()

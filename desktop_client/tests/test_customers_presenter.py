@@ -10,6 +10,9 @@ class CustomersPresenterTests(TestCase):
     def setUp(self): self.view=Mock(); self.service=Mock(); self.service.list_customers.return_value={"items":[CUSTOMER],"count":1}; self.service.customer.return_value=CUSTOMER; self.presenter=CustomersPresenter(self.view,self.service)
     def test_load_filters_sort_and_pagination(self):
         self.presenter.load(); self.view.show_customers.assert_called_once(); self.presenter.apply_filters({"search":"Task","city":"Haifa","order_by":"created_at"}); self.presenter.page(25,25); self.assertEqual(self.service.list_customers.call_args.args[0]["offset"],25)
+    def test_reset_clears_presenter_selection_without_sending_ui_metadata_to_service(self):
+        self.presenter.select("c1"); self.presenter.apply_filters({"search":None,"order_by":"name","_clear_selection":True})
+        self.assertIsNone(self.presenter.selected_id); self.assertNotIn("_clear_selection",self.service.list_customers.call_args.args[0]); self.view.clear_details.assert_called()
     def test_unchanged_reopen_skips_table_rebuild_and_blocking_loading_reset(self):
         self.presenter.load(); self.view.show_customers.reset_mock(); self.view.set_loading.reset_mock(); self.presenter.load(); self.view.show_customers.assert_not_called(); self.assertNotIn(call(True),self.view.set_loading.call_args_list)
     def test_select_and_customer_mutations(self):

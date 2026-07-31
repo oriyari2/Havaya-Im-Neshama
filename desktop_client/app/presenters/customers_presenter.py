@@ -146,6 +146,10 @@ class CustomersPresenter:
         self._executor.submit(identity, lambda: self.service.list_customers(filters), succeeded, failed, finished)
 
     def apply_filters(self, values: dict[str, object]) -> None:
+        values = dict(values)
+        if values.pop("_clear_selection", False):
+            self.selected_id = self.selected_customer = None
+            self.view.clear_details()
         self.filters.update(values)
         self.filters["offset"] = 0
         self.load()

@@ -180,7 +180,7 @@ class UiFoundationTests(unittest.TestCase):
         shell = ShellView("manager@example.com"); customers = CustomersView(); shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.resize(1024, 640); shell.show(); self.app.processEvents()
         self.assertGreaterEqual(customers.table.width(), 500)
         for widget in (customers.create_button, customers.toolbar, customers.table, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
-        self.assertTrue(customers.filter_panel.isHidden()); self.assertGreater(customers.table.height(), 180); shell.close()
+        self.assertEqual(customers.sort_by.currentData(), "name"); self.assertGreater(customers.table.height(), 180); shell.close()
 
     def test_customer_table_and_dedicated_details_page_use_supported_sizes(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView()
