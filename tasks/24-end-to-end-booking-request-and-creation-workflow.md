@@ -55,3 +55,9 @@ changes, pricing redesign, Task 25, and global refresh.
 - Exactly one immutable creation event and projection are committed.
 - Successful Manager/Customer creation is immediately reconciled into Bookings.
 - Existing read scoping, duplicate guards, and native lifecycle safety remain.
+
+## Final assignment handoff
+
+Creation remains unassigned. Manager assignment is the existing Activity-scoped
+workflow in Booking Details; Task 24.2 clarifies its labels without adding a
+second command or creation-time assignment.

@@ -137,6 +137,11 @@ Customer identity and controls initial administrative fields. Instructors are
 denied before command dispatch. Activities and Bookings reuse the same
 Presenter/form workflow.
 
+Instructor assignment is a separate Manager-only command after creation.
+Booking Details dispatches `AssignInstructorCommand` for one Booking Activity;
+immutable `BookingInstructorAssigned` updates the active-assignment projection
+that scopes Instructor reads. Booking status and assignment remain independent.
+
 ### Task 24.1 single current Customer contact
 
 `customer_contacts` remains compatibility/history storage, but the product

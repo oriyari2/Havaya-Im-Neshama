@@ -52,3 +52,7 @@ Customer requests intentionally begin with zero agreed price and no instructor
 requirement. Assignment approval and notifications remain out of scope. Task 25
 was not started. No human interactive gestures are claimed; role behavior was
 validated through API, Presenter, View, native Qt, and lifecycle automation.
+
+Task 24.2 confirms every created Booking starts unassigned. Managers later use
+the existing event-sourced Activity-level assignment in Booking Details;
+Instructor visibility follows the active-assignment projection.

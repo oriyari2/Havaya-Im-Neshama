@@ -644,6 +644,14 @@ Task 24.1 implementation evidence
 - Booking notes and other role-editable fields are consistent across creation,
   immutable event, projection, details, and authorized reads.
 
+Task 24.2 implementation evidence
+
+- Booking creation remains unassigned. Managers use the existing Booking Details
+  Activity-level assignment command; labels now make that path explicit.
+- `BookingInstructorAssigned`/`BookingInstructorRemoved`, projection-based
+  Instructor visibility, authorization, cache invalidation, and concurrency are
+  unchanged. No duplicate assignment workflow exists.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request

@@ -66,6 +66,18 @@ class ViewTests(unittest.TestCase):
         customer.close()
         instructor.close()
 
+    def test_manager_assignment_action_is_clear_and_only_in_booking_details(self) -> None:
+        manager = BookingsView("manager")
+        customer = BookingsView("customer")
+        instructor = BookingsView("instructor")
+        self.assertEqual(manager.assignment_group.title(), "שיבוץ מדריך להזמנה")
+        self.assertEqual(manager.assign_button.text(), "שיבוץ מדריך לפעילות שנבחרה")
+        self.assertIn("בחרו פעילות", manager.assignment_hint.text())
+        self.assertFalse(manager.assign_button.isEnabled())
+        self.assertFalse(manager.assignment_group.isHidden())
+        self.assertTrue(customer.assignment_group.isHidden())
+        self.assertTrue(instructor.assignment_group.isHidden())
+
     def test_customer_booking_dialog_hides_identity_and_admin_fields(self) -> None:
         dialog = BookingFormDialog(
             activities=[{"id": "activity-1", "name": "פעילות"}],
