@@ -14,11 +14,14 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_client.app.views.design_tokens import (
+    CONTROL_HEIGHT_LARGE,
     DIALOG_PADDING,
     DIALOG_ROW_GAP,
     DIALOG_SECTION_GAP,
     DIALOG_WIDTH_DEFAULT,
     DIALOG_WIDTH_MAX,
+    SPACE_2,
+    SPACE_3,
 )
 from desktop_client.app.views.ui_foundations import configure_mixed_direction
 
@@ -99,7 +102,30 @@ class CustomerDialog(_BaseFormDialog):
     def __init__(self, initial=None, parent=None) -> None:
         super().__init__("עריכת לקוח" if initial else "לקוח חדש", parent)
         initial = initial or {}
+        self.setMinimumSize(620, 560)
+        self.resize(660, 680)
+        self.root.setSpacing(SPACE_3)
+        self.form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.form.setHorizontalSpacing(DIALOG_SECTION_GAP)
+        self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+
+        heading = QWidget()
+        heading_layout = QVBoxLayout(heading)
+        heading_layout.setContentsMargins(0, 0, 0, 0)
+        heading_layout.setSpacing(SPACE_2)
+        self.heading_label = QLabel(self.windowTitle())
+        self.heading_label.setObjectName("screenTitle")
+        self.heading_label.setAccessibleName(self.windowTitle())
+        self.heading_description = QLabel("פרטי הלקוח ופרטי איש הקשר")
+        self.required_hint = QLabel("* שדה חובה")
+        self.required_hint.setAccessibleName("סימון שדות חובה")
+        heading_layout.addWidget(self.heading_label)
+        heading_layout.addWidget(self.heading_description)
+        heading_layout.addWidget(self.required_hint)
+        self.root.insertWidget(0, heading)
+
         self.fields = {}
+        self._add_section("פרטי לקוח")
         for key, label in (
             ("name", "שם *"),
             ("customer_type", "סוג"),
@@ -107,22 +133,47 @@ class CustomerDialog(_BaseFormDialog):
             ("address", "כתובת"),
             ("phone", "טלפון"),
             ("email", "דוא״ל"),
+        ):
+            self._add_field(key, label, initial)
+        self._add_section("פרטי איש קשר")
+        for key, label in (
             ("contact_name", "איש קשר *"),
             ("contact_phone", "טלפון איש קשר *"),
         ):
-            field = QLineEdit(str(initial.get(key) or ""))
-            field.setAccessibleName(label.replace(" *", ""))
-            self.fields[key] = field
-            self.form.addRow(label, field)
+            self._add_field(key, label, initial)
         for key in ("phone", "email", "contact_phone"):
             configure_mixed_direction(self.fields[key])
+        self._add_section("הערות")
         self.notes = QPlainTextEdit(str(initial.get("notes") or ""))
         self.notes.setAccessibleName("הערות")
+        self.notes.setMinimumHeight(88)
+        self.notes.setMaximumHeight(112)
         self.form.addRow("הערות", self.notes)
+        self.save_button.setObjectName("customerDialogPrimary")
+        self.save_button.setText("שמירת שינויים" if initial else "יצירת לקוח")
+        self.save_button.style().unpolish(self.save_button)
+        self.save_button.style().polish(self.save_button)
+        for button in (self.save_button, self.cancel_button):
+            button.setMinimumWidth(120)
+            button.setMinimumHeight(CONTROL_HEIGHT_LARGE)
         self.fields["name"].setFocus()
         order = list(self.fields.values()) + [self.notes, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
+
+    def _add_section(self, title: str) -> None:
+        label = QLabel(title)
+        label.setObjectName("sectionTitle")
+        label.setAccessibleName(title)
+        label.setContentsMargins(0, SPACE_3, 0, SPACE_2)
+        self.form.addRow(label)
+
+    def _add_field(self, key: str, label: str, initial: dict) -> None:
+        field = QLineEdit(str(initial.get(key) or ""))
+        field.setAccessibleName(label.replace(" *", ""))
+        field.setMinimumWidth(420)
+        self.fields[key] = field
+        self.form.addRow(label, field)
 
     def values(self) -> dict:
         return {

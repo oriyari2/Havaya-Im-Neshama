@@ -71,6 +71,16 @@ available in Customer Details. Search is always visible; sort, city, Customer
 type, and active status are progressively disclosed under Advanced Filters.
 No filter functionality was removed.
 
+Final Task 25.1 polish compacts the Customer-specific header and scaffold,
+places the RTL search field first in the reading flow, makes Search use the
+existing primary-action treatment, groups optional filters with explanatory
+text, gives the table more height and stronger name/city weighting, and centers
+a bounded pagination control. Customer Details now separates Customer,
+Contact, and System information. Create and Edit Customer dialogs now share an
+in-dialog heading, grouped fields, required-field guidance, consistent
+geometry, a bounded notes field, equal-size actions, and an existing-theme
+primary Create/Save action.
+
 Customer creation remains a single signal into the existing
 `CustomersPresenter.begin_create` / `submit_create` use case. The Customer-role
 path in User Administration remains its distinct atomic user-provisioning use
@@ -80,8 +90,8 @@ No Presenter, service, backend, authorization, cache, CQRS, Event Sourcing, or
 business-rule implementation changed.
 
 Task 25.1 evidence is recorded in
-`docs/piv/25-1-customer-screen-redesign.md`, with before/list/details
-screenshots under `docs/screenshots/`.
+`docs/piv/25-1-customer-screen-redesign.md`, with before/after list, filters,
+details, create-dialog, and edit-dialog screenshots under `docs/screenshots/`.
 
 ## Next task
 

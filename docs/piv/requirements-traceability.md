@@ -695,6 +695,10 @@ Task 25.1 implementation evidence
 - `NFR-07` and course MVP evidence: internal page switching remains passive
   View behavior. `CustomersPresenter`, backend, services, authorization,
   caching, CQRS, Event Sourcing, and Customer business rules are unchanged.
+- Final Task 25.1 polish adds compact list composition, primary RTL search,
+  optional-filter grouping, a bounded pager, semantic Customer/Contact/System
+  detail groups, and consistent Create/Edit dialog layout without changing any
+  Customer workflow or Presenter contract.
 
 Later tasks
 

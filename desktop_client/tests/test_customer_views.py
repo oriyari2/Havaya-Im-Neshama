@@ -36,11 +36,15 @@ class CustomerViewTests(TestCase):
         customer["contacts"] = [contact]
         view.show_details(customer_details(customer), customer)
         rendered = " ".join(
-            view.details.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
-            for row in range(view.details.rowCount())
+            form.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
+            for form in view.detail_forms.values()
+            for row in range(form.rowCount())
         )
         self.assertIn("איש קשר", rendered)
         self.assertIn("050-1", rendered)
+        self.assertEqual(view.customer_details.rowCount(), 7)
+        self.assertEqual(view.contact_details.rowCount(), 2)
+        self.assertEqual(view.system_details.rowCount(), 3)
         profile = CustomerProfileView()
         self.assertFalse(hasattr(profile, "contacts"))
         profile.show_profile(customer_details(customer))
@@ -64,6 +68,19 @@ class CustomerViewTests(TestCase):
         self.assertFalse(dialog.error_label.isHidden())
         dialog.set_submitting(True)
         self.assertFalse(dialog.buttons.isEnabled())
+        self.assertGreaterEqual(dialog.minimumWidth(), 620)
+        self.assertEqual(dialog.save_button.text(), "שמירת שינויים")
+        self.assertEqual(dialog.save_button.minimumWidth(), dialog.cancel_button.minimumWidth())
+        section_titles = [label.text() for label in dialog.findChildren(type(dialog.heading_label)) if label.objectName() == "sectionTitle"]
+        self.assertEqual(section_titles, ["פרטי לקוח", "פרטי איש קשר", "הערות"])
+
+    def test_create_dialog_has_specific_primary_action_and_required_field_guidance(self):
+        dialog = CustomerDialog()
+        self.assertEqual(dialog.heading_label.text(), "לקוח חדש")
+        self.assertEqual(dialog.required_hint.text(), "* שדה חובה")
+        self.assertEqual(dialog.save_button.text(), "יצירת לקוח")
+        self.assertEqual(dialog.save_button.objectName(), "customerDialogPrimary")
+        self.assertGreaterEqual(dialog.notes.minimumHeight(), 88)
 
     def test_list_selection_open_paths_and_return_preserve_list_state(self):
         view = CustomersView()
@@ -102,3 +119,16 @@ class CustomerViewTests(TestCase):
         view.order.setCurrentIndex(view.order.findData("created_at"))
         view.apply_filters_button.click()
         self.assertEqual(emitted[-1], {"city": "חיפה", "customer_type": "עסקי", "is_active": True, "order_by": "created_at"})
+
+    def test_final_list_polish_prioritizes_search_table_and_compact_pager(self):
+        view = CustomersView()
+        view.resize(1200, 760)
+        view.show()
+        self.app.processEvents()
+        self.assertEqual(view.toolbar.search_button.objectName(), "customerSearchButton")
+        self.assertGreater(view.toolbar.search_input.geometry().x(), view.toolbar.search_button.geometry().x())
+        self.assertTrue(view.advanced_filters.isHidden())
+        self.assertLessEqual(view.footer.width(), 440)
+        self.assertGreater(view.table.height(), 350)
+        self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
+        view.close()

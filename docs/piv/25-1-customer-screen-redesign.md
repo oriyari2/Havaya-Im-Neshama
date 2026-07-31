@@ -14,6 +14,17 @@ stacked-page design preserves the live table, search text, advanced-filter
 state, pagination, scroll position, and selected row instead of rebuilding the
 list when the user returns.
 
+The final polish completes all directly owned Customer surfaces. The list uses
+a shorter Customer-specific header, tighter scaffold spacing, a right-first RTL
+search flow, a visually primary Search action, stronger name/city column
+weighting, more table height, and a compact centered pager. Expanded filters
+have an explicit optional-use explanation and aligned field groups. Customer
+Details separates the record into Customer Information, Contact Information,
+and System Information groups. Create and Edit dialogs share a visible heading,
+sectioned fields, required-field guidance, comfortable fixed bounds with
+scrolling fallback, a bounded notes area, equal-size actions, and a clearly
+dominant Create/Save action using the existing primary style.
+
 ## Interaction flow
 
 ```text
@@ -45,6 +56,18 @@ Customer list
   without recreating the list, so users resume exactly where they were.
 - **Full-width table:** removing the permanent split pane gives the primary
   browsing surface substantially more horizontal and vertical room.
+- **Efficient vertical composition:** Customer-only scaffold/header spacing is
+  reduced and the pager is bounded, leaving the table as the dominant region
+  at supported Desktop sizes.
+- **RTL search priority:** the search field begins the visual reading flow,
+  immediately followed by its primary Search action; Refresh and optional
+  filtering remain secondary.
+- **Semantic Details groups:** stable Customer, Contact, and System sections
+  reduce scanning time and make labels predictable without changing data.
+- **Coherent Customer dialogs:** Create and Edit use the same dimensions,
+  headings, section order, label alignment, whitespace, and button sizing.
+  Action text is contextual (`Create Customer` or `Save Changes`) while both
+  still emit the same existing submission signal.
 - **No visual-identity redesign:** existing colors, typography, borders,
   radii, feedback components, and tokens remain. A selector-specificity rule
   only ensures the existing primary treatment remains visible on New Customer.
@@ -66,6 +89,7 @@ Customer list
 ## Files changed
 
 - `desktop_client/app/views/customers_view.py`
+- `desktop_client/app/views/customer_dialogs.py`
 - `desktop_client/app/views/design_tokens.py`
 - `desktop_client/tests/test_customer_views.py`
 - `desktop_client/tests/test_ui_foundations.py`
@@ -74,6 +98,8 @@ Customer list
 - `docs/screenshots/task-25-1-customers-before.png`
 - `docs/screenshots/task-25-1-customers-list-after.png`
 - `docs/screenshots/task-25-1-customer-details-after.png`
+- final-polish before/after list, Details, Create, Edit, and expanded-filter
+  screenshot evidence under `docs/screenshots/task-25-1-*`
 
 ## How to run
 
@@ -93,6 +119,9 @@ Affected Desktop tests cover:
 - return-to-list search and selection restoration;
 - progressive advanced-filter disclosure and complete payloads;
 - four-column table policy and absence of detail-only columns;
+- compact header/search/pager composition and dominant table height;
+- Customer, Contact, and System Details grouping;
+- Create/Edit dialog hierarchy, dimensions, field grouping, and primary action;
 - 1024×640, 1200×760, and 1440×900 list/detail geometry;
 - feedback, accessibility, tooltip, form, and Customer dialog behavior.
 
@@ -105,8 +134,15 @@ Compilation is validated with:
 ## Screenshots
 
 - [Before redesign](../screenshots/task-25-1-customers-before.png)
-- [Customer list after redesign](../screenshots/task-25-1-customers-list-after.png)
-- [Customer Details after redesign](../screenshots/task-25-1-customer-details-after.png)
+- [List before final polish](../screenshots/task-25-1-customers-list-before-final-polish.png)
+- [Customer Details before final polish](../screenshots/task-25-1-customer-details-before-final-polish.png)
+- [Create dialog before final polish](../screenshots/task-25-1-customer-create-before-final-polish.png)
+- [Edit dialog before final polish](../screenshots/task-25-1-customer-edit-before-final-polish.png)
+- [Customer list finalized](../screenshots/task-25-1-customers-list-after.png)
+- [Optional filters finalized](../screenshots/task-25-1-customers-filters-after.png)
+- [Customer Details finalized](../screenshots/task-25-1-customer-details-after.png)
+- [Create dialog finalized](../screenshots/task-25-1-customer-create-after.png)
+- [Edit dialog finalized](../screenshots/task-25-1-customer-edit-after.png)
 
 ## Next task
 
