@@ -101,6 +101,23 @@ class UiFoundationTests(unittest.TestCase):
         view.email_input.setText("user@example.com"); view.password_input.setText("secret"); view.set_loading(True); view._emit_login(); self.assertEqual(emitted, [])
         view.set_loading(False); view._emit_login(); self.assertEqual(len(emitted), 1)
 
+    def test_login_layout_is_wide_stacked_and_centered(self) -> None:
+        view = LoginView(); view.resize(1200, 760); view.show(); self.app.processEvents()
+        self.assertGreaterEqual(view.panel.width(), 520)
+        self.assertGreaterEqual(view.email_input.width(), 440); self.assertEqual(view.email_input.width(), view.password_input.width())
+        self.assertEqual(view.login_button.width(), view.email_input.width())
+        self.assertLess(view.email_label.geometry().bottom(), view.email_input.geometry().top())
+        self.assertLess(view.password_label.geometry().bottom(), view.password_input.geometry().top())
+        view.show_error("פרטי ההתחברות אינם תקינים"); self.app.processEvents()
+        self.assertLess(view.password_input.geometry().bottom(), view.feedback.geometry().top())
+        self.assertLess(view.feedback.geometry().bottom(), view.login_button.geometry().top())
+        self.assertLessEqual(abs(view.panel.geometry().center().x() - view.rect().center().x()), 1)
+        self.assertEqual(
+            [view.welcome_label.text(), view.application_name_label.text(), view.description_label.text(), view.instruction_label.text()],
+            ["ברוכים הבאים", "חוויה עם נשמה", "מערכת לניהול חוויות, לקוחות והזמנות", "התחברו כדי להמשיך למערכת הניהול"],
+        )
+        view.close()
+
     def test_semantic_table_policy_fills_viewport_and_expands_primary_column(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "table", (
             ColumnPolicy(ColumnKind.PRIMARY_TEXT),

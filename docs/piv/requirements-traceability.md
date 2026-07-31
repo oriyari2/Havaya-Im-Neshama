@@ -666,6 +666,20 @@ Task 24.3 implementation evidence
   optimistic concurrency, Event Sourcing, and Instructor visibility remain the
   final enforcement boundaries.
 
+Task 25.0.1 implementation evidence
+
+- `NFR-01`: the Hebrew RTL Login screen has a larger centered card and a clear
+  welcome, application, description, instruction, fields, feedback, and action
+  sequence.
+- `NFR-09`: Email and Password labels are above equal-width fields; accessible
+  names, focus order, keyboard submission, and error handling remain intact.
+- `NFR-10`: automated geometry checks verify centered desktop composition and
+  non-overlapping feedback at 1200×760; the card also fits within the existing
+  1024×640 application minimum.
+- Passive View/MVP boundaries are unchanged. Task 25.0.1 changes only Login
+  View layout, an existing Login primary-style specificity rule, focused UI
+  tests, documentation, and screenshot evidence.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request
