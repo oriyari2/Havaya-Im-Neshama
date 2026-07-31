@@ -21,7 +21,7 @@ from desktop_client.app.views.instructors_view import InstructorProfileView, Ins
 from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.design_tokens import (
-    COLOR_BACKGROUND, COLOR_FOCUS, CONTROL_HEIGHT, DIALOG_WIDTH_DEFAULT, DIALOG_WIDTH_MAX,
+    COLOR_BACKGROUND, COLOR_FOCUS, CONTROL_HEIGHT, DIALOG_WIDTH_DEFAULT,
     DURATION_STANDARD, ELEVATION_LOW, FONT_SIZE_BODY, ICON_SIZE, RADIUS_MEDIUM,
     SPACE_4, TABLE_ROW_HEIGHT,
 )
@@ -173,7 +173,7 @@ class UiFoundationTests(unittest.TestCase):
         self.assertIs(dialog.form.labelForField(dialog.fields["name"]).buddy(), dialog.fields["name"]); self.assertIs(dialog.focusWidget(), dialog.fields["name"])
         dialog.fields["name"].setText("לקוח"); dialog.fields["contact_name"].setText("איש קשר"); dialog.fields["contact_phone"].setText("050"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
         submitted.clear(); dialog.notes.setFocus(); QTest.keyClick(dialog.notes, Qt.Key.Key_Return); self.assertEqual(submitted, [])
-        self.assertGreaterEqual(dialog.width(), 620); self.assertLessEqual(dialog.width(), DIALOG_WIDTH_MAX); self.assertTrue(dialog.scroll.widgetResizable())
+        self.assertGreaterEqual(dialog.width(), 760); self.assertLessEqual(dialog.width(), 860); self.assertTrue(dialog.scroll.widgetResizable())
         QTest.keyClick(dialog, Qt.Key.Key_Escape); self.app.processEvents(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected); self.assertIs(parent.focusWidget(), opener); parent.close()
 
     def test_supported_minimum_keeps_pilot_regions_meaningfully_sized(self) -> None:

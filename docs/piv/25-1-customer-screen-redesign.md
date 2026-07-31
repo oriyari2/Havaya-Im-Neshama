@@ -25,6 +25,20 @@ sectioned fields, required-field guidance, comfortable fixed bounds with
 scrolling fallback, a bounded notes area, equal-size actions, and a clearly
 dominant Create/Save action using the existing primary style.
 
+Final review keeps the title/subtitle on the RTL right and New Customer on the
+left, simplifies the optional-filter trigger to `סינון לפי`, and replaces the
+low-value Refresh action with `איפוס`. Reset clears search, city, Customer type,
+status, and sort, collapses optional filters, and returns to page one by emitting
+the existing complete filter payload. The list and Details surfaces now rely on
+whitespace instead of nested frames. Counts use `לקוחות • N`. Empty datasets
+show a first-Customer action, while filtered zero-results show guidance and a
+Reset action; neither state displays an empty table or irrelevant pager.
+
+Create/Edit dialogs are finalized as an 820×650 two-column RTL Desktop form:
+Customer Information starts on the right, Contact Information and Notes sit on
+the left, all fields are visible without horizontal or vertical scrolling, and
+the existing Create/Save signal and validation behavior are unchanged.
+
 ## Interaction flow
 
 ```text
@@ -60,7 +74,7 @@ Customer list
   reduced and the pager is bounded, leaving the table as the dominant region
   at supported Desktop sizes.
 - **RTL search priority:** the search field begins the visual reading flow,
-  immediately followed by its primary Search action; Refresh and optional
+  immediately followed by its primary Search action; Reset and optional
   filtering remain secondary.
 - **Semantic Details groups:** stable Customer, Contact, and System sections
   reduce scanning time and make labels predictable without changing data.
@@ -68,6 +82,13 @@ Customer list
   headings, section order, label alignment, whitespace, and button sizing.
   Action text is contextual (`Create Customer` or `Save Changes`) while both
   still emit the same existing submission signal.
+- **Useful reset behavior:** one clearly labeled action restores the complete
+  default list state instead of merely repeating the current request.
+- **Purposeful empty states:** first-use and filtered-empty contexts explain
+  what happened and offer exactly one relevant next step.
+- **Lighter surfaces:** removing the search container border, outer Details
+  frame, and group-box borders reduces nested-panel noise without changing the
+  shared visual identity.
 - **No visual-identity redesign:** existing colors, typography, borders,
   radii, feedback components, and tokens remain. A selector-specificity rule
   only ensures the existing primary treatment remains visible on New Customer.
@@ -100,6 +121,8 @@ Customer list
 - `docs/screenshots/task-25-1-customer-details-after.png`
 - final-polish before/after list, Details, Create, Edit, and expanded-filter
   screenshot evidence under `docs/screenshots/task-25-1-*`
+- final UX before/after evidence plus first-use and no-results states under the
+  same Task 25.1 screenshot prefix
 
 ## How to run
 
@@ -122,6 +145,8 @@ Affected Desktop tests cover:
 - compact header/search/pager composition and dominant table height;
 - Customer, Contact, and System Details grouping;
 - Create/Edit dialog hierarchy, dimensions, field grouping, and primary action;
+- complete Reset payload, first-use/no-results actions, and removal of dialog
+  scrolling at normal Desktop size;
 - 1024×640, 1200×760, and 1440×900 list/detail geometry;
 - feedback, accessibility, tooltip, form, and Customer dialog behavior.
 
@@ -143,6 +168,12 @@ Compilation is validated with:
 - [Customer Details finalized](../screenshots/task-25-1-customer-details-after.png)
 - [Create dialog finalized](../screenshots/task-25-1-customer-create-after.png)
 - [Edit dialog finalized](../screenshots/task-25-1-customer-edit-after.png)
+- [List before final UX polish](../screenshots/task-25-1-customers-list-before-final-ux-polish.png)
+- [Details before final UX polish](../screenshots/task-25-1-customer-details-before-final-ux-polish.png)
+- [Create dialog before final UX polish](../screenshots/task-25-1-customer-create-before-final-ux-polish.png)
+- [Edit dialog before final UX polish](../screenshots/task-25-1-customer-edit-before-final-ux-polish.png)
+- [First-use empty state finalized](../screenshots/task-25-1-customers-empty-after.png)
+- [Filtered no-results state finalized](../screenshots/task-25-1-customers-no-results-after.png)
 
 ## Next task
 

@@ -4,7 +4,6 @@ from PySide6.QtWidgets import (
     QBoxLayout,
     QFormLayout,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -46,7 +45,7 @@ class CustomersView(StatefulWidget):
         self._selected_customer_id: str | None = None
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        self.scaffold = PageScaffold("לקוחות", "איתור לקוחות ופתיחת כרטיס לקוח")
+        self.scaffold = PageScaffold("לקוחות", "ניהול לקוחות ופרטי קשר")
         self.scaffold.root.setSpacing(SPACE_3)
         self.scaffold.header.layout().setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
         self.scaffold.header.layout().setSpacing(SPACE_2)
@@ -105,8 +104,7 @@ class CustomersView(StatefulWidget):
         self.list_layout.setContentsMargins(0, 0, 0, 0)
         self.list_layout.setSpacing(SPACE_2)
 
-        search_panel = QFrame()
-        search_panel.setObjectName("filterPanel")
+        search_panel = QWidget()
         search_layout = QVBoxLayout(search_panel)
         search_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
         search_layout.setSpacing(SPACE_3)
@@ -116,8 +114,11 @@ class CustomersView(StatefulWidget):
         self.toolbar.search_button.setObjectName("customerSearchButton")
         self.toolbar.search_button.setProperty("primary", True)
         self.toolbar.search_requested.connect(self._search)
-        self.toolbar.refresh_requested.connect(self.retry_requested)
-        self.advanced_filters_button = QPushButton("סינון ומיון נוספים")
+        self.toolbar.refresh_button.setText("איפוס")
+        self.toolbar.refresh_button.setAccessibleName("איפוס חיפוש ומסננים")
+        self.toolbar.refresh_button.setAccessibleDescription("ניקוי החיפוש והמסננים, איפוס המיון וחזרה לעמוד הראשון")
+        self.toolbar.refresh_requested.connect(self._reset_filters)
+        self.advanced_filters_button = QPushButton("סינון לפי")
         self.advanced_filters_button.setCheckable(True)
         self.advanced_filters_button.setAccessibleName("הצגה או הסתרה של מסננים מתקדמים")
         self.advanced_filters_button.toggled.connect(self._toggle_advanced_filters)
@@ -188,7 +189,31 @@ class CustomersView(StatefulWidget):
         self.table.itemSelectionChanged.connect(self._select)
         self.table.cellDoubleClicked.connect(lambda _row, _column: self._open_selected_customer())
         self.table.installEventFilter(self)
-        self.list_layout.addWidget(self.table, 1)
+        self.table_region = QStackedWidget()
+        self.table_region.setAccessibleName("תוצאות לקוחות")
+        self.empty_state = QWidget()
+        empty_layout = QVBoxLayout(self.empty_state)
+        empty_layout.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6)
+        empty_layout.setSpacing(SPACE_3)
+        empty_layout.addStretch()
+        self.empty_title = QLabel()
+        self.empty_title.setObjectName("sectionTitle")
+        self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_description = QLabel()
+        self.empty_description.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.empty_description.setWordWrap(True)
+        self.empty_action_button = QPushButton()
+        self.empty_action_button.setObjectName("customerEmptyActionButton")
+        self.empty_action_button.setProperty("primary", True)
+        self.empty_action_button.setMinimumWidth(160)
+        self.empty_action_button.clicked.connect(self._empty_action)
+        empty_layout.addWidget(self.empty_title)
+        empty_layout.addWidget(self.empty_description)
+        empty_layout.addWidget(self.empty_action_button, alignment=Qt.AlignmentFlag.AlignHCenter)
+        empty_layout.addStretch()
+        self.table_region.addWidget(self.table)
+        self.table_region.addWidget(self.empty_state)
+        self.list_layout.addWidget(self.table_region, 1)
         return page
 
     @staticmethod
@@ -247,10 +272,9 @@ class CustomersView(StatefulWidget):
         self.detail_loading_label.setAccessibleName("מצב טעינת פרטי לקוח")
         layout.addWidget(self.detail_loading_label, 1)
 
-        self.details_widget = QFrame()
-        self.details_widget.setObjectName("detailPanel")
+        self.details_widget = QWidget()
         detail_layout = QVBoxLayout(self.details_widget)
-        detail_layout.setContentsMargins(SPACE_6, SPACE_4, SPACE_6, SPACE_4)
+        detail_layout.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6)
         sections = QHBoxLayout()
         sections.setDirection(QBoxLayout.Direction.RightToLeft)
         sections.setSpacing(SPACE_4)
@@ -280,15 +304,24 @@ class CustomersView(StatefulWidget):
         return page
 
     @staticmethod
-    def _detail_group(title: str) -> tuple[QGroupBox, QFormLayout]:
-        group = QGroupBox(title)
+    def _detail_group(title: str) -> tuple[QWidget, QFormLayout]:
+        group = QWidget()
         group.setAccessibleName(title)
-        form = QFormLayout(group)
-        form.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4)
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(SPACE_4, SPACE_2, SPACE_4, SPACE_2)
+        layout.setSpacing(SPACE_3)
+        heading = QLabel(title)
+        heading.setObjectName("sectionTitle")
+        heading.setAccessibleName(title)
+        layout.addWidget(heading)
+        form = QFormLayout()
+        form.setContentsMargins(0, 0, 0, 0)
         form.setVerticalSpacing(SPACE_3)
         form.setHorizontalSpacing(SPACE_4)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        layout.addLayout(form)
+        layout.addStretch()
         return group, form
 
     def _clear_detail_forms(self) -> None:
@@ -314,9 +347,29 @@ class CustomersView(StatefulWidget):
     def _search(self, search: str, _unused_sort: str) -> None:
         self.filters_requested.emit({"search": search or None, "order_by": self.order.currentData()})
 
+    def _reset_filters(self) -> None:
+        self.toolbar.search_input.clear()
+        self.order.setCurrentIndex(self.order.findData("name"))
+        for control in (self.city, self.kind, self.active):
+            control.setCurrentIndex(0)
+        self.advanced_filters_button.setChecked(False)
+        self.filters_requested.emit({
+            "search": None,
+            "city": None,
+            "customer_type": None,
+            "is_active": None,
+            "order_by": "name",
+        })
+
     def _toggle_advanced_filters(self, visible: bool) -> None:
         self.advanced_filters.setVisible(visible)
-        self.advanced_filters_button.setText("הסתרת אפשרויות נוספות" if visible else "סינון ומיון נוספים")
+        self.advanced_filters_button.setText("הסתרת סינון" if visible else "סינון לפי")
+
+    def _empty_action(self) -> None:
+        if getattr(self, "_empty_filtered", False):
+            self._reset_filters()
+        else:
+            self.create_requested.emit()
 
     def _filters(self) -> None:
         self.filters_requested.emit({
@@ -371,6 +424,7 @@ class CustomersView(StatefulWidget):
         self.toolbar.refresh_button.setEnabled(not value)
         self.advanced_filters_button.setEnabled(not value)
         self.apply_filters_button.setEnabled(not value)
+        self.empty_action_button.setEnabled(not value)
         self.view_details_button.setEnabled(not value and self._selected_customer_id is not None)
         has_details = self._detail_row_count() > 0
         self.edit_button.setEnabled(not value and has_details)
@@ -425,14 +479,29 @@ class CustomersView(StatefulWidget):
             badge = ActiveBadge()
             badge.set_active(row["is_active"])
             self.table.setCellWidget(row_index, 3, badge)
-        self.results_label.setText(f"לקוחות ({len(rows)})")
+        self.results_label.setText(f"לקוחות • {len(rows)}")
         self.footer.set_page(offset=offset, count=count)
         first = offset + 1 if count else 0
         self.footer.label.setText(f"מציג לקוחות {first}–{offset + count}")
         if not rows:
-            self.show_empty("לא נמצאו לקוחות." if filtered else "אין לקוחות להצגה.")
-        elif self.state_label.text() != "טוען נתונים…":
+            self._empty_filtered = filtered
+            self.empty_title.setText("לא נמצאו לקוחות" if filtered else "אין עדיין לקוחות")
+            self.empty_description.setText(
+                "נסו לשנות את החיפוש או לאפס את המסננים."
+                if filtered else "צרו את הלקוח הראשון כדי להתחיל."
+            )
+            self.empty_action_button.setText("איפוס חיפוש ומסננים" if filtered else "לקוח חדש")
+            self.empty_action_button.setAccessibleName(self.empty_action_button.text())
+            self.table_region.setCurrentWidget(self.empty_state)
+            self.view_details_button.hide()
+            self.footer.hide()
             self.state_label.hide()
+        else:
+            self.table_region.setCurrentWidget(self.table)
+            self.view_details_button.show()
+            self.footer.show()
+            if self.state_label.text() != "טוען נתונים…":
+                self.state_label.hide()
 
     def show_details(self, details, customer) -> None:
         self._clear_detail_forms()

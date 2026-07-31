@@ -81,6 +81,14 @@ in-dialog heading, grouped fields, required-field guidance, consistent
 geometry, a bounded notes field, equal-size actions, and an existing-theme
 primary Create/Save action.
 
+The completed polish also replaces Refresh with a true Reset action that
+clears every filter and sort through the existing View-to-Presenter filter
+signal, simplifies the advanced-filter label to `סינון לפי`, removes nested
+list/detail frames, formats counts as `לקוחות • N`, and supplies dedicated
+first-use and no-results states with contextual Create or Reset actions. The
+Customer dialog uses a wider two-column RTL layout so its normal 820×650
+Desktop presentation requires no scrolling.
+
 Customer creation remains a single signal into the existing
 `CustomersPresenter.begin_create` / `submit_create` use case. The Customer-role
 path in User Administration remains its distinct atomic user-provisioning use

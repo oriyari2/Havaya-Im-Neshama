@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -42,11 +43,11 @@ class _BaseFormDialog(QDialog):
         self.root.setContentsMargins(DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING)
         self.root.setSpacing(DIALOG_SECTION_GAP)
         body = QWidget()
-        body_layout = QVBoxLayout(body)
-        body_layout.setContentsMargins(0, 0, 0, 0)
+        self.body_layout = QVBoxLayout(body)
+        self.body_layout.setContentsMargins(0, 0, 0, 0)
         self.form = QFormLayout()
         self.form.setVerticalSpacing(DIALOG_ROW_GAP)
-        body_layout.addLayout(self.form)
+        self.body_layout.addLayout(self.form)
         self.scroll = QScrollArea()
         self.scroll.setAccessibleName("שדות הטופס")
         self.scroll.setWidgetResizable(True)
@@ -102,12 +103,10 @@ class CustomerDialog(_BaseFormDialog):
     def __init__(self, initial=None, parent=None) -> None:
         super().__init__("עריכת לקוח" if initial else "לקוח חדש", parent)
         initial = initial or {}
-        self.setMinimumSize(620, 560)
-        self.resize(660, 680)
+        self.setMinimumSize(760, 600)
+        self.setMaximumWidth(860)
+        self.resize(820, 650)
         self.root.setSpacing(SPACE_3)
-        self.form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.form.setHorizontalSpacing(DIALOG_SECTION_GAP)
-        self.form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
 
         heading = QWidget()
         heading_layout = QVBoxLayout(heading)
@@ -124,8 +123,28 @@ class CustomerDialog(_BaseFormDialog):
         heading_layout.addWidget(self.required_hint)
         self.root.insertWidget(0, heading)
 
+        self.body_layout.removeItem(self.form)
+        columns = QHBoxLayout()
+        columns.setDirection(QHBoxLayout.Direction.RightToLeft)
+        columns.setSpacing(DIALOG_SECTION_GAP)
+        customer_column = QVBoxLayout()
+        customer_column.setSpacing(SPACE_3)
+        customer_column.addWidget(self._section_label("פרטי לקוח"))
+        self._configure_form(self.form)
+        customer_column.addLayout(self.form)
+        customer_column.addStretch()
+        contact_column = QVBoxLayout()
+        contact_column.setSpacing(SPACE_3)
+        contact_column.addWidget(self._section_label("פרטי איש קשר"))
+        self.contact_form = QFormLayout()
+        self._configure_form(self.contact_form)
+        contact_column.addLayout(self.contact_form)
+        contact_column.addWidget(self._section_label("הערות"))
+        columns.addLayout(contact_column, 1)
+        columns.addLayout(customer_column, 1)
+        self.body_layout.addLayout(columns)
+
         self.fields = {}
-        self._add_section("פרטי לקוח")
         for key, label in (
             ("name", "שם *"),
             ("customer_type", "סוג"),
@@ -134,21 +153,19 @@ class CustomerDialog(_BaseFormDialog):
             ("phone", "טלפון"),
             ("email", "דוא״ל"),
         ):
-            self._add_field(key, label, initial)
-        self._add_section("פרטי איש קשר")
+            self._add_field(self.form, key, label, initial)
         for key, label in (
             ("contact_name", "איש קשר *"),
             ("contact_phone", "טלפון איש קשר *"),
         ):
-            self._add_field(key, label, initial)
+            self._add_field(self.contact_form, key, label, initial)
         for key in ("phone", "email", "contact_phone"):
             configure_mixed_direction(self.fields[key])
-        self._add_section("הערות")
         self.notes = QPlainTextEdit(str(initial.get("notes") or ""))
         self.notes.setAccessibleName("הערות")
-        self.notes.setMinimumHeight(88)
-        self.notes.setMaximumHeight(112)
-        self.form.addRow("הערות", self.notes)
+        self.notes.setMinimumHeight(132)
+        contact_column.addWidget(self.notes, 1)
+        contact_column.addStretch()
         self.save_button.setObjectName("customerDialogPrimary")
         self.save_button.setText("שמירת שינויים" if initial else "יצירת לקוח")
         self.save_button.style().unpolish(self.save_button)
@@ -161,19 +178,27 @@ class CustomerDialog(_BaseFormDialog):
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
 
-    def _add_section(self, title: str) -> None:
+    @staticmethod
+    def _section_label(title: str) -> QLabel:
         label = QLabel(title)
         label.setObjectName("sectionTitle")
         label.setAccessibleName(title)
-        label.setContentsMargins(0, SPACE_3, 0, SPACE_2)
-        self.form.addRow(label)
+        return label
 
-    def _add_field(self, key: str, label: str, initial: dict) -> None:
+    @staticmethod
+    def _configure_form(form: QFormLayout) -> None:
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setVerticalSpacing(DIALOG_ROW_GAP)
+        form.setHorizontalSpacing(SPACE_3)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+
+    def _add_field(self, form: QFormLayout, key: str, label: str, initial: dict) -> None:
         field = QLineEdit(str(initial.get(key) or ""))
         field.setAccessibleName(label.replace(" *", ""))
-        field.setMinimumWidth(420)
+        field.setMinimumWidth(240)
         self.fields[key] = field
-        self.form.addRow(label, field)
+        form.addRow(label, field)
 
     def values(self) -> dict:
         return {

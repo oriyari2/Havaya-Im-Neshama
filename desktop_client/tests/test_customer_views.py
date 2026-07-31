@@ -68,19 +68,25 @@ class CustomerViewTests(TestCase):
         self.assertFalse(dialog.error_label.isHidden())
         dialog.set_submitting(True)
         self.assertFalse(dialog.buttons.isEnabled())
-        self.assertGreaterEqual(dialog.minimumWidth(), 620)
+        self.assertGreaterEqual(dialog.minimumWidth(), 760)
         self.assertEqual(dialog.save_button.text(), "שמירת שינויים")
         self.assertEqual(dialog.save_button.minimumWidth(), dialog.cancel_button.minimumWidth())
         section_titles = [label.text() for label in dialog.findChildren(type(dialog.heading_label)) if label.objectName() == "sectionTitle"]
-        self.assertEqual(section_titles, ["פרטי לקוח", "פרטי איש קשר", "הערות"])
+        self.assertCountEqual(section_titles, ["פרטי לקוח", "פרטי איש קשר", "הערות"])
 
     def test_create_dialog_has_specific_primary_action_and_required_field_guidance(self):
         dialog = CustomerDialog()
+        dialog.show()
+        self.app.processEvents()
         self.assertEqual(dialog.heading_label.text(), "לקוח חדש")
         self.assertEqual(dialog.required_hint.text(), "* שדה חובה")
         self.assertEqual(dialog.save_button.text(), "יצירת לקוח")
         self.assertEqual(dialog.save_button.objectName(), "customerDialogPrimary")
         self.assertGreaterEqual(dialog.notes.minimumHeight(), 88)
+        self.assertEqual(dialog.scroll.verticalScrollBar().maximum(), 0)
+        self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
+        self.assertGreater(dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topLeft()).x(), dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).x())
+        dialog.close()
 
     def test_list_selection_open_paths_and_return_preserve_list_state(self):
         view = CustomersView()
@@ -131,4 +137,41 @@ class CustomerViewTests(TestCase):
         self.assertLessEqual(view.footer.width(), 440)
         self.assertGreater(view.table.height(), 350)
         self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
+        self.assertGreater(view.scaffold.header.title.geometry().x(), view.create_button.geometry().x())
+        self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
         view.close()
+
+    def test_reset_clears_all_filter_state_and_returns_to_first_page(self):
+        view = CustomersView()
+        emitted = []
+        view.filters_requested.connect(emitted.append)
+        view.toolbar.search_input.setText("לקוח")
+        view.order.setCurrentIndex(view.order.findData("created_at"))
+        view.city.setEditText("חיפה")
+        view.kind.setEditText("עסקי")
+        view.active.setCurrentIndex(view.active.findData(True))
+        view.advanced_filters_button.click()
+        view.toolbar.refresh_button.click()
+        self.assertEqual(emitted[-1], {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name"})
+        self.assertEqual(view.toolbar.search_input.text(), "")
+        self.assertEqual(view.order.currentData(), "name")
+        self.assertTrue(view.advanced_filters.isHidden())
+
+    def test_empty_states_offer_create_or_filter_reset_without_empty_table(self):
+        view = CustomersView()
+        created = []
+        filters = []
+        view.create_requested.connect(lambda: created.append(True))
+        view.filters_requested.connect(filters.append)
+        view.show_customers([], offset=0, count=0, filtered=False)
+        self.assertIs(view.table_region.currentWidget(), view.empty_state)
+        self.assertEqual(view.empty_title.text(), "אין עדיין לקוחות")
+        self.assertTrue(view.footer.isHidden())
+        self.assertTrue(view.view_details_button.isHidden())
+        view.empty_action_button.click()
+        self.assertEqual(created, [True])
+        view.toolbar.search_input.setText("missing")
+        view.show_customers([], offset=0, count=0, filtered=True)
+        self.assertEqual(view.empty_title.text(), "לא נמצאו לקוחות")
+        view.empty_action_button.click()
+        self.assertEqual(filters[-1]["search"], None)

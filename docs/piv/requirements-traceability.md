@@ -699,6 +699,10 @@ Task 25.1 implementation evidence
   optional-filter grouping, a bounded pager, semantic Customer/Contact/System
   detail groups, and consistent Create/Edit dialog layout without changing any
   Customer workflow or Presenter contract.
+- Final UX review adds a complete first-page filter/sort Reset, contextual
+  first-use and filtered-empty states, lighter borderless grouping, RTL header
+  alignment, clearer `לקוחות • N` counts, and no-scroll two-column Customer
+  dialogs while preserving the same passive View signals and Presenter calls.
 
 Later tasks
 
