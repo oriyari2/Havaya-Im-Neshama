@@ -49,6 +49,7 @@ class ViewTests(unittest.TestCase):
         manager.set_command_availability("NEW")
         self.assertTrue(manager.edit_button.isEnabled())
         self.assertTrue(manager.confirm_button.isEnabled())
+        self.assertTrue(manager.confirm_button.isHidden())
         self.assertTrue(manager.cancel_button.isEnabled())
         manager.set_command_availability("CANCELLED")
         self.assertFalse(manager.edit_button.isEnabled())
@@ -74,6 +75,18 @@ class ViewTests(unittest.TestCase):
         self.assertEqual(manager.assign_button.text(), "שיבוץ מדריך לפעילות שנבחרה")
         self.assertIn("בחרו פעילות", manager.assignment_hint.text())
         self.assertFalse(manager.assign_button.isEnabled())
+        manager.set_command_availability("NEW")
+        self.assertFalse(manager.assign_and_confirm_button.isHidden())
+        unassigned = {"activity_name": "פעילות", "assignment_required": True, "assignments": []}
+        manager.show_assignments([unassigned])
+        manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
+        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ מדריך ואישור הזמנה")
+        assigned = {**unassigned, "assignments": [{"instructor_name": "מדריך", "instructor_city": None}]}
+        manager.show_assignments([assigned])
+        manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
+        self.assertEqual(manager.assign_and_confirm_button.text(), "אישור הזמנה")
+        manager.set_command_availability("CONFIRMED")
+        self.assertTrue(manager.assign_and_confirm_button.isHidden())
         self.assertFalse(manager.assignment_group.isHidden())
         self.assertTrue(customer.assignment_group.isHidden())
         self.assertTrue(instructor.assignment_group.isHidden())
@@ -97,17 +110,20 @@ class ViewTests(unittest.TestCase):
         dialog = BookingFormDialog(
             customers=[{"id": "customer-1", "name": "לקוח"}],
             activities=[{"id": "activity-1", "name": "פעילות"}],
+            instructors=[{"id": "instructor-1", "full_name": "מדריך"}],
         )
         dialog.customer.setCurrentIndex(1)
         dialog.activity.setCurrentIndex(1)
         dialog.participants.setValue(12)
         dialog.price.setValue(450.5)
+        dialog.instructor.setCurrentIndex(1)
         values = dialog.values()
         self.assertEqual(values["customer_id"], "customer-1")
         self.assertEqual(values["activity_id"], "activity-1")
         self.assertEqual(values["participant_count"], 12)
         self.assertEqual(values["agreed_price"], "450.50")
         self.assertEqual(values["status"], "NEW")
+        self.assertEqual(values["instructor_id"], "instructor-1")
 
     def test_empty_states_are_visible(self) -> None:
         bookings = BookingsView("customer")

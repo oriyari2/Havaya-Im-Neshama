@@ -652,6 +652,20 @@ Task 24.2 implementation evidence
   Instructor visibility, authorization, cache invalidation, and concurrency are
   unchanged. No duplicate assignment workflow exists.
 
+Task 24.3 implementation evidence
+
+- `NEW` remains the existing pending status for Customer requests and Manager
+  workflow; no status, API contract, command, event, or projection was added.
+- Manager creation may collect an optional active Instructor, but the Instructor
+  ID is excluded from `CreateBookingCommand`. After creation succeeds, the
+  Desktop delegates to the existing activity-level assignment workflow.
+- Pending Booking Details provides one obvious action: an unassigned activity is
+  assigned and then confirmed using the returned version; an already-assigned
+  pending Booking is confirmed without creating a duplicate assignment.
+- Customer requests remain `NEW` and unassigned. Existing server authorization,
+  optimistic concurrency, Event Sourcing, and Instructor visibility remain the
+  final enforcement boundaries.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request

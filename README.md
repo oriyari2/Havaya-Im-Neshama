@@ -164,7 +164,10 @@ Implemented so far:
   Assignment/history/user dependencies return 409.
 - Event-sourced instructor assignment/removal embedded in Booking Details and
   role-safe open-event detail for instructors. Managers select a Booking Activity
-  and use the clearly labeled assignment action; creation stays unassigned.
+  and use one pending-workflow action to assign and approve. Manager creation may
+  select an optional Instructor; the Desktop invokes the existing assignment
+  command only after creation succeeds. Customer requests stay `NEW` and
+  unassigned.
 - Paged and named booking filters, readable customer/activity projections,
   manager completion, role-operational dashboard drill-down, and synchronized
   role navigation (Task 12F).

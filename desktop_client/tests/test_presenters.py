@@ -81,7 +81,7 @@ class _View:
     def clear_input(self):
         self.input_cleared = True
 
-    def collect_create_booking(self, customers, activities, **kwargs):
+    def collect_create_booking(self, customers, activities, instructors, **kwargs):
         return self.create_values
 
     def collect_booking_changes(self, booking):
@@ -347,6 +347,21 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(payload["agreed_price"], "0")
         self.assertEqual(payload["status"], "NEW")
         self.assertFalse(payload["requires_instructor"])
+
+    def test_manager_creation_routes_optional_instructor_to_existing_assignment_workflow(self) -> None:
+        view, service = _View(), _Service()
+        assigned = []
+        presenter = BookingsPresenter(view, service, "manager")
+        presenter.assign_after_creation = lambda booking, instructor_id: assigned.append((booking["id"], instructor_id))
+        presenter.create({
+            "customer_id": "customer-1", "activity_id": "activity-1",
+            "instructor_id": "instructor-1", "event_at": "2027-01-02T10:00:00+00:00",
+            "participant_count": 8, "agreed_price": "100",
+        })
+        payload = next(call[1] for call in service.calls if call[0] == "create")
+        self.assertNotIn("instructor_id", payload)
+        self.assertTrue(payload["requires_instructor"])
+        self.assertEqual(assigned, [("booking-1", "instructor-1")])
 
     def test_customer_form_loads_activities_without_customer_options(self) -> None:
         view, service = _View(), _Service()

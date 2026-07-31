@@ -16,7 +16,7 @@ class BookingsViewPort(Protocol):
     def show_filter_options(self, customers, activities, instructors) -> None: ...
     def show_details(self, details, history) -> None: ...
     def show_success(self, message: str) -> None: ...
-    def collect_create_booking(self, customers, activities): ...
+    def collect_create_booking(self, customers, activities, instructors, **kwargs): ...
     def collect_booking_changes(self, booking): ...
     def confirm_cancellation(self) -> bool: ...
     def confirm_completion(self) -> bool: ...
@@ -96,6 +96,7 @@ class BookingsPresenter:
         self._operations = PresenterOperations(executor, "bookings")
         self._last_list_render = None
         self._create_activity_id = None
+        self.assign_after_creation = lambda _booking, _instructor_id: None
 
     def invalidate_requests(self):
         self._operations.invalidate()
@@ -248,19 +249,35 @@ class BookingsPresenter:
             if self._operations.finish(context):
                 self.view.set_loading(False)
 
-        self._operations.executor.submit(context, lambda: self.service.booking_form_options(include_customers=self.role == "manager"), success, failure, finished)
+        def load_options():
+            customers, activities = self.service.booking_form_options(include_customers=self.role == "manager")
+            instructors = self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 200, "offset": 0})["items"] if self.role == "manager" and self.instructor_service else []
+            return customers, activities, instructors
+
+        self._operations.executor.submit(context, load_options, success, failure, finished)
 
     def create(self, values):
         if self.role not in {"manager", "customer"} or self._submitting:
             return
         if self.role == "customer":
             values = {**values, "agreed_price": "0", "status": "NEW", "requires_instructor": False}
+        instructor_id = values.pop("instructor_id", None)
+        if instructor_id and self.role == "manager":
+            values = {**values, "requires_instructor": True}
         try:
             payload = validate_create_booking(values, require_customer=self.role == "manager")
         except FormValidationError as exc:
             self.view.show_error(str(exc))
             return
-        self._run_command(lambda: self.service.create_booking(payload), "ההזמנה נוצרה בהצלחה.")
+        self._run_command(
+            lambda: self.service.create_booking(payload),
+            "ההזמנה נוצרה בהצלחה.",
+            after_success=(lambda booking: self.assign_after_creation(booking, str(instructor_id))) if instructor_id and self.role == "manager" else None,
+        )
+
+    def confirm_after_assignment(self, booking):
+        self.current_booking = booking
+        self.confirm()
 
     def confirm(self):
         booking = self.current_booking
@@ -328,7 +345,7 @@ class BookingsPresenter:
 
         self._run_command(command, "פרטי ההזמנה עודכנו.")
 
-    def _run_command(self, command, success_message):
+    def _run_command(self, command, success_message, after_success=None):
         if self._submitting:
             return
         context = self._operations.begin("mutation")
@@ -347,6 +364,8 @@ class BookingsPresenter:
             self.select_booking(selected)
             self.on_changed()
             self.view.show_success(success_message)
+            if after_success is not None:
+                after_success(result)
 
         def failure(exc):
             if not self._operations.is_current(context):

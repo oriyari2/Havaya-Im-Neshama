@@ -43,6 +43,7 @@ audit, commit, and push.
 | 24 | 2 | End-to-End Booking Request and Creation Workflow | Committed and pushed | Approved | Complete | Complete | Complete |
 | 24.1 | 2 | Remaining Functional Integration and Product-Completeness Audit | Committed and pushed | Approved | Complete | Complete | Complete |
 | 24.2 | 2 | Final Booking Assignment Workflow Adjustment | Committed and pushed | Approved | Complete | Complete | Complete |
+| 24.3 | 2 | Simplify Manager Booking Workflow | Committed and pushed | Approved | Complete | Complete | Complete |
 | 25 | 3 | Desktop Visual Design System and UI/UX Cohesion | Planned | Not started | Not started | Not started | Not started |
 | 26 | 3 | Shell, Login, Navigation, and Dashboard Experience | Planned | Not started | Not started | Not started | Not started |
 | 27 | 3 | Manager Operational Screens UI/UX Completion | Planned | Not started | Not started | Not started | Not started |
@@ -310,6 +311,5 @@ Task 33 Final Audit
 
 ## 7. Immediate next action
 
-Task 24 is implemented, validated, committed, and pushed. Task 25 is the next
-unfinished task. Do not begin Task 25 until a separate design/audit prompt is
-approved.
+Task 24.3 is implemented, validated, committed, and pushed. Task 25 is the next
+planned task and must not begin until a separate design/audit prompt is approved.

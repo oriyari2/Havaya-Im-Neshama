@@ -36,6 +36,7 @@ class BookingsView(StatefulWidget):
     complete_requested = Signal()
     page_requested = Signal(int, int)
     assignment_add_requested = Signal(dict)
+    assignment_add_and_confirm_requested = Signal(dict)
     assignment_remove_requested = Signal(dict,dict)
 
     def __init__(self, role: str) -> None:
@@ -94,8 +95,9 @@ class BookingsView(StatefulWidget):
         self.complete_button.clicked.connect(self.complete_requested.emit)
         for button in (self.create_button, self.edit_button, self.confirm_button, self.complete_button, self.cancel_button):
             command_layout.addWidget(button)
+        self.confirm_button.setVisible(False)
         self.command_panel.setVisible(role in {"manager", "customer"})
-        for button in (self.edit_button, self.confirm_button, self.cancel_button, self.complete_button):
+        for button in (self.edit_button, self.cancel_button, self.complete_button):
             button.setVisible(role == "manager")
         if role == "customer":
             self.create_button.setText("בקשת הזמנה חדשה")
@@ -120,7 +122,7 @@ class BookingsView(StatefulWidget):
         history_layout.addWidget(self.history_table)
         self.history_group.setVisible(role == "manager")
         details_layout.addWidget(self.history_group)
-        self.assignment_group=QGroupBox("שיבוץ מדריך להזמנה");assignment_layout=QVBoxLayout(self.assignment_group);self.assignment_hint=QLabel("בחרו פעילות בהזמנה ולאחר מכן לחצו על שיבוץ מדריך.");self.assignment_hint.setWordWrap(True);assignment_layout.addWidget(self.assignment_hint);self.assignment_state=RetryState();self.assignment_state.hide();assignment_layout.addWidget(self.assignment_state);self.assignment_tree=QTreeWidget();self.assignment_tree.setHeaderLabels(["פעילות / מדריך","מצב","עיר"]);self.assignment_tree.itemSelectionChanged.connect(self._assignment_selection);assignment_layout.addWidget(self.assignment_tree);assignment_actions=QHBoxLayout();self.assign_button=QPushButton("שיבוץ מדריך לפעילות שנבחרה");self.remove_assignment_button=QPushButton("הסרת שיבוץ");self.assign_button.clicked.connect(self._emit_assign);self.remove_assignment_button.clicked.connect(self._emit_remove);assignment_actions.addWidget(self.assign_button);assignment_actions.addWidget(self.remove_assignment_button);assignment_layout.addLayout(assignment_actions);self.assignment_group.setVisible(role=="manager");details_layout.addWidget(self.assignment_group);self.assign_button.setEnabled(False);self.remove_assignment_button.setEnabled(False)
+        self.assignment_group=QGroupBox("שיבוץ מדריך להזמנה");assignment_layout=QVBoxLayout(self.assignment_group);self.assignment_hint=QLabel("בחרו פעילות בהזמנה ולאחר מכן לחצו על שיבוץ מדריך.");self.assignment_hint.setWordWrap(True);assignment_layout.addWidget(self.assignment_hint);self.assignment_state=RetryState();self.assignment_state.hide();assignment_layout.addWidget(self.assignment_state);self.assignment_tree=QTreeWidget();self.assignment_tree.setHeaderLabels(["פעילות / מדריך","מצב","עיר"]);self.assignment_tree.itemSelectionChanged.connect(self._assignment_selection);assignment_layout.addWidget(self.assignment_tree);assignment_actions=QHBoxLayout();self.assign_button=QPushButton("שיבוץ מדריך לפעילות שנבחרה");self.assign_and_confirm_button=QPushButton("שיבוץ מדריך ואישור הזמנה");self.remove_assignment_button=QPushButton("הסרת שיבוץ");self.assign_button.clicked.connect(self._emit_assign);self.assign_and_confirm_button.clicked.connect(self._emit_assign_and_confirm);self.remove_assignment_button.clicked.connect(self._emit_remove);assignment_actions.addWidget(self.assign_button);assignment_actions.addWidget(self.assign_and_confirm_button);assignment_actions.addWidget(self.remove_assignment_button);assignment_layout.addLayout(assignment_actions);self.assignment_group.setVisible(role=="manager");details_layout.addWidget(self.assignment_group);self.assign_button.setEnabled(False);self.assign_and_confirm_button.setEnabled(False);self.assign_and_confirm_button.hide();self.remove_assignment_button.setEnabled(False)
         splitter.addWidget(details_widget)
         splitter.setStretchFactor(0, 2)
         splitter.setStretchFactor(1, 1)
@@ -161,6 +163,7 @@ class BookingsView(StatefulWidget):
         self.confirm_button.setEnabled(status == "NEW")
         self.cancel_button.setEnabled(not terminal)
         self.complete_button.setEnabled(not terminal)
+        self.assign_and_confirm_button.setVisible(status == "NEW")
 
     def show_bookings(self, rows: list[dict[str, str]], *, offset=0, count=0, limit=25, selected_id=None) -> None:
         self.state_label.hide()
@@ -208,6 +211,7 @@ class BookingsView(StatefulWidget):
     def show_assignments_error(self,message:str,*,retriable=False)->None:self.assignment_state.show_message(message,retriable=retriable)
     def show_assignments(self,activities:list[dict])->None:
         self.assignment_state.hide();self.assignment_tree.clear()
+        self.assign_and_confirm_button.setText("שיבוץ מדריך ואישור הזמנה")
         for activity in activities:
             top=QTreeWidgetItem([activity["activity_name"],"נדרש שיוך" if activity["assignment_required"] else "משויך",""]);top.setData(0,Qt.ItemDataRole.UserRole,{"activity":activity});self.assignment_tree.addTopLevelItem(top)
             for assignment in activity["assignments"]:
@@ -215,10 +219,13 @@ class BookingsView(StatefulWidget):
             top.setExpanded(True)
         if not activities:self.assignment_state.show_message("אין פעילויות הזמנה להצגה.",retriable=False)
     def _assignment_selection(self):
-        items=self.assignment_tree.selectedItems();data=items[0].data(0,Qt.ItemDataRole.UserRole) if items else {};self.assign_button.setEnabled(bool(data.get("activity")));self.remove_assignment_button.setEnabled(bool(data.get("assignment")))
+        items=self.assignment_tree.selectedItems();data=items[0].data(0,Qt.ItemDataRole.UserRole) if items else {};activity=data.get("activity") or {};self.assign_button.setEnabled(bool(activity));self.assign_and_confirm_button.setEnabled(bool(activity));self.assign_and_confirm_button.setText("אישור הזמנה" if activity.get("assignments") else "שיבוץ מדריך ואישור הזמנה");self.remove_assignment_button.setEnabled(bool(data.get("assignment")))
     def _emit_assign(self):
         items=self.assignment_tree.selectedItems()
         if items:self.assignment_add_requested.emit(items[0].data(0,Qt.ItemDataRole.UserRole)["activity"])
+    def _emit_assign_and_confirm(self):
+        items=self.assignment_tree.selectedItems()
+        if items:self.assignment_add_and_confirm_requested.emit(items[0].data(0,Qt.ItemDataRole.UserRole)["activity"])
     def _emit_remove(self):
         items=self.assignment_tree.selectedItems();data=items[0].data(0,Qt.ItemDataRole.UserRole) if items else {}
         if data.get("assignment"):self.assignment_remove_requested.emit(data["activity"],data["assignment"])
@@ -226,11 +233,11 @@ class BookingsView(StatefulWidget):
         self._selector=InstructorSelectorDialog(activity,query_handler,choose_handler,self);self._selector.open();return self._selector
     def confirm_assignment_removal(self,instructor_name,activity_name):return confirm_action(self,"הסרת שיוך",f"להסיר את {instructor_name} מהפעילות {activity_name}? היסטוריית האירועים תישמר והמדריך עצמו לא יימחק.")
 
-    def collect_create_booking(self, customers: list[dict], activities: list[dict], *, role="manager", preselected_activity_id=None) -> dict[str, object] | None:
+    def collect_create_booking(self, customers: list[dict], activities: list[dict], instructors: list[dict], *, role="manager", preselected_activity_id=None) -> dict[str, object] | None:
         if (role == "manager" and not customers) or not activities:
             self.show_error("נדרשים לקוח ופעילות פעילים כדי ליצור הזמנה." if role == "manager" else "נדרשת פעילות פעילה כדי לשלוח בקשת הזמנה.")
             return None
-        dialog = BookingFormDialog(customers=customers, activities=activities, role=role, preselected_activity_id=preselected_activity_id, parent=self)
+        dialog = BookingFormDialog(customers=customers, activities=activities, instructors=instructors, role=role, preselected_activity_id=preselected_activity_id, parent=self)
         return dialog.values() if dialog.exec() == dialog.DialogCode.Accepted else None
 
     def collect_booking_changes(self, booking: dict) -> dict[str, object] | None:

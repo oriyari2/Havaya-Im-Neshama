@@ -23,6 +23,7 @@ class BookingFormDialog(QDialog):
         *,
         customers: list[dict] | None = None,
         activities: list[dict] | None = None,
+        instructors: list[dict] | None = None,
         booking: dict | None = None,
         role: str = "manager",
         preselected_activity_id: str | None = None,
@@ -38,10 +39,12 @@ class BookingFormDialog(QDialog):
 
         self.customer = QComboBox()
         self.activity = QComboBox()
+        self.instructor = QComboBox()
 
         if booking is None:
             self.customer.addItem("— בחר לקוח —", None)
             self.activity.addItem("— בחר פעילות —", None)
+            self.instructor.addItem("ללא מדריך בשלב זה", None)
 
         for item in customers or []:
             self.customer.addItem(
@@ -54,6 +57,9 @@ class BookingFormDialog(QDialog):
                 item.get("name") or str(item["id"]),
                 str(item["id"]),
             )
+
+        for item in instructors or []:
+            self.instructor.addItem(item.get("full_name") or str(item["id"]), str(item["id"]))
 
         if preselected_activity_id:
             index = self.activity.findData(str(preselected_activity_id))
@@ -89,6 +95,7 @@ class BookingFormDialog(QDialog):
             if role == "manager":
                 form.addRow("מחיר מוסכם", self.price)
                 form.addRow("", self.requires_instructor)
+                form.addRow("מדריך (אופציונלי)", self.instructor)
             form.addRow("הערות", self.notes)
         else:
             form.addRow("מועד", self.event_at)
@@ -168,5 +175,7 @@ class BookingFormDialog(QDialog):
             )
             if self.customer.currentData() is not None:
                 values["customer_id"] = self.customer.currentData()
+            if self.instructor.currentData() is not None:
+                values["instructor_id"] = self.instructor.currentData()
 
         return values

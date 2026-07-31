@@ -142,6 +142,14 @@ Booking Details dispatches `AssignInstructorCommand` for one Booking Activity;
 immutable `BookingInstructorAssigned` updates the active-assignment projection
 that scopes Instructor reads. Booking status and assignment remain independent.
 
+Task 24.3 keeps those backend boundaries unchanged while simplifying Manager
+orchestration. An optional Instructor selection is removed from the create
+payload; after `BookingCreated`, the Desktop delegates to the existing
+assignment Presenter and API. A `NEW` unassigned Booking uses one Details action
+to assign and then confirm with the returned aggregate version. A `NEW` Booking
+that is already assigned uses the same action to confirm without adding a
+duplicate assignment. Customer requests remain `NEW` and unassigned.
+
 ### Task 24.1 single current Customer contact
 
 `customer_contacts` remains compatibility/history storage, but the product
