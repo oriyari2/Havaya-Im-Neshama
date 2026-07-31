@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
@@ -115,10 +115,13 @@ class RetryState(QWidget):
 
 
 def confirm_action(parent: QWidget, title: str, message: str) -> bool:
-    return QMessageBox.question(
-        parent,
-        title,
-        message,
-        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        QMessageBox.StandardButton.No,
-    ) == QMessageBox.StandardButton.Yes
+    dialog = QMessageBox(QMessageBox.Icon.Warning, title, message, QMessageBox.StandardButton.NoButton, parent)
+    dialog.setLayoutDirection(parent.layoutDirection())
+    dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+    dialog.setDefaultButton(QMessageBox.StandardButton.No)
+    dialog.button(QMessageBox.StandardButton.Yes).setText("מחיקה")
+    dialog.button(QMessageBox.StandardButton.No).setText("ביטול")
+    for label in dialog.findChildren(QLabel):
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        label.setWordWrap(True)
+    return dialog.exec() == QMessageBox.StandardButton.Yes

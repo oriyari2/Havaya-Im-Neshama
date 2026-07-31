@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QApplication, QMainWindow
+from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox
 
 from desktop_client.app.api.client import ApiClient
 from desktop_client.app.infrastructure.qt_operations import QtOperationExecutor
@@ -97,6 +97,19 @@ class MainWindow(QMainWindow):
         self._clear_preview_caches()
         self._presenters.clear()
         self._show_login("פג תוקף ההתחברות. יש להתחבר מחדש.")
+        self._show_session_expired_dialog()
+
+    def _show_session_expired_dialog(self) -> None:
+        dialog = QMessageBox(QMessageBox.Icon.Information, "פג תוקף ההתחברות", "לשמירה על אבטחת החשבון, יש להתחבר מחדש כדי להמשיך.", QMessageBox.StandardButton.NoButton, self)
+        dialog.setObjectName("sessionExpiredDialog")
+        dialog.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        dialog.setStandardButtons(QMessageBox.StandardButton.Ok)
+        dialog.button(QMessageBox.StandardButton.Ok).setText("להתחברות")
+        for label in dialog.findChildren(QLabel):
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            label.setWordWrap(True)
+        self._session_expired_dialog = dialog
+        dialog.open()
 
     def _show_freshness_warning(self, _resource: str) -> None:
         presenter = self._presenters.get(self._active_page or "")

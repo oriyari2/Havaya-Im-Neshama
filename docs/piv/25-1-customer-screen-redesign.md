@@ -39,6 +39,16 @@ Customer Information starts on the right, Contact Information and Notes sit on
 the left, all fields are visible without horizontal or vertical scrolling, and
 the existing Create/Save signal and validation behavior are unchanged.
 
+The completion pass replaces the expanded advanced-filter row with a compact
+RTL `סינון לפי` menu. It reveals only the editor selected by the manager and
+allows more filters to be added deliberately. Name, city, type, status, email,
+phone, and creation/update date editors are available without permanently
+crowding the list. Deleting a Customer now always returns to the preserved
+list; if the deletion leaves the current page empty, the preceding valid page
+is requested automatically while search, filters, sorting, and list context
+remain intact. Confirmation and session-expired dialogs use RTL alignment and
+Hebrew action ordering.
+
 ## Interaction flow
 
 ```text
@@ -112,6 +122,8 @@ Customer list
 - `desktop_client/app/views/customers_view.py`
 - `desktop_client/app/views/customer_dialogs.py`
 - `desktop_client/app/views/design_tokens.py`
+- `desktop_client/app/views/management_common.py`
+- `desktop_client/app/main.py`
 - `desktop_client/tests/test_customer_views.py`
 - `desktop_client/tests/test_ui_foundations.py`
 - `tasks/25-desktop-visual-design-ui-ux-cohesion.md`
@@ -119,10 +131,8 @@ Customer list
 - `docs/screenshots/task-25-1-customers-before.png`
 - `docs/screenshots/task-25-1-customers-list-after.png`
 - `docs/screenshots/task-25-1-customer-details-after.png`
-- final-polish before/after list, Details, Create, Edit, and expanded-filter
-  screenshot evidence under `docs/screenshots/task-25-1-*`
-- final UX before/after evidence plus first-use and no-results states under the
-  same Task 25.1 screenshot prefix
+- Existing Task 25.1 screenshot evidence remains unchanged; this completion
+  pass intentionally creates no visual assets or screenshots.
 
 ## How to run
 
@@ -141,6 +151,9 @@ Affected Desktop tests cover:
 - Enter, double-click, and dedicated-action detail navigation;
 - return-to-list search and selection restoration;
 - progressive advanced-filter disclosure and complete payloads;
+- compact filter-menu field selection and type-specific editors;
+- delete navigation from an emptied final page to the previous valid page;
+- RTL session-expired and delete-confirmation dialog composition;
 - four-column table policy and absence of detail-only columns;
 - compact header/search/pager composition and dominant table height;
 - Customer, Contact, and System Details grouping;

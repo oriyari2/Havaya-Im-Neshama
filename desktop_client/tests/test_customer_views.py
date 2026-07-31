@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout
+from PySide6.QtWidgets import QApplication, QComboBox, QDateEdit, QFormLayout, QLineEdit, QWidget
 
 from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
@@ -112,19 +112,27 @@ class CustomerViewTests(TestCase):
         view.table.cellDoubleClicked.emit(0, 0)
         self.assertIs(view.pages.currentWidget(), view.details_page)
 
-    def test_advanced_filters_are_progressively_disclosed_without_losing_functionality(self):
+    def test_filter_menu_progressively_adds_only_requested_editors(self):
         view = CustomersView()
         emitted = []
         view.filters_requested.connect(emitted.append)
-        self.assertTrue(view.advanced_filters.isHidden())
-        view.advanced_filters_button.click()
-        self.assertFalse(view.advanced_filters.isHidden())
-        view.city.setEditText("חיפה")
-        view.kind.setEditText("עסקי")
-        view.active.setCurrentIndex(view.active.findData(True))
-        view.order.setCurrentIndex(view.order.findData("created_at"))
+        self.assertTrue(view.filter_panel.isHidden())
+        self.assertEqual(len(view.active_filters), 0)
+        for key in ("name", "city", "customer_type", "is_active", "email", "phone", "created_at", "updated_at"):
+            view._add_filter(key)
+        self.assertFalse(view.filter_panel.isHidden())
+        self.assertIsInstance(view.active_filters["name"].findChild(QWidget, "filterEditor"), QLineEdit)
+        self.assertIsInstance(view.active_filters["is_active"].findChild(QWidget, "filterEditor"), QComboBox)
+        self.assertIsInstance(view.active_filters["created_at"].findChild(QWidget, "filterEditor"), QDateEdit)
+        view.active_filters["city"].findChild(QLineEdit, "filterEditor").setText("חיפה")
+        view.active_filters["customer_type"].findChild(QLineEdit, "filterEditor").setText("עסקי")
+        status = view.active_filters["is_active"].findChild(QComboBox, "filterEditor")
+        status.setCurrentIndex(status.findData(True))
         view.apply_filters_button.click()
-        self.assertEqual(emitted[-1], {"city": "חיפה", "customer_type": "עסקי", "is_active": True, "order_by": "created_at"})
+        self.assertEqual(emitted[-1]["city"], "חיפה")
+        self.assertEqual(emitted[-1]["customer_type"], "עסקי")
+        self.assertIs(emitted[-1]["is_active"], True)
+        self.assertEqual(emitted[-1]["order_by"], "created_at")
 
     def test_final_list_polish_prioritizes_search_table_and_compact_pager(self):
         view = CustomersView()
@@ -133,7 +141,7 @@ class CustomerViewTests(TestCase):
         self.app.processEvents()
         self.assertEqual(view.toolbar.search_button.objectName(), "customerSearchButton")
         self.assertGreater(view.toolbar.search_input.geometry().x(), view.toolbar.search_button.geometry().x())
-        self.assertTrue(view.advanced_filters.isHidden())
+        self.assertTrue(view.filter_panel.isHidden())
         self.assertLessEqual(view.footer.width(), 440)
         self.assertGreater(view.table.height(), 350)
         self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
@@ -146,16 +154,17 @@ class CustomerViewTests(TestCase):
         emitted = []
         view.filters_requested.connect(emitted.append)
         view.toolbar.search_input.setText("לקוח")
-        view.order.setCurrentIndex(view.order.findData("created_at"))
-        view.city.setEditText("חיפה")
-        view.kind.setEditText("עסקי")
-        view.active.setCurrentIndex(view.active.findData(True))
-        view.advanced_filters_button.click()
+        for key in ("city", "customer_type", "is_active"):
+            view._add_filter(key)
+        view.active_filters["city"].findChild(QLineEdit, "filterEditor").setText("חיפה")
+        view.active_filters["customer_type"].findChild(QLineEdit, "filterEditor").setText("עסקי")
+        status = view.active_filters["is_active"].findChild(QComboBox, "filterEditor")
+        status.setCurrentIndex(status.findData(True))
         view.toolbar.refresh_button.click()
         self.assertEqual(emitted[-1], {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name"})
         self.assertEqual(view.toolbar.search_input.text(), "")
-        self.assertEqual(view.order.currentData(), "name")
-        self.assertTrue(view.advanced_filters.isHidden())
+        self.assertEqual(view.active_filters, {})
+        self.assertTrue(view.filter_panel.isHidden())
 
     def test_empty_states_offer_create_or_filter_reset_without_empty_table(self):
         view = CustomersView()
@@ -175,3 +184,11 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.empty_title.text(), "לא נמצאו לקוחות")
         view.empty_action_button.click()
         self.assertEqual(filters[-1]["search"], None)
+
+    def test_empty_nonfirst_page_returns_to_previous_valid_page(self):
+        view = CustomersView()
+        requested = []
+        view.page_requested.connect(lambda offset, limit: requested.append((offset, limit)))
+        view.show_customers([], offset=25, count=0, filtered=False)
+        self.assertEqual(requested, [(0, 25)])
+        self.assertIs(view.pages.currentWidget(), view.list_page)

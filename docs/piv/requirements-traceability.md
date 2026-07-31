@@ -696,9 +696,11 @@ Task 25.1 implementation evidence
   View behavior. `CustomersPresenter`, backend, services, authorization,
   caching, CQRS, Event Sourcing, and Customer business rules are unchanged.
 - Final Task 25.1 polish adds compact list composition, primary RTL search,
-  optional-filter grouping, a bounded pager, semantic Customer/Contact/System
-  detail groups, and consistent Create/Edit dialog layout without changing any
-  Customer workflow or Presenter contract.
+  a progressive `סינון לפי` menu with type-specific editors, a bounded pager,
+  semantic Customer/Contact/System detail groups, RTL confirmation/session
+  dialogs, and consistent Create/Edit dialog layout without changing any
+  Customer workflow or Presenter contract. Delete returns to the preserved
+  list and corrects an emptied final page to the preceding valid page.
 - Final UX review adds a complete first-page filter/sort Reset, contextual
   first-use and filtered-empty states, lighter borderless grouping, RTL header
   alignment, clearer `לקוחות • N` counts, and no-scroll two-column Customer

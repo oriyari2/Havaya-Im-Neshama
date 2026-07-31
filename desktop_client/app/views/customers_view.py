@@ -1,11 +1,14 @@
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QDate, QEvent, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
     QBoxLayout,
+    QDateEdit,
     QFormLayout,
     QFrame,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QMenu,
     QPushButton,
     QScrollArea,
     QStackedWidget,
@@ -86,7 +89,7 @@ class CustomersView(StatefulWidget):
         order = (
             self.toolbar.search_input,
             self.toolbar.search_button,
-            self.advanced_filters_button,
+            self.filter_by_button,
             self.toolbar.refresh_button,
             self.create_button,
             self.table,
@@ -118,45 +121,38 @@ class CustomersView(StatefulWidget):
         self.toolbar.refresh_button.setAccessibleName("איפוס חיפוש ומסננים")
         self.toolbar.refresh_button.setAccessibleDescription("ניקוי החיפוש והמסננים, איפוס המיון וחזרה לעמוד הראשון")
         self.toolbar.refresh_requested.connect(self._reset_filters)
-        self.advanced_filters_button = QPushButton("סינון לפי")
-        self.advanced_filters_button.setCheckable(True)
-        self.advanced_filters_button.setAccessibleName("הצגה או הסתרה של מסננים מתקדמים")
-        self.advanced_filters_button.toggled.connect(self._toggle_advanced_filters)
+        self.filter_by_button = QPushButton("סינון לפי")
+        self.filter_by_button.setAccessibleName("הוספת מסנן לרשימת הלקוחות")
+        self.filter_by_button.clicked.connect(self._show_filter_menu)
         toolbar_layout = self.toolbar.layout()
-        toolbar_layout.insertWidget(toolbar_layout.count() - 1, self.advanced_filters_button)
+        toolbar_layout.insertWidget(toolbar_layout.count() - 1, self.filter_by_button)
         search_layout.addWidget(self.toolbar)
 
-        self.advanced_filters = QWidget()
-        advanced_layout = QVBoxLayout(self.advanced_filters)
-        advanced_layout.setContentsMargins(0, 0, 0, 0)
-        advanced_layout.setSpacing(SPACE_2)
-        optional_hint = QLabel("אפשרויות נוספות — השתמשו בהן רק כשצריך לצמצם את הרשימה")
-        optional_hint.setAccessibleName("מסננים אופציונליים")
-        advanced_layout.addWidget(optional_hint)
-        advanced_fields = QHBoxLayout()
-        advanced_fields.setSpacing(SPACE_3)
-        self.order = self._filter_control("מיון", (("name", "שם"), ("created_at", "תאריך יצירה")))
-        self.city = self._filter_control("עיר", (("", "כל הערים"),), editable=True)
-        self.city.setAccessibleName("סינון לפי עיר")
-        self.kind = self._filter_control("סוג לקוח", (("", "כל הסוגים"),), editable=True)
-        self.kind.setAccessibleName("סינון לפי סוג לקוח")
-        self.active = self._filter_control("מצב", ((None, "הכול"), (True, "פעילים"), (False, "לא פעילים")))
-        self.active.setAccessibleName("סינון לפי מצב לקוח")
-        for label, control in (("מיון", self.order), ("עיר", self.city), ("סוג לקוח", self.kind), ("מצב", self.active)):
-            field = QWidget()
-            field_layout = QVBoxLayout(field)
-            field_layout.setContentsMargins(0, 0, 0, 0)
-            field_layout.setSpacing(SPACE_2)
-            field_layout.addWidget(QLabel(label))
-            field_layout.addWidget(control)
-            advanced_fields.addWidget(field, 1)
-        self.apply_filters_button = QPushButton("החל מסננים")
+        self.filter_panel = QWidget()
+        self.filter_panel.setAccessibleName("מסננים פעילים")
+        filter_layout = QHBoxLayout(self.filter_panel)
+        filter_layout.setContentsMargins(0, 0, 0, 0)
+        filter_layout.setSpacing(SPACE_2)
+        filter_layout.setDirection(QBoxLayout.Direction.RightToLeft)
+        self.active_filter_layout = QHBoxLayout()
+        self.active_filter_layout.setSpacing(SPACE_2)
+        filter_layout.addLayout(self.active_filter_layout, 1)
+        self.apply_filters_button = QPushButton("החל")
         self.apply_filters_button.setAccessibleName("החלת מסנני לקוחות")
         self.apply_filters_button.clicked.connect(self._filters)
-        advanced_fields.addWidget(self.apply_filters_button, alignment=Qt.AlignmentFlag.AlignBottom)
-        advanced_layout.addLayout(advanced_fields)
-        self.advanced_filters.hide()
-        search_layout.addWidget(self.advanced_filters)
+        filter_layout.addWidget(self.apply_filters_button)
+        self.filter_panel.hide()
+        self.active_filters: dict[str, QWidget] = {}
+        self.filter_menu = QMenu(self)
+        self.filter_menu.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        for key, label in (
+            ("name", "שם"), ("city", "עיר"), ("customer_type", "סוג לקוח"),
+            ("is_active", "מצב"), ("email", "דוא״ל"), ("phone", "טלפון"),
+            ("created_at", "תאריך יצירה"), ("updated_at", "תאריך עדכון"),
+        ):
+            action = self.filter_menu.addAction(label)
+            action.triggered.connect(lambda _checked=False, field=key: self._add_filter(field))
+        search_layout.addWidget(self.filter_panel)
         self.list_layout.addWidget(search_panel)
 
         table_heading = QHBoxLayout()
@@ -216,14 +212,42 @@ class CustomersView(StatefulWidget):
         self.list_layout.addWidget(self.table_region, 1)
         return page
 
-    @staticmethod
-    def _filter_control(label: str, options: tuple[tuple[object, str], ...], *, editable: bool = False) -> QComboBox:
-        control = QComboBox()
-        control.setEditable(editable)
-        control.setAccessibleName(label)
-        for value, text in options:
-            control.addItem(text, value)
-        return control
+    def _show_filter_menu(self) -> None:
+        self.filter_menu.exec(self.filter_by_button.mapToGlobal(self.filter_by_button.rect().bottomRight()))
+
+    def _add_filter(self, field: str) -> None:
+        if field in self.active_filters:
+            editor = self.active_filters[field].findChild(QWidget, "filterEditor")
+            if editor:
+                editor.setFocus()
+            return
+        labels = {"name": "שם", "city": "עיר", "customer_type": "סוג לקוח", "is_active": "מצב", "email": "דוא״ל", "phone": "טלפון", "created_at": "תאריך יצירה", "updated_at": "תאריך עדכון"}
+        container = QWidget()
+        container.setAccessibleName(f"מסנן {labels[field]}")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_2)
+        layout.addWidget(QLabel(labels[field]))
+        if field == "is_active":
+            editor = QComboBox()
+            editor.addItem("הכול", None); editor.addItem("פעילים", True); editor.addItem("לא פעילים", False)
+        elif field in {"created_at", "updated_at"}:
+            editor = QDateEdit(QDate.currentDate())
+            editor.setCalendarPopup(True)
+            editor.setDisplayFormat("dd/MM/yyyy")
+        else:
+            editor = QLineEdit()
+            editor.setPlaceholderText(f"הזנת {labels[field]}")
+            if field in {"email", "phone"}:
+                configure_mixed_direction(editor)
+        editor.setObjectName("filterEditor")
+        editor.setAccessibleName(f"סינון לפי {labels[field]}")
+        editor.setMinimumWidth(150)
+        layout.addWidget(editor)
+        self.active_filter_layout.addWidget(container)
+        self.active_filters[field] = container
+        self.filter_panel.show()
+        editor.setFocus()
 
     def _build_details_page(self) -> QWidget:
         page = QWidget()
@@ -345,14 +369,16 @@ class CustomersView(StatefulWidget):
         super().keyPressEvent(event)
 
     def _search(self, search: str, _unused_sort: str) -> None:
-        self.filters_requested.emit({"search": search or None, "order_by": self.order.currentData()})
+        self.filters_requested.emit({"search": search or None, **self._filter_values()})
 
     def _reset_filters(self) -> None:
         self.toolbar.search_input.clear()
-        self.order.setCurrentIndex(self.order.findData("name"))
-        for control in (self.city, self.kind, self.active):
-            control.setCurrentIndex(0)
-        self.advanced_filters_button.setChecked(False)
+        while self.active_filter_layout.count():
+            item = self.active_filter_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        self.active_filters.clear()
+        self.filter_panel.hide()
         self.filters_requested.emit({
             "search": None,
             "city": None,
@@ -361,10 +387,6 @@ class CustomersView(StatefulWidget):
             "order_by": "name",
         })
 
-    def _toggle_advanced_filters(self, visible: bool) -> None:
-        self.advanced_filters.setVisible(visible)
-        self.advanced_filters_button.setText("הסתרת סינון" if visible else "סינון לפי")
-
     def _empty_action(self) -> None:
         if getattr(self, "_empty_filtered", False):
             self._reset_filters()
@@ -372,17 +394,30 @@ class CustomersView(StatefulWidget):
             self.create_requested.emit()
 
     def _filters(self) -> None:
-        self.filters_requested.emit({
-            "city": self._editable_filter_value(self.city),
-            "customer_type": self._editable_filter_value(self.kind),
-            "is_active": self.active.currentData(),
-            "order_by": self.order.currentData(),
-        })
+        self.filters_requested.emit(self._filter_values())
 
-    @staticmethod
-    def _editable_filter_value(control: QComboBox) -> str | None:
-        value = control.currentText().strip()
-        return value if value and value != control.itemText(0) else None
+    def _filter_values(self) -> dict[str, object]:
+        values: dict[str, object] = {"city": None, "customer_type": None, "is_active": None, "order_by": "name"}
+        search_terms: list[str] = []
+        for field, container in self.active_filters.items():
+            editor = container.findChild(QWidget, "filterEditor")
+            if isinstance(editor, QLineEdit):
+                value = editor.text().strip()
+                if field in {"name", "email", "phone"} and value:
+                    search_terms.append(value)
+                elif field in {"city", "customer_type"}:
+                    values[field] = value or None
+            elif isinstance(editor, QComboBox):
+                values[field] = editor.currentData()
+            elif isinstance(editor, QDateEdit):
+                # The existing Customer API exposes creation-date ordering only;
+                # retain the selected date locally until date-range querying is
+                # introduced as a separately scoped backend task.
+                if field == "created_at":
+                    values["order_by"] = "created_at"
+        if search_terms:
+            values["search"] = " ".join(search_terms)
+        return values
 
     def _select(self) -> None:
         rows = self.table.selectionModel().selectedRows()
@@ -422,7 +457,7 @@ class CustomersView(StatefulWidget):
         self.create_button.setEnabled(not value)
         self.toolbar.search_button.setEnabled(not value)
         self.toolbar.refresh_button.setEnabled(not value)
-        self.advanced_filters_button.setEnabled(not value)
+        self.filter_by_button.setEnabled(not value)
         self.apply_filters_button.setEnabled(not value)
         self.empty_action_button.setEnabled(not value)
         self.view_details_button.setEnabled(not value and self._selected_customer_id is not None)
@@ -469,6 +504,7 @@ class CustomersView(StatefulWidget):
 
     def show_customers(self, rows, *, offset: int, count: int, filtered: bool) -> None:
         self.retry.hide()
+        previous_scroll = self.table.verticalScrollBar().value()
         self.table.setRowCount(len(rows))
         for row_index, row in enumerate(rows):
             for column, key in enumerate(("name", "customer_type", "city")):
@@ -483,6 +519,13 @@ class CustomersView(StatefulWidget):
         self.footer.set_page(offset=offset, count=count)
         first = offset + 1 if count else 0
         self.footer.label.setText(f"מציג לקוחות {first}–{offset + count}")
+        if rows:
+            self.table.verticalScrollBar().setValue(min(previous_scroll, self.table.verticalScrollBar().maximum()))
+        if not rows and offset > 0:
+            # A deletion can empty the final page.  Stay in the list and ask
+            # for the preceding valid page without changing any filter state.
+            self.page_requested.emit(max(0, offset - self.footer.limit), self.footer.limit)
+            return
         if not rows:
             self._empty_filtered = filtered
             self.empty_title.setText("לא נמצאו לקוחות" if filtered else "אין עדיין לקוחות")
