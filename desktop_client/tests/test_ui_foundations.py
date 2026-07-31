@@ -150,9 +150,9 @@ class UiFoundationTests(unittest.TestCase):
     def test_customers_accessibility_disabled_help_and_tooltips(self) -> None:
         view = CustomersView(); self.assertEqual(view.table.accessibleName(), "רשימת לקוחות"); self.assertTrue(view.edit_button.accessibleDescription())
         view.show_customers([{"id": "c1", "name": "שם ארוך", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
-        self.assertIn('dir="ltr"', view.table.item(0, 4).toolTip()); self.assertIn("a@example.com", view.table.item(0, 4).toolTip())
         self.assertIn('dir="rtl"', view.table.item(0, 0).toolTip())
-        self.assertEqual(view.table.item(0, 4).textAlignment() & Qt.AlignmentFlag.AlignLeft, Qt.AlignmentFlag.AlignLeft)
+        self.assertEqual(view.table.columnCount(), 4)
+        self.assertNotIn("דוא״ל", [view.table.horizontalHeaderItem(column).text() for column in range(view.table.columnCount())])
 
     def test_customers_uses_one_feedback_mechanism_for_current_context(self) -> None:
         view = CustomersView(); view.show_error("אין חיבור", retriable=True)
@@ -178,11 +178,11 @@ class UiFoundationTests(unittest.TestCase):
 
     def test_supported_minimum_keeps_pilot_regions_meaningfully_sized(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView(); shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.resize(1024, 640); shell.show(); self.app.processEvents()
-        self.assertGreaterEqual(customers.table.width(), 360); self.assertGreaterEqual(customers.splitter.widget(1).width(), 300)
-        for widget in (customers.create_button, customers.apply_filters_button, customers.table, customers.details_scroll, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
-        self.assertGreater(customers.table.height(), 100); self.assertGreater(customers.details_scroll.height(), 100); shell.close()
+        self.assertGreaterEqual(customers.table.width(), 500)
+        for widget in (customers.create_button, customers.toolbar, customers.table, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
+        self.assertTrue(customers.advanced_filters.isHidden()); self.assertGreater(customers.table.height(), 180); shell.close()
 
-    def test_customer_table_and_single_details_panel_use_supported_sizes(self) -> None:
+    def test_customer_table_and_dedicated_details_page_use_supported_sizes(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView()
         shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.show()
         measurements = []
@@ -192,10 +192,12 @@ class UiFoundationTests(unittest.TestCase):
             measurements.append(customer_widths)
             unused = customers.table.viewport().width() - 1 - sum(customer_widths)
             self.assertTrue(abs(unused) <= 1 or unused < 0)
-            self.assertGreater(customer_widths[0], customer_widths[5])
-            self.assertGreaterEqual(customers.splitter.widget(1).width(), 300)
+            self.assertGreater(customer_widths[0], customer_widths[3])
         self.assertGreater(measurements[2][0], measurements[1][0])
-        self.assertEqual(measurements[2][5], measurements[1][5]); shell.close()
+        self.assertEqual(measurements[2][3], measurements[1][3])
+        customers.show_customers([{"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
+        customers.select_customer("c1"); customers._open_selected_customer(); self.app.processEvents()
+        self.assertIs(customers.pages.currentWidget(), customers.details_page); self.assertTrue(customers.back_button.isVisibleTo(customers)); shell.close()
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
         self.app.setStyleSheet(APP_STYLE)

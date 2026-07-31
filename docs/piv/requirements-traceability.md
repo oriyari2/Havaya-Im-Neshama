@@ -680,6 +680,22 @@ Task 25.0.1 implementation evidence
   View layout, an existing Login primary-style specificity rule, focused UI
   tests, documentation, and screenshot evidence.
 
+Task 25.1 implementation evidence
+
+- `FR-CUS-01` and `FR-CUS-02`: Manager Customer browsing, search, full advanced
+  filtering, creation, details, edit, and protected deletion remain available
+  through the existing Presenter and service contracts.
+- `NFR-01`: the Customer list now prioritizes search, selection, and a
+  full-width four-column table; advanced filters are progressively disclosed.
+- `NFR-09`: single-click selection, double-click/Enter/dedicated-action opening,
+  explicit Back/Escape navigation, accessible descriptions, and contextual
+  disabled actions provide a conventional keyboard-accessible Desktop flow.
+- `NFR-10`: focused layout tests cover the list and internal Details page at
+  1024×640, 1200×760, and 1440×900 while preserving table space.
+- `NFR-07` and course MVP evidence: internal page switching remains passive
+  View behavior. `CustomersPresenter`, backend, services, authorization,
+  caching, CQRS, Event Sourcing, and Customer business rules are unchanged.
+
 Later tasks
 
 - Phase 2: Tasks 22–23 background execution, faster repeated loading, request

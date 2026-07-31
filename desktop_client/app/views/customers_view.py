@@ -1,13 +1,14 @@
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QEvent, Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
+    QBoxLayout,
     QFormLayout,
-    QGroupBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
-    QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -17,7 +18,7 @@ from PySide6.QtWidgets import (
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.customer_dialogs import CustomerDialog
-from desktop_client.app.views.design_tokens import DETAIL_MIN_WIDTH, TABLE_MIN_WIDTH
+from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4, SPACE_6
 from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar, confirm_action
 from desktop_client.app.views.ui_foundations import (
     ColumnKind,
@@ -41,10 +42,19 @@ class CustomersView(StatefulWidget):
 
     def __init__(self) -> None:
         super().__init__()
+        self._selected_customer_id: str | None = None
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        self.scaffold = PageScaffold("לקוחות", "ניהול לקוחות ופרטי איש קשר")
+        self.scaffold = PageScaffold("לקוחות", "איתור לקוחות ופתיחת כרטיס לקוח")
         root.addWidget(self.scaffold)
+
+        self.create_button = QPushButton("לקוח חדש")
+        self.create_button.setObjectName("customerCreateButton")
+        self.create_button.setAccessibleName("יצירת לקוח חדש")
+        self.create_button.setProperty("primary", True)
+        self.create_button.clicked.connect(self.create_requested)
+        self.scaffold.header.add_action(self.create_button)
+        self.scaffold.header.layout().itemAt(0).layout().setDirection(QBoxLayout.Direction.RightToLeft)
 
         self.retry = RetryState()
         self.retry.hide()
@@ -52,145 +62,286 @@ class CustomersView(StatefulWidget):
         self.scaffold.main_content.addWidget(self.retry)
         self.scaffold.main_content.addWidget(self.state_label)
 
-        self.toolbar = SearchToolbar(
-            placeholder="חיפוש לקוחות",
-            sort_options=(("name", "שם"), ("created_at", "תאריך יצירה")),
-        )
-        self.toolbar.search_requested.connect(
-            lambda search, sort: self.filters_requested.emit({"search": search or None, "order_by": sort})
-        )
-        self.toolbar.refresh_requested.connect(self.retry_requested)
-        self.scaffold.filter_panel.layout.addWidget(self.toolbar)
-
-        self.city = QComboBox()
-        self.city.setEditable(True)
-        self.city.addItem("כל הערים", "")
-        self.city.setAccessibleName("סינון לפי עיר")
-        self.kind = QComboBox()
-        self.kind.setEditable(True)
-        self.kind.addItem("כל הסוגים", "")
-        self.kind.setAccessibleName("סינון לפי סוג לקוח")
-        self.active = QComboBox()
-        self.active.addItem("הכול", None)
-        self.active.addItem("פעילים", True)
-        self.active.addItem("לא פעילים", False)
-        self.active.setAccessibleName("סינון לפי מצב לקוח")
-        self.apply_filters_button = QPushButton("החל סינון")
-        self.apply_filters_button.setAccessibleName("החלת מסנני לקוחות")
-        self.apply_filters_button.clicked.connect(self._filters)
-        filter_row = QWidget()
-        filter_layout = QHBoxLayout(filter_row)
-        filter_layout.setContentsMargins(0, 0, 0, 0)
-        for widget in (self.city, self.kind, self.active, self.apply_filters_button):
-            filter_layout.addWidget(widget)
-        self.scaffold.filter_panel.layout.addWidget(filter_row)
-        self.scaffold.filter_panel.show()
-
-        self.create_button = QPushButton("לקוח חדש")
-        self.edit_button = QPushButton("עריכה")
-        self.delete_button = QPushButton("מחיקה")
-        for button, signal in (
-            (self.create_button, self.create_requested),
-            (self.edit_button, self.edit_requested),
-            (self.delete_button, self.delete_requested),
-        ):
-            button.clicked.connect(signal)
-            button.setAccessibleName(button.text())
-        self.scaffold.action_bar.add_action(self.delete_button, destructive=True)
-        self.scaffold.action_bar.add_action(self.edit_button)
-        self.scaffold.action_bar.add_action(self.create_button, primary=True)
-        self.scaffold.action_bar.show()
-
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.splitter.setAccessibleName("רשימת לקוחות ופרטים")
-        self.splitter.setChildrenCollapsible(False)
-        self.table = QTableWidget(0, 6)
-        self.table.setMinimumWidth(TABLE_MIN_WIDTH)
-        self.table.setHorizontalHeaderLabels(["שם", "סוג", "עיר", "טלפון", "דוא״ל", "מצב לקוח"])
-        configure_data_table(
-            self.table,
-            "רשימת לקוחות",
-            (
-                ColumnPolicy(ColumnKind.PRIMARY_TEXT),
-                ColumnPolicy(ColumnKind.COMPACT),
-                ColumnPolicy(ColumnKind.SECONDARY_TEXT),
-                ColumnPolicy(ColumnKind.TECHNICAL),
-                ColumnPolicy(ColumnKind.TECHNICAL, 130),
-                ColumnPolicy(ColumnKind.COMPACT),
-            ),
-        )
-        self.table.itemSelectionChanged.connect(self._select)
-        self.splitter.addWidget(self.table)
-
-        panel = QWidget()
-        panel.setMinimumWidth(DETAIL_MIN_WIDTH)
-        side = QVBoxLayout(panel)
-        group = QGroupBox("פרטי לקוח")
-        group_layout = QVBoxLayout(group)
-        self.details_widget = QWidget()
-        self.details = QFormLayout(self.details_widget)
-        self.details.setVerticalSpacing(10)
-        self.details_scroll = QScrollArea()
-        self.details_scroll.setWidgetResizable(True)
-        self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
-        self.details_scroll.setWidget(self.details_widget)
-        group_layout.addWidget(self.details_scroll)
-        side.addWidget(group)
-        self.splitter.addWidget(panel)
-        self.splitter.setStretchFactor(0, 3)
-        self.splitter.setStretchFactor(1, 2)
-        self.splitter.setSizes([600, 400])
-        self.scaffold.main_content.addWidget(self.splitter, 1)
+        self.pages = QStackedWidget()
+        self.pages.setAccessibleName("לקוחות: רשימה ופרטי לקוח")
+        self.list_page = self._build_list_page()
+        self.details_page = self._build_details_page()
+        self.pages.addWidget(self.list_page)
+        self.pages.addWidget(self.details_page)
+        self.scaffold.main_content.addWidget(self.pages, 1)
 
         self.footer = PaginationFooter()
         self.footer.page_requested.connect(self.page_requested)
-        self.scaffold.add_footer(self.footer)
+        self.footer.previous_button.setMaximumWidth(120)
+        self.footer.next_button.setMaximumWidth(120)
+        self.footer.label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.list_layout.addWidget(self.footer)
+        self._set_list_page()
         self.clear_details()
 
         order = (
             self.toolbar.search_input,
             self.toolbar.search_button,
+            self.advanced_filters_button,
             self.toolbar.refresh_button,
-            self.city,
-            self.kind,
-            self.active,
-            self.apply_filters_button,
             self.create_button,
+            self.table,
+            self.view_details_button,
+            self.back_button,
             self.edit_button,
             self.delete_button,
-            self.table,
         )
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
 
+    def _build_list_page(self) -> QWidget:
+        page = QWidget()
+        self.list_layout = QVBoxLayout(page)
+        self.list_layout.setContentsMargins(0, 0, 0, 0)
+        self.list_layout.setSpacing(SPACE_3)
+
+        search_panel = QFrame()
+        search_panel.setObjectName("filterPanel")
+        search_layout = QVBoxLayout(search_panel)
+        search_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
+        search_layout.setSpacing(SPACE_3)
+        self.toolbar = SearchToolbar(placeholder="חיפוש לפי שם, דוא״ל או טלפון")
+        self.toolbar.search_requested.connect(self._search)
+        self.toolbar.refresh_requested.connect(self.retry_requested)
+        self.advanced_filters_button = QPushButton("מסננים מתקדמים")
+        self.advanced_filters_button.setCheckable(True)
+        self.advanced_filters_button.setAccessibleName("הצגה או הסתרה של מסננים מתקדמים")
+        self.advanced_filters_button.toggled.connect(self._toggle_advanced_filters)
+        toolbar_layout = self.toolbar.layout()
+        toolbar_layout.insertWidget(toolbar_layout.count() - 1, self.advanced_filters_button)
+        search_layout.addWidget(self.toolbar)
+
+        self.advanced_filters = QWidget()
+        advanced_layout = QHBoxLayout(self.advanced_filters)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.setSpacing(SPACE_3)
+        self.order = self._filter_control("מיון", (("name", "שם"), ("created_at", "תאריך יצירה")))
+        self.city = self._filter_control("עיר", (("", "כל הערים"),), editable=True)
+        self.city.setAccessibleName("סינון לפי עיר")
+        self.kind = self._filter_control("סוג לקוח", (("", "כל הסוגים"),), editable=True)
+        self.kind.setAccessibleName("סינון לפי סוג לקוח")
+        self.active = self._filter_control("מצב", ((None, "הכול"), (True, "פעילים"), (False, "לא פעילים")))
+        self.active.setAccessibleName("סינון לפי מצב לקוח")
+        for label, control in (("מיון", self.order), ("עיר", self.city), ("סוג לקוח", self.kind), ("מצב", self.active)):
+            field = QWidget()
+            field_layout = QVBoxLayout(field)
+            field_layout.setContentsMargins(0, 0, 0, 0)
+            field_layout.setSpacing(SPACE_2)
+            field_layout.addWidget(QLabel(label))
+            field_layout.addWidget(control)
+            advanced_layout.addWidget(field, 1)
+        self.apply_filters_button = QPushButton("החל מסננים")
+        self.apply_filters_button.setAccessibleName("החלת מסנני לקוחות")
+        self.apply_filters_button.clicked.connect(self._filters)
+        advanced_layout.addWidget(self.apply_filters_button, alignment=Qt.AlignmentFlag.AlignBottom)
+        self.advanced_filters.hide()
+        search_layout.addWidget(self.advanced_filters)
+        self.list_layout.addWidget(search_panel)
+
+        table_heading = QHBoxLayout()
+        table_heading.setDirection(QBoxLayout.Direction.RightToLeft)
+        self.results_label = QLabel("רשימת הלקוחות")
+        self.results_label.setObjectName("sectionTitle")
+        self.results_label.setAccessibleName("תוצאות לקוחות")
+        table_heading.addWidget(self.results_label)
+        table_heading.addStretch()
+        self.view_details_button = QPushButton("הצגת פרטים")
+        self.view_details_button.setAccessibleName("פתיחת פרטי הלקוח שנבחר")
+        self.view_details_button.clicked.connect(self._open_selected_customer)
+        table_heading.addWidget(self.view_details_button)
+        self.list_layout.addLayout(table_heading)
+
+        self.table = QTableWidget(0, 4)
+        self.table.setHorizontalHeaderLabels(["שם לקוח", "סוג", "עיר", "מצב"])
+        self.table.verticalHeader().hide()
+        configure_data_table(
+            self.table,
+            "רשימת לקוחות",
+            (
+                ColumnPolicy(ColumnKind.PRIMARY_TEXT),
+                ColumnPolicy(ColumnKind.SECONDARY_TEXT),
+                ColumnPolicy(ColumnKind.SECONDARY_TEXT),
+                ColumnPolicy(ColumnKind.COMPACT),
+            ),
+        )
+        self.table.setAccessibleDescription("חץ למעלה ולמטה לבחירה; Enter או לחיצה כפולה לפתיחת פרטים")
+        self.table.itemSelectionChanged.connect(self._select)
+        self.table.cellDoubleClicked.connect(lambda _row, _column: self._open_selected_customer())
+        self.table.installEventFilter(self)
+        self.list_layout.addWidget(self.table, 1)
+        return page
+
+    @staticmethod
+    def _filter_control(label: str, options: tuple[tuple[object, str], ...], *, editable: bool = False) -> QComboBox:
+        control = QComboBox()
+        control.setEditable(editable)
+        control.setAccessibleName(label)
+        for value, text in options:
+            control.addItem(text, value)
+        return control
+
+    def _build_details_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_4)
+
+        navigation = QHBoxLayout()
+        navigation.setDirection(QBoxLayout.Direction.RightToLeft)
+        self.back_button = QPushButton("חזרה לרשימת הלקוחות")
+        self.back_button.setAccessibleName("חזרה לרשימת הלקוחות")
+        self.back_button.clicked.connect(self._set_list_page)
+        navigation.addWidget(self.back_button)
+        navigation.addStretch()
+        layout.addLayout(navigation)
+
+        header = QFrame()
+        header.setObjectName("pageHeader")
+        header_layout = QHBoxLayout(header)
+        header_layout.setDirection(QBoxLayout.Direction.RightToLeft)
+        header_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
+        identity = QVBoxLayout()
+        identity.setSpacing(SPACE_2)
+        self.detail_title = QLabel("פרטי לקוח")
+        self.detail_title.setObjectName("screenTitle")
+        self.detail_title.setAccessibleName("פרטי לקוח")
+        self.detail_subtitle = QLabel("מידע מלא ופעולות עבור הלקוח שנבחר")
+        identity.addWidget(self.detail_title)
+        identity.addWidget(self.detail_subtitle)
+        header_layout.addLayout(identity, 1)
+        self.detail_status = ActiveBadge()
+        header_layout.addWidget(self.detail_status)
+        self.edit_button = QPushButton("עריכת לקוח")
+        self.delete_button = QPushButton("מחיקת לקוח")
+        self.edit_button.clicked.connect(self.edit_requested)
+        self.delete_button.clicked.connect(self.delete_requested)
+        self.edit_button.setAccessibleName("עריכת הלקוח")
+        self.delete_button.setAccessibleName("מחיקת הלקוח")
+        self.delete_button.setProperty("destructive", True)
+        header_layout.addWidget(self.edit_button)
+        header_layout.addWidget(self.delete_button)
+        layout.addWidget(header)
+
+        self.detail_loading_label = QLabel("טוען פרטי לקוח…")
+        self.detail_loading_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.detail_loading_label.setAccessibleName("מצב טעינת פרטי לקוח")
+        layout.addWidget(self.detail_loading_label, 1)
+
+        self.details_widget = QFrame()
+        self.details_widget.setObjectName("detailPanel")
+        detail_layout = QVBoxLayout(self.details_widget)
+        detail_layout.setContentsMargins(SPACE_6, SPACE_4, SPACE_6, SPACE_4)
+        details_form_widget = QWidget()
+        details_form_widget.setMaximumWidth(760)
+        self.details = QFormLayout(details_form_widget)
+        self.details.setContentsMargins(0, 0, 0, 0)
+        self.details.setVerticalSpacing(SPACE_3)
+        self.details.setHorizontalSpacing(SPACE_6)
+        self.details.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+        detail_layout.addWidget(details_form_widget, alignment=Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        detail_layout.addStretch()
+        self.details_scroll = QScrollArea()
+        self.details_scroll.setWidgetResizable(True)
+        self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.details_scroll.setWidget(self.details_widget)
+        layout.addWidget(self.details_scroll, 1)
+        return page
+
+    def eventFilter(self, watched, event) -> bool:
+        if watched is self.table and event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self._open_selected_customer()
+            return True
+        return super().eventFilter(watched, event)
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key.Key_Escape and self.pages.currentWidget() is self.details_page:
+            self._set_list_page()
+            return
+        super().keyPressEvent(event)
+
+    def _search(self, search: str, _unused_sort: str) -> None:
+        self.filters_requested.emit({"search": search or None, "order_by": self.order.currentData()})
+
+    def _toggle_advanced_filters(self, visible: bool) -> None:
+        self.advanced_filters.setVisible(visible)
+        self.advanced_filters_button.setText("הסתרת מסננים" if visible else "מסננים מתקדמים")
+
     def _filters(self) -> None:
         self.filters_requested.emit({
-            "city": self.city.currentText().strip() if self.city.currentIndex() else None,
-            "customer_type": self.kind.currentText().strip() if self.kind.currentIndex() else None,
+            "city": self._editable_filter_value(self.city),
+            "customer_type": self._editable_filter_value(self.kind),
             "is_active": self.active.currentData(),
+            "order_by": self.order.currentData(),
         })
+
+    @staticmethod
+    def _editable_filter_value(control: QComboBox) -> str | None:
+        value = control.currentText().strip()
+        return value if value and value != control.itemText(0) else None
 
     def _select(self) -> None:
         rows = self.table.selectionModel().selectedRows()
-        if rows:
-            self.customer_selected.emit(str(self.table.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole)))
+        if not rows:
+            self._selected_customer_id = None
+            self.view_details_button.setEnabled(False)
+            set_disabled_explanation(self.view_details_button, "יש לבחור לקוח תחילה")
+            return
+        customer_id = str(self.table.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole))
+        if customer_id != self._selected_customer_id:
+            while self.details.rowCount():
+                self.details.removeRow(0)
+            self.detail_title.setText("פרטי לקוח")
+            self.details_scroll.hide()
+            self.edit_button.setEnabled(False)
+            self.delete_button.setEnabled(False)
+        self._selected_customer_id = customer_id
+        self.view_details_button.setEnabled(True)
+        self.view_details_button.setAccessibleDescription("פותח את כרטיס הלקוח שנבחר")
+        self.customer_selected.emit(self._selected_customer_id)
+
+    def _open_selected_customer(self) -> None:
+        if not self._selected_customer_id and self.table.currentRow() >= 0:
+            self._selected_customer_id = str(self.table.item(self.table.currentRow(), 0).data(Qt.ItemDataRole.UserRole))
+        if self._selected_customer_id:
+            self.scaffold.header.hide()
+            self.pages.setCurrentWidget(self.details_page)
+            self.back_button.setFocus()
+
+    def _set_list_page(self) -> None:
+        self.scaffold.header.show()
+        self.pages.setCurrentWidget(self.list_page)
+        if hasattr(self, "table"):
+            self.table.setFocus()
 
     def set_loading(self, value: bool) -> None:
         super().set_loading(value)
         self.create_button.setEnabled(not value)
         self.toolbar.search_button.setEnabled(not value)
         self.toolbar.refresh_button.setEnabled(not value)
+        self.advanced_filters_button.setEnabled(not value)
+        self.apply_filters_button.setEnabled(not value)
+        self.view_details_button.setEnabled(not value and self._selected_customer_id is not None)
+        has_details = self.details.rowCount() > 0
+        self.edit_button.setEnabled(not value and has_details)
+        self.delete_button.setEnabled(not value and has_details)
 
     def set_detail_loading(self, value: bool) -> None:
+        self.detail_loading_label.setVisible(value)
+        self.details_scroll.setVisible(not value and self.details.rowCount() > 0)
         if value:
-            self.state_label.setText("טוען פרטי לקוח…")
-            self.state_label.show()
             self.edit_button.setEnabled(False)
             self.delete_button.setEnabled(False)
-        elif self.state_label.text() == "טוען פרטי לקוח…":
-            self.state_label.hide()
 
     def render_request_state(self, state: RequestState) -> None:
+        if state.operation_key == "detail":
+            if state.phase == RequestPhase.LOADING:
+                self.set_detail_loading(True)
+            return
         if state.phase in {RequestPhase.LOADING, RequestPhase.EMPTY, RequestPhase.IDLE}:
             super().render_request_state(state)
         elif state.phase in {RequestPhase.SUCCESS, RequestPhase.VALIDATION_ERROR}:
@@ -220,17 +371,15 @@ class CustomersView(StatefulWidget):
         self.retry.hide()
         self.table.setRowCount(len(rows))
         for row_index, row in enumerate(rows):
-            for column, key in enumerate(("name", "customer_type", "city", "phone", "email")):
+            for column, key in enumerate(("name", "customer_type", "city")):
                 item = QTableWidgetItem(str(row[key]))
-                direction = Qt.LayoutDirection.LeftToRight if key in {"phone", "email"} else Qt.LayoutDirection.RightToLeft
-                set_item_text(self.table, row_index, column, item, tooltip_direction=direction)
+                set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row["id"])
-                if key in {"phone", "email"}:
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
             badge = ActiveBadge()
             badge.set_active(row["is_active"])
-            self.table.setCellWidget(row_index, 5, badge)
+            self.table.setCellWidget(row_index, 3, badge)
+        self.results_label.setText(f"לקוחות ({len(rows)})")
         self.footer.set_page(offset=offset, count=count)
         if not rows:
             self.show_empty("לא נמצאו לקוחות." if filtered else "אין לקוחות להצגה.")
@@ -248,20 +397,34 @@ class CustomersView(StatefulWidget):
             if any(token in label for token in ("דוא", "טלפון", "מזהה")):
                 configure_mixed_direction(content)
             self.details.addRow(label, content)
+        self.detail_title.setText(str(customer.get("name") or "פרטי לקוח"))
+        self.detail_title.setAccessibleName(f"פרטי לקוח: {self.detail_title.text()}")
+        self.detail_status.set_active(bool(customer.get("is_active")))
+        self.detail_loading_label.hide()
+        self.details_scroll.show()
         self.edit_button.setEnabled(True)
         self.delete_button.setEnabled(True)
 
     def clear_details(self) -> None:
         while getattr(self, "details", None) is not None and self.details.rowCount():
             self.details.removeRow(0)
-        for button in (getattr(self, "edit_button", None), getattr(self, "delete_button", None)):
+        if hasattr(self, "detail_title"):
+            self.detail_title.setText("פרטי לקוח")
+            self.details_scroll.hide()
+            self.detail_loading_label.hide()
+        self._selected_customer_id = None
+        for button in (getattr(self, "view_details_button", None), getattr(self, "edit_button", None), getattr(self, "delete_button", None)):
             if button:
                 button.setEnabled(False)
                 set_disabled_explanation(button, "יש לבחור לקוח תחילה")
+        if hasattr(self, "pages"):
+            self._set_list_page()
 
     def select_customer(self, customer_id: str) -> None:
         for row in range(self.table.rowCount()):
             if str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)) == customer_id:
+                self._selected_customer_id = customer_id
+                self.view_details_button.setEnabled(True)
                 self.table.selectRow(row)
                 break
 

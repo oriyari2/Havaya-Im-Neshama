@@ -4,8 +4,10 @@
 
 **25.0.1 COMPLETE — LOGIN SCREEN LAYOUT POLISH**
 
-The wider Task 25 visual-design phase has not started. Subtask 25.0.1 is the
-layout-only preparation of the Login screen before colors, branding, icons,
+**25.1 COMPLETE — CUSTOMER SCREEN PROFESSIONAL DESKTOP UX**
+
+Task 25 is proceeding screen by screen. Subtasks 25.0.1 and 25.1 improve
+composition and professional Desktop UX before colors, branding, icons,
 shadows, gradients, corner treatments, typography, and theme are designed.
 
 ## Task 25.0.1 scope
@@ -50,6 +52,36 @@ and Qt-free Presenters remain intact.
 - Full Desktop test suite.
 - `python -m compileall backend desktop_client`.
 - Normal and error-state screenshot inspection.
+
+## Task 25.1 — Customer screen redesign
+
+The Customer screen is now a reference pattern for management-screen
+interaction:
+
+1. Browse and search a spacious Customer list.
+2. Single-click to select without leaving the list.
+3. Open details by double-click, Enter, or the dedicated **View details**
+   action.
+4. Edit or delete only from the dedicated internal Customer Details page.
+5. Return to the unchanged list, search text, filters, page, and selection.
+
+The list keeps only the decision-making columns: Customer name, type, city,
+and status. Phone, email, contact, notes, address, and audit dates remain
+available in Customer Details. Search is always visible; sort, city, Customer
+type, and active status are progressively disclosed under Advanced Filters.
+No filter functionality was removed.
+
+Customer creation remains a single signal into the existing
+`CustomersPresenter.begin_create` / `submit_create` use case. The Customer-role
+path in User Administration remains its distinct atomic user-provisioning use
+case; no second standalone Customer-creation implementation was introduced.
+
+No Presenter, service, backend, authorization, cache, CQRS, Event Sourcing, or
+business-rule implementation changed.
+
+Task 25.1 evidence is recorded in
+`docs/piv/25-1-customer-screen-redesign.md`, with before/list/details
+screenshots under `docs/screenshots/`.
 
 ## Next task
 
