@@ -182,7 +182,9 @@ Implemented so far:
   `.txt`/`.md` uploads, with logical source listing, replace/delete, and
   configurable role visibility metadata (Task 18).
 - Neutral shared Desktop UI/accessibility/request-state foundations (Task 20).
-- Manager-only User Administration for Manager, Customer, and Instructor
+- Role-specific account management: Customers and Instructors create linked
+  login accounts atomically, while the Manager-only `מנהלים` module manages
+  Manager accounts; User remains an internal authentication entity
   accounts, including atomic creation of linked Customer/Instructor business
   entities, active status, email edit, and password reset (Task 21).
 

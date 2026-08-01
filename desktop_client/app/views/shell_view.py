@@ -14,7 +14,7 @@ class ShellView(QWidget):
         sidebar = QFrame(); sidebar.setObjectName("sidebar"); sidebar.setMinimumWidth(200); sidebar.setMaximumWidth(240)
         self.sidebar_layout = QVBoxLayout(sidebar); self.sidebar_layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4); self.sidebar_layout.setSpacing(SPACE_3)
         brand = QLabel("חוויה עם נשמה"); brand.setObjectName("brand"); brand.setAccessibleName("חוויה עם נשמה"); self.sidebar_layout.addWidget(brand)
-        email_label = QLabel(email); email_label.setAccessibleName("המשתמש המחובר"); email_label.setToolTip(email); configure_mixed_direction(email_label); self.sidebar_layout.addWidget(email_label)
+        email_label = QLabel(email); email_label.setAccessibleName("החשבון המחובר"); email_label.setToolTip(email); configure_mixed_direction(email_label); self.sidebar_layout.addWidget(email_label)
         self.navigation_buttons: dict[str, QPushButton] = {}; self.sidebar_layout.addStretch()
         self.logout_button = QPushButton("יציאה"); self.logout_button.setAccessibleName("יציאה מהמערכת"); self.logout_button.clicked.connect(self.logout_requested.emit); self.sidebar_layout.addWidget(self.logout_button)
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); scroll.setWidget(sidebar); scroll.setMinimumWidth(200); scroll.setMaximumWidth(240); root.addWidget(scroll)

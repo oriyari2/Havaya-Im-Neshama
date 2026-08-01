@@ -6,6 +6,7 @@ from typing import Callable, Protocol
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
 from desktop_client.app.models.operation import NON_CANCELLABLE_OPERATION_KEYS, ImmediateOperationExecutor, OperationExecutor, PresenterOperations
+from desktop_client.app.presenters.account_validation import account_password, login_email
 from desktop_client.app.presenters.customer_formatting import customer_details, customer_row
 
 
@@ -67,8 +68,9 @@ def validate_customer(values: dict[str, object]) -> dict[str, object]:
 
 
 class CustomersPresenter:
-    def __init__(self, view: CustomersViewPort, service: CustomerServicePort, *, limit: int = 25, executor: OperationExecutor | None = None) -> None:
+    def __init__(self, view: CustomersViewPort, service: CustomerServicePort, account_service=None, *, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view, self.service = view, service
+        self.account_service = account_service
         self.filters: dict[str, object] = {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name", "limit": limit, "offset": 0}
         self.selected_id: str | None = None
         self.selected_customer: dict | None = None
@@ -207,10 +209,74 @@ class CustomersPresenter:
             self.view.open_customer_form(initial, self.submit_edit)
 
     def submit_create(self, values: dict[str, object], form: FormPort) -> None:
-        self._submit_customer(values, form, None)
+        if self._submitting:
+            return
+        try:
+            if self.account_service is None:
+                raise ValueError("שירות יצירת החשבון אינו זמין.")
+            name = self._required(values.get("name"), "יש להזין שם לקוח.")
+            contact_name = self._optional(values.get("contact_name"))
+            contact_phone = self._optional(values.get("contact_phone"))
+            if bool(contact_name) != bool(contact_phone):
+                raise ValueError("יש להזין גם שם וגם טלפון לאיש הקשר, או להשאיר את שניהם ריקים.")
+            payload = {
+                "email": login_email(values.get("email")),
+                "password": account_password(values.get("password"), values.get("password_confirmation")),
+                "role": "customer",
+                "customer_name": name,
+                "customer_type": self._optional(values.get("customer_type")),
+                "customer_city": self._optional(values.get("city")),
+                "customer_address": self._optional(values.get("address")),
+                "customer_phone": self._optional(values.get("phone")),
+                "customer_notes": self._optional(values.get("notes")),
+                "contact_name": contact_name,
+                "contact_phone": contact_phone,
+            }
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        self._submit_account(payload, form)
 
     def submit_edit(self, values: dict[str, object], form: FormPort) -> None:
         self._submit_customer(values, form, self.selected_id)
+
+    def _submit_account(self, payload: dict[str, object], form: FormPort) -> None:
+        self._submitting = True
+        form.set_submitting(True)
+        identity = self._begin_request("submit")
+
+        def succeeded(user: dict) -> None:
+            if not self._is_current(identity):
+                return
+            form.close_success()
+            self.selected_id = str(user["customer_id"])
+            self.view.show_success("הלקוח וחשבון הכניסה נוצרו בהצלחה.")
+            self.load()
+            self.select(self.selected_id)
+
+        def failed(exc: Exception) -> None:
+            if self._is_current(identity):
+                form.show_error(self._message(exc))
+
+        def finished() -> None:
+            if not self._is_current(identity):
+                return
+            self._current_requests.pop("submit", None)
+            self._submitting = False
+            form.set_submitting(False)
+
+        self._executor.submit(identity, lambda: self.account_service.create_user(payload), succeeded, failed, finished)
+
+    @staticmethod
+    def _required(value: object, message: str) -> str:
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise ValueError(message)
+        return cleaned
+
+    @staticmethod
+    def _optional(value: object) -> str | None:
+        return str(value or "").strip() or None
 
     def _submit_customer(self, values: dict[str, object], form: FormPort, customer_id: str | None) -> None:
         if self._submitting:

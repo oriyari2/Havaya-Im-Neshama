@@ -7,7 +7,7 @@ CONTACT={"id":"ct1","full_name":"Contact","phone":"050","is_primary":True,"is_ac
 CUSTOMER={"id":"c1","name":"Task 12B Test Customer","customer_type":"business","city":"Haifa","address":None,"phone":"1","email":"a@b.com","notes":None,"is_active":True,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","contacts":[CONTACT]}
 
 class CustomersPresenterTests(TestCase):
-    def setUp(self): self.view=Mock(); self.service=Mock(); self.service.list_customers.return_value={"items":[CUSTOMER],"count":1}; self.service.customer.return_value=CUSTOMER; self.presenter=CustomersPresenter(self.view,self.service)
+    def setUp(self): self.view=Mock(); self.service=Mock(); self.account_service=Mock(); self.service.list_customers.return_value={"items":[CUSTOMER],"count":1}; self.service.customer.return_value=CUSTOMER; self.presenter=CustomersPresenter(self.view,self.service,self.account_service)
     def test_load_filters_sort_and_pagination(self):
         self.presenter.load(); self.view.show_customers.assert_called_once(); self.presenter.apply_filters({"search":"Task","city":"Haifa","order_by":"created_at"}); self.presenter.page(25,25); self.assertEqual(self.service.list_customers.call_args.args[0]["offset"],25)
     def test_reset_clears_presenter_selection_without_sending_ui_metadata_to_service(self):
@@ -28,8 +28,11 @@ class CustomersPresenterTests(TestCase):
     def test_delete_cancellation_and_stale_404(self):
         self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=False; self.presenter.delete(); self.service.delete_customer.assert_not_called()
         self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("gone",status_code=404,kind=ApiErrorKind.NOT_FOUND); self.presenter.delete(); self.assertIsNone(self.presenter.selected_id); self.view.clear_details.assert_called()
-    def test_create_customer_creates_one_primary_contact(self):
-        form=Mock(); self.service.create_customer.return_value={**CUSTOMER,"contacts":[CONTACT]}; self.presenter.submit_create({"name":"New","contact_name":"Contact","contact_phone":"050"},form); payload=self.service.create_customer.call_args.args[0]; self.assertEqual(payload["contact_name"], "Contact"); self.assertEqual(payload["contact_phone"], "050"); form.close_success.assert_called_once()
+    def test_create_customer_uses_atomic_role_specific_account_workflow(self):
+        form=Mock(); self.account_service.create_user.return_value={"id":"u1","customer_id":"c1"}; self.presenter.submit_create({"name":"New","email":"NEW@example.com","password":"password1","password_confirmation":"password1","city":"Haifa","contact_name":"Contact","contact_phone":"050"},form); payload=self.account_service.create_user.call_args.args[0]; self.assertEqual(payload["role"],"customer"); self.assertEqual(payload["email"],"new@example.com"); self.assertEqual(payload["customer_name"],"New"); self.assertEqual(payload["contact_name"],"Contact"); self.service.create_customer.assert_not_called(); form.close_success.assert_called_once()
+
+    def test_create_customer_requires_only_profile_name_and_credentials(self):
+        form=Mock(); self.account_service.create_user.return_value={"id":"u1","customer_id":"c1"}; self.presenter.submit_create({"name":"New","email":"new@example.com","password":"password1","password_confirmation":"password1"},form); payload=self.account_service.create_user.call_args.args[0]; self.assertEqual(payload["role"],"customer"); self.assertIsNone(payload["customer_type"]); self.assertIsNone(payload["customer_city"]); self.assertIsNone(payload["contact_name"]); form.close_success.assert_called_once()
     def test_validation_preserves_form(self):
         form=Mock(); self.presenter.submit_create({"name":"","email":"bad"},form); form.show_error.assert_called(); form.close_success.assert_not_called()
         with self.assertRaises(ValueError): validate_customer({"name":"A","email":"bad","contact_name":"Contact","contact_phone":"050"})
@@ -51,7 +54,7 @@ class CustomersPresenterTests(TestCase):
         self.presenter.invalidate_requests(); self.assertFalse(self.presenter._is_current(second)); self.assertFalse(self.presenter._is_current(listing))
     def test_duplicate_and_loading_guards_release_after_failures(self):
         self.service.list_customers.side_effect=ApiError("offline",kind=ApiErrorKind.CONNECTION); self.presenter.load(); self.assertFalse(self.presenter._loading); self.assertEqual(self.view.set_loading.call_args_list[-1],call(False))
-        self.service.create_customer.side_effect=ApiError("failed",kind=ApiErrorKind.SERVER); form=Mock(); self.presenter.submit_create({"name":"Customer","contact_name":"Contact","contact_phone":"050"},form); self.assertFalse(self.presenter._submitting); form.set_submitting.assert_called_with(False)
+        self.account_service.create_user.side_effect=ApiError("failed",kind=ApiErrorKind.SERVER); form=Mock(); self.presenter.submit_create({"name":"Customer","email":"c@example.com","password":"password1","password_confirmation":"password1"},form); self.assertFalse(self.presenter._submitting); form.set_submitting.assert_called_with(False)
     def test_unexpected_exception_text_is_not_exposed(self):
         self.service.list_customers.side_effect=RuntimeError("database password leaked"); self.presenter.load()
         message=self.view.show_error.call_args.args[0]; self.assertNotIn("password",message); self.assertEqual(message,"לא ניתן להשלים את הפעולה. נסו שוב.")

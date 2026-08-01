@@ -34,6 +34,9 @@ class UserAdministrationTests(TestCase):
         self.assertEqual((customer.email, customer.customer_name, customer.customer_type, customer.customer_city, customer.contact_name, customer.contact_phone), ("c@example.com", "Customer", "School", "Haifa", "Contact", "050"))
         instructor = UserCreateRequest(email="i@example.com", password="password1", role="instructor", instructor_name=" Instructor ", instructor_phone=" 051 ", instructor_city=" Jerusalem ")
         self.assertEqual((instructor.email, instructor.instructor_name, instructor.instructor_phone, instructor.instructor_city), ("i@example.com", "Instructor", "051", "Jerusalem"))
+        minimal_customer = UserCreateRequest(email="minimal-c@example.com", password="password1", role="customer", customer_name="Customer")
+        minimal_instructor = UserCreateRequest(email="minimal-i@example.com", password="password1", role="instructor", instructor_name="Instructor")
+        self.assertIsNone(minimal_customer.contact_name); self.assertIsNone(minimal_instructor.instructor_city)
         invalid = ({"role":"manager"}, {"role":"manager","manager_name":"M","customer_name":"x"}, {"role":"customer"}, {"role":"customer","customer_name":"x","contact_name":"y"}, {"role":"instructor"}, {"role":"instructor","instructor_name":"x","customer_name":"y"}, {"role":"customer","customer_id":str(uuid4())})
         for values in invalid:
             with self.subTest(values=values), self.assertRaises(ValidationError): UserCreateRequest(email="x@example.com", password="password1", **values)
@@ -104,6 +107,15 @@ class UserAdministrationTests(TestCase):
         with patch.object(service.instructor_repository,"get_by_email",return_value=None), patch.object(service.instructor_repository,"create_instructor",return_value={"id":instructor_id}) as create_instructor, patch.object(repo,"create_user",return_value={"id":user_id}) as create_user, patch.object(repo,"get_safe_user",return_value=public):
             result=service.create_user(payload)
         data=create_instructor.call_args.args[1]; self.assertEqual((data["full_name"],data["email"],data["phone"],data["city"]),("Instructor",payload.email,"051","Jerusalem")); self.assertEqual(create_user.call_args.kwargs["instructor_id"],instructor_id); self.assertIsNone(create_user.call_args.kwargs["customer_id"]); self.assertEqual(result["instructor_email"],payload.email); connection.commit.assert_called_once()
+
+    @patch.object(service, "get_connection")
+    def test_minimal_customer_account_skips_optional_contact_atomically(self, get_connection) -> None:
+        connection=MagicMock(); cursor=MagicMock(); get_connection.return_value.__enter__.return_value=connection; connection.cursor.return_value.__enter__.return_value=cursor
+        customer_id=uuid4(); user_id=uuid4(); public=safe_user(id=user_id,role="customer",customer_id=customer_id,customer_name="Customer",customer_email="customer@example.com")
+        payload=UserCreateRequest(email="customer@example.com",password="password1",role="customer",customer_name="Customer")
+        with patch.object(service.customer_repository,"create_customer",return_value={"id":customer_id}) as create_customer, patch.object(service.customer_repository,"create_contact") as create_contact, patch.object(repo,"create_user",return_value={"id":user_id}) as create_user, patch.object(repo,"get_safe_user",return_value=public):
+            result=service.create_user(payload)
+        create_contact.assert_not_called(); self.assertIsNone(create_customer.call_args.args[1]["city"]); self.assertEqual(create_user.call_args.kwargs["customer_id"],customer_id); self.assertEqual(result["customer_id"],customer_id); connection.commit.assert_called_once()
 
     @patch.object(service, "get_connection")
     def test_profile_creation_rolls_back_when_user_creation_fails(self, get_connection) -> None:

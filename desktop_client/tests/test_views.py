@@ -187,7 +187,7 @@ class ViewTests(unittest.TestCase):
                 return {"id": "instructor-id", "full_name": "Instructor", "is_active": True, "created_at": "", "updated_at": ""}
 
         expected_pages = {
-            "manager": {"dashboard", "customers", "instructors", "activities", "bookings", "open_events", "knowledge", "users", "ai_chat"},
+            "manager": {"dashboard", "customers", "instructors", "users", "bookings", "activities", "open_events", "knowledge", "ai_chat"},
             "instructor": {"dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"},
             "customer": {"dashboard", "activities", "my_bookings", "my_profile", "ai_chat"},
         }

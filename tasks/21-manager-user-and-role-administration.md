@@ -730,3 +730,19 @@ The final creation-field completion also carries the existing Customer type and
 city fields through Create User into the new Customer, and carries the existing
 city field into the new Instructor. These are required fields in the combined
 account-creation dialog; no new domain concept, module, or screen is introduced.
+
+## Product-consistency amendment
+
+The generic User Management Desktop surface is retired. User remains an
+internal persistence/authentication concept, while Desktop management is
+role-specific:
+
+- Customers creates Customer + linked Customer User;
+- Instructors creates Instructor + linked Instructor User;
+- Managers creates a Manager User only.
+
+All three entry points reuse the existing atomic `POST /users` application
+workflow. Customer and Instructor business attributes are optional except for
+the profile name; login email, password, and confirmation are required by each
+creation dialog. The Managers module is permanently scoped to `role=manager`
+and exposes no generic role selector or mixed account list.

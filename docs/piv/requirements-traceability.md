@@ -98,10 +98,16 @@ session invalidation, audit/event systems, optimistic versioning, complex role/
 profile transitions, and physical deletion are explicitly excluded. Manager-
 only FastAPI authorization, safe schemas, application/repository persistence,
 the Task 20-based passive desktop View and Qt-free Presenter, and focused/full
-regression tests provide implementation evidence. Customer creation includes
-Customer type and city; Instructor creation includes city. Final cross-screen
-and reactive role-form validation corrections are approved and committed. Task
-21 is closed; the broader project is not complete.
+regression tests provide implementation evidence.
+
+The product-consistency amendment keeps User as an internal identity concept:
+Customers owns atomic Customer + Customer User creation, Instructors owns
+atomic Instructor + Instructor User creation, and the former generic Desktop
+screen is a Manager-only module scoped permanently to Manager accounts. All
+three entry points reuse the same manager-authorized `/users` transaction and
+existing authentication/password rules. Profile names and credentials are
+required; other Customer/Instructor business fields are optional. Task 21 is
+closed; the broader project is not complete.
 
 Activity catalog
 

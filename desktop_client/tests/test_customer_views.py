@@ -96,6 +96,10 @@ class CustomerViewTests(TestCase):
         self.assertEqual(dialog.required_hint.text(), "* שדה חובה")
         self.assertEqual(dialog.save_button.text(), "יצירת לקוח")
         self.assertEqual(dialog.save_button.objectName(), "customerDialogPrimary")
+        self.assertIsNotNone(dialog.password)
+        self.assertIsNotNone(dialog.password_confirmation)
+        self.assertEqual(dialog.password.echoMode(), dialog.password.EchoMode.Password)
+        self.assertIn("password", dialog.values())
         self.assertGreaterEqual(dialog.notes.minimumHeight(), 88)
         self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
         self.assertLess(dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topLeft()).y(), dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).y())
@@ -106,6 +110,12 @@ class CustomerViewTests(TestCase):
         self.assertGreater(self._center_x(name_label, dialog), dialog.width() // 2)
         self.assertLess(name_label.geometry().bottom(), dialog.fields["name"].geometry().top())
         dialog.close()
+
+    def test_edit_dialog_does_not_expose_account_creation_secrets(self):
+        dialog = CustomerDialog({"name": "לקוח", "contact_name": "איש", "contact_phone": "050"})
+        self.assertIsNone(dialog.password)
+        self.assertNotIn("password", dialog.values())
+        self.assertNotIn("password_confirmation", dialog.values())
 
     def test_edit_dialog_reuses_the_same_rendered_rtl_form_geometry(self):
         dialog = CustomerDialog({"name": "לקוח", "contact_name": "איש קשר", "contact_phone": "050"})

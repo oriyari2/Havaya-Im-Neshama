@@ -1,39 +1,19 @@
 from __future__ import annotations
 
 import logging
-import re
-
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
+from desktop_client.app.presenters.account_validation import account_password, login_email
 
 
 logger = logging.getLogger(__name__)
-EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-
-
-def _email(value: object) -> str:
-    cleaned = str(value or "").strip().lower()
-    if len(cleaned) > 254 or not EMAIL.match(cleaned):
-        raise ValueError("כתובת הדוא״ל אינה תקינה.")
-    return cleaned
-
-
-def _password(value: object, confirmation: object) -> str:
-    password = str(value or "")
-    if not 8 <= len(password) <= 128 or password != password.strip() or any(not character.isprintable() for character in password):
-        raise ValueError("הסיסמה חייבת להכיל 8 עד 128 תווים ללא רווחים בתחילה או בסוף.")
-    if password != str(confirmation or ""):
-        raise ValueError("אימות הסיסמה אינו תואם.")
-    return password
-
-
 class UsersPresenter:
     def __init__(self, view, service, *, current_user_id: str, session_role: str, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view = view
         self.service = service
         self.current_user_id = current_user_id
         self.session_role = session_role
-        self.filters = {"search": None, "role": None, "is_active": None, "limit": limit, "offset": 0}
+        self.filters = {"search": None, "role": "manager", "is_active": None, "limit": limit, "offset": 0}
         self.selected_id: str | None = None
         self.selected: dict | None = None
         self.loading = False
@@ -49,7 +29,7 @@ class UsersPresenter:
     def _allowed(self) -> bool:
         if self.session_role == "manager":
             return True
-        self.view.show_error("אין הרשאה לניהול משתמשים.", permission=True)
+        self.view.show_error("אין הרשאה לניהול מנהלים.", permission=True)
         return False
 
     def load(self) -> None:
@@ -66,7 +46,12 @@ class UsersPresenter:
             items = payload["items"]
             signature = (filters, items)
             if signature != self._last_list_render:
-                self.view.show_users(items, offset=filters["offset"], count=len(items), filtered=any(filters[key] not in (None, "") for key in ("search", "role", "is_active")))
+                self.view.show_users(
+                    items,
+                    offset=filters["offset"],
+                    count=len(items),
+                    filtered=any(filters[key] not in (None, "") for key in ("search", "is_active")),
+                )
                 self._last_list_render = signature
             ids = {str(item["id"]) for item in items}
             if self.selected_id in ids:
@@ -86,7 +71,8 @@ class UsersPresenter:
         self._operations.executor.submit(context, lambda: self.service.list_users(filters), success, failure, finished)
 
     def apply_filters(self, values: dict) -> None:
-        self.filters.update({key: values.get(key) for key in ("search", "role", "is_active") if key in values})
+        self.filters.update({key: values.get(key) for key in ("search", "is_active") if key in values})
+        self.filters["role"] = "manager"
         self.filters["offset"] = 0
         self.load()
 
@@ -120,7 +106,7 @@ class UsersPresenter:
             if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
                 self.selected_id = self.selected = None
                 self.view.clear_details()
-                self.view.show_error("המשתמש שנבחר אינו קיים עוד.")
+                self.view.show_error("המנהל שנבחר אינו קיים עוד.")
                 self.load()
             else:
                 self._error(exc)
@@ -140,34 +126,16 @@ class UsersPresenter:
         if self.submitting:
             return
         try:
-            role = str(values.get("role") or "")
-            if role not in {"manager", "customer", "instructor"}:
-                raise ValueError("יש לבחור תפקיד.")
             payload = {
-                "email": _email(values.get("email")),
-                "password": _password(values.get("password"), values.get("password_confirmation")),
-                "role": role,
+                "email": login_email(values.get("email")),
+                "password": account_password(values.get("password"), values.get("password_confirmation")),
+                "role": "manager",
+                "manager_name": self._required(values.get("manager_name"), "יש להזין שם מנהל."),
             }
-            if role == "manager":
-                payload["manager_name"] = self._required(values.get("manager_name"), "יש להזין שם מנהל.")
-            elif role == "customer":
-                payload.update(
-                    customer_name=self._required(values.get("customer_name"), "יש להזין שם לקוח."),
-                    customer_type=self._required(values.get("customer_type"), "יש להזין סוג לקוח."),
-                    customer_city=self._required(values.get("customer_city"), "יש להזין עיר לקוח."),
-                    contact_name=self._required(values.get("contact_name"), "יש להזין שם איש קשר."),
-                    contact_phone=self._required(values.get("contact_phone"), "יש להזין טלפון איש קשר."),
-                )
-            elif role == "instructor":
-                payload.update(
-                    instructor_name=self._required(values.get("instructor_name"), "יש להזין שם מדריך."),
-                    instructor_phone=str(values.get("instructor_phone") or "").strip() or None,
-                    instructor_city=self._required(values.get("instructor_city"), "יש להזין עיר מדריך."),
-                )
         except ValueError as exc:
             form.show_error(str(exc))
             return
-        self._submit(form, lambda: self.service.create_user(payload), "המשתמש נוצר בהצלחה.")
+        self._submit(form, lambda: self.service.create_user(payload), "המנהל נוצר בהצלחה.")
 
     @staticmethod
     def _required(value: object, message: str) -> str:
@@ -184,7 +152,7 @@ class UsersPresenter:
         if not self.selected_id or self.submitting:
             return
         try:
-            email = _email(values.get("email"))
+            email = login_email(values.get("email"))
         except ValueError as exc:
             form.show_error(str(exc))
             return
@@ -198,7 +166,7 @@ class UsersPresenter:
         if not self.selected_id or self.submitting:
             return
         try:
-            password = _password(values.get("password"), values.get("password_confirmation"))
+            password = account_password(values.get("password"), values.get("password_confirmation"))
         except ValueError as exc:
             form.show_error(str(exc))
             return
@@ -206,12 +174,12 @@ class UsersPresenter:
 
     def activate(self) -> None:
         if self.selected_id:
-            self._mutate(lambda: self.service.activate(self.selected_id), "המשתמש הופעל.")
+            self._mutate(lambda: self.service.activate(self.selected_id), "המנהל הופעל.")
 
     def deactivate(self) -> None:
         if not self.selected or not self.view.confirm_deactivation(self.selected["email"]):
             return
-        self._mutate(lambda: self.service.deactivate(self.selected_id), "המשתמש הושבת.")
+        self._mutate(lambda: self.service.deactivate(self.selected_id), "המנהל הושבת.")
 
     def _submit(self, form, operation, message: str) -> None:
         if self.submitting:
@@ -280,10 +248,10 @@ class UsersPresenter:
     def message(exc: Exception) -> str:
         if isinstance(exc, ApiError):
             return {
-                ApiErrorKind.PERMISSION: "אין הרשאה לניהול משתמשים.",
-                ApiErrorKind.CONFLICT: "הדוא״ל או הפרופיל כבר משויכים למשתמש אחר, או שהפעולה אינה מותרת.",
-                ApiErrorKind.VALIDATION: "יש לתקן את פרטי המשתמש ולנסות שוב.",
-                ApiErrorKind.NOT_FOUND: "המשתמש או הפרופיל שנבחרו אינם קיימים.",
+                ApiErrorKind.PERMISSION: "אין הרשאה לניהול מנהלים.",
+                ApiErrorKind.CONFLICT: "הדוא״ל כבר משויך לחשבון אחר, או שהפעולה אינה מותרת.",
+                ApiErrorKind.VALIDATION: "יש לתקן את פרטי המנהל ולנסות שוב.",
+                ApiErrorKind.NOT_FOUND: "המנהל שנבחר אינו קיים.",
                 ApiErrorKind.CONNECTION: "לא ניתן להתחבר לשרת. נסו שוב.",
                 ApiErrorKind.SERVER: "השרת לא הצליח להשלים את הפעולה. נסו שוב.",
             }.get(exc.kind, "הפעולה נכשלה.")

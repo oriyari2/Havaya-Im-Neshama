@@ -6,11 +6,11 @@ NAVIGATION_BY_ROLE = {
         ("dashboard", "לוח בקרה"),
         ("customers", "לקוחות"),
         ("instructors", "מדריכים"),
-        ("activities", "פעילויות"),
+        ("users", "מנהלים"),
         ("bookings", "הזמנות"),
+        ("activities", "פעילויות"),
         ("open_events", "אירועים פתוחים"),
         ("knowledge", "ניהול ידע"),
-        ("users", "ניהול משתמשים"),
     ),
     "instructor": (
         ("dashboard", "לוח בקרה"),

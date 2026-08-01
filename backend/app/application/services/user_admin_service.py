@@ -56,22 +56,23 @@ def create_user(payload: UserCreateRequest) -> dict:
                         "name": payload.customer_name,
                         "customer_type": payload.customer_type,
                         "city": payload.customer_city,
-                        "address": None,
-                        "phone": None,
+                        "address": payload.customer_address,
+                        "phone": payload.customer_phone,
                         "email": payload.email,
-                        "notes": None,
+                        "notes": payload.customer_notes,
                         "is_active": True,
                     })
                     customer_id = customer["id"]
-                    customer_repository.create_contact(cur, customer_id, {
-                        "full_name": payload.contact_name,
-                        "role_title": None,
-                        "phone": payload.contact_phone,
-                        "email": None,
-                        "is_primary": True,
-                        "notes": None,
-                        "is_active": True,
-                    })
+                    if payload.contact_name and payload.contact_phone:
+                        customer_repository.create_contact(cur, customer_id, {
+                            "full_name": payload.contact_name,
+                            "role_title": None,
+                            "phone": payload.contact_phone,
+                            "email": None,
+                            "is_primary": True,
+                            "notes": None,
+                            "is_active": True,
+                        })
                 elif payload.role == "instructor":
                     if instructor_repository.get_by_email(cur, payload.email):
                         raise UserConflictError("Instructor email already exists")
@@ -80,7 +81,7 @@ def create_user(payload: UserCreateRequest) -> dict:
                         "phone": payload.instructor_phone,
                         "email": payload.email,
                         "city": payload.instructor_city,
-                        "notes": None,
+                        "notes": payload.instructor_notes,
                         "is_active": True,
                     })
                     instructor_id = instructor["id"]

@@ -259,3 +259,35 @@ same atomic creation transaction: Customer creation now requires and persists
 Customer type and city, while Instructor creation requires and persists city.
 The desktop role form, Qt-free presenter payload, backend request validation,
 and existing Customer/Instructor repository payloads remain synchronized.
+
+## Product-consistency amendment
+
+The Desktop no longer exposes a generic User Management product module. `User`
+remains the internal authentication entity and `/users` remains the canonical
+manager-authorized account workflow, but the visible modules are now Customers,
+Instructors, and Managers (`מנהלים`).
+
+- **Customer creation** starts from Customers and atomically creates the
+  Customer plus its linked Customer-role User. Customer name, login email,
+  password, and password confirmation are required. Customer type, city,
+  address, business phone, notes, and the paired Contact name/phone are
+  optional.
+- **Instructor creation** starts from Instructors and atomically creates the
+  Instructor plus its linked Instructor-role User. Instructor name, login
+  email, password, and password confirmation are required. Phone, city, and
+  notes are optional.
+- **Manager creation** starts from Managers and creates only a Manager-role User.
+  Manager name, login email, password, and password confirmation are required.
+- The former generic Desktop role selector is removed. The Managers Presenter
+  always requests `role=manager`, ignores caller attempts to change that scope,
+  and the View defensively renders Manager rows only.
+- All three entry points reuse `UserService.create_user` and the existing
+  `user_admin_service.create_user` transaction. Password hashing, immediate
+  login eligibility, authorization, one-to-one links, rollback behavior, and
+  API routes remain centralized and unchanged.
+
+Focused validation covers the three role-specific Desktop entry points,
+required and optional fields, atomic Customer/Instructor profile linking,
+Manager-only listing, absence of generic User creation UI, login-compatible
+password hashing, Presenter Qt boundaries, direct-database boundaries, and
+compilation. No screenshots or visual assets were created.

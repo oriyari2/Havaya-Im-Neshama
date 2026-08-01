@@ -152,12 +152,25 @@ class CustomerDialog(_BaseFormDialog):
             ("city", "עיר"),
             ("address", "כתובת"),
             ("phone", "טלפון"),
-            ("email", "דוא״ל"),
+            ("email", "דוא״ל להתחברות *" if not initial else "דוא״ל"),
         ):
             self._add_field(self.form, key, label, initial)
+        self.password = None
+        self.password_confirmation = None
+        if not initial:
+            self.password = QLineEdit()
+            self.password.setEchoMode(QLineEdit.EchoMode.Password)
+            self.password.setAccessibleName("סיסמה")
+            configure_mixed_direction(self.password)
+            self.form.addRow("סיסמה *", self.password)
+            self.password_confirmation = QLineEdit()
+            self.password_confirmation.setEchoMode(QLineEdit.EchoMode.Password)
+            self.password_confirmation.setAccessibleName("אימות סיסמה")
+            configure_mixed_direction(self.password_confirmation)
+            self.form.addRow("אימות סיסמה *", self.password_confirmation)
         for key, label in (
-            ("contact_name", "איש קשר *"),
-            ("contact_phone", "טלפון איש קשר *"),
+            ("contact_name", "איש קשר *" if initial else "איש קשר"),
+            ("contact_phone", "טלפון איש קשר *" if initial else "טלפון איש קשר"),
         ):
             self._add_field(self.contact_form, key, label, initial)
         for key in ("phone", "email", "contact_phone"):
@@ -175,7 +188,10 @@ class CustomerDialog(_BaseFormDialog):
             button.setMinimumWidth(120)
             button.setMinimumHeight(CONTROL_HEIGHT_LARGE)
         self.fields["name"].setFocus()
-        order = list(self.fields.values()) + [self.notes, self.save_button, self.cancel_button]
+        credentials = [field for field in (self.password, self.password_confirmation) if field is not None]
+        main_fields = [self.fields[key] for key in ("name", "customer_type", "city", "address", "phone", "email")]
+        contact_fields = [self.fields[key] for key in ("contact_name", "contact_phone")]
+        order = main_fields + credentials + contact_fields + [self.notes, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
 
@@ -204,7 +220,17 @@ class CustomerDialog(_BaseFormDialog):
         form.addRow(label, field)
 
     def values(self) -> dict:
-        return {
+        values = {
             **{key: field.text() for key, field in self.fields.items()},
             "notes": self.notes.toPlainText(),
         }
+        if self.password is not None and self.password_confirmation is not None:
+            values["password"] = self.password.text()
+            values["password_confirmation"] = self.password_confirmation.text()
+        return values
+
+    def show_error(self, message: str) -> None:
+        if self.password is not None and self.password_confirmation is not None:
+            self.password.clear()
+            self.password_confirmation.clear()
+        super().show_error(message)

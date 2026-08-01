@@ -5,6 +5,7 @@ import re
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
+from desktop_client.app.presenters.account_validation import account_password, login_email
 from desktop_client.app.presenters.instructor_formatting import instructor_details, instructor_row
 
 
@@ -29,8 +30,9 @@ def validate_instructor(values):
 
 
 class InstructorsPresenter:
-    def __init__(self, view, service, limit=25, executor: OperationExecutor | None = None):
+    def __init__(self, view, service, account_service=None, limit=25, executor: OperationExecutor | None = None):
         self.view, self.service = view, service
+        self.account_service = account_service
         self.filters = {"search": None, "city": None, "is_active": None, "order_by": "full_name", "limit": limit, "offset": 0}
         self.selected_id = None
         self.selected = None
@@ -132,10 +134,61 @@ class InstructorsPresenter:
             self.view.open_form(self.selected, self.submit_edit)
 
     def submit_create(self, values, form):
-        self._submit(values, form, None)
+        if self.submitting:
+            return
+        try:
+            if self.account_service is None:
+                raise ValueError("שירות יצירת החשבון אינו זמין.")
+            payload = {
+                "email": login_email(values.get("email")),
+                "password": account_password(values.get("password"), values.get("password_confirmation")),
+                "role": "instructor",
+                "instructor_name": self._required(values.get("full_name"), "יש להזין שם מדריך."),
+                "instructor_phone": str(values.get("phone") or "").strip() or None,
+                "instructor_city": str(values.get("city") or "").strip() or None,
+                "instructor_notes": str(values.get("notes") or "").strip() or None,
+            }
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        self._submit_account(payload, form)
 
     def submit_edit(self, values, form):
         self._submit(values, form, self.selected_id)
+
+    @staticmethod
+    def _required(value, message):
+        cleaned = str(value or "").strip()
+        if not cleaned:
+            raise ValueError(message)
+        return cleaned
+
+    def _submit_account(self, payload, form):
+        context = self._operations.begin("submit")
+        if context is None:
+            return
+        self.submitting = True
+        form.set_submitting(True)
+
+        def success(user):
+            if not self._operations.is_current(context):
+                return
+            self.selected_id = str(user["instructor_id"])
+            form.close_success()
+            self.view.show_success("המדריך וחשבון הכניסה נוצרו בהצלחה.")
+            self.load()
+            self.select(self.selected_id)
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                form.show_error(self.message(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                form.set_submitting(False)
+
+        self._operations.executor.submit(context, lambda: self.account_service.create_user(payload), success, failure, finished)
 
     def _submit(self, values, form, instructor_id):
         if self.submitting:

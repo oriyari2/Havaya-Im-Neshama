@@ -152,7 +152,7 @@ class MainWindow(QMainWindow):
         self._presenters["activities"] = activities_presenter
 
         if session.role == "manager":
-            instructors_view=InstructorsView(); instructors_presenter=InstructorsPresenter(instructors_view,self.instructor_service,executor=self.operation_executor)
+            instructors_view=InstructorsView(); instructors_presenter=InstructorsPresenter(instructors_view,self.instructor_service,self.user_service,executor=self.operation_executor)
             instructors_view.filters_requested.connect(instructors_presenter.apply_filters);instructors_view.page_requested.connect(instructors_presenter.page);instructors_view.instructor_selected.connect(instructors_presenter.select);instructors_view.retry_requested.connect(instructors_presenter.retry);instructors_view.create_requested.connect(instructors_presenter.begin_create);instructors_view.edit_requested.connect(instructors_presenter.begin_edit);instructors_view.delete_requested.connect(instructors_presenter.delete)
             self.shell.add_page("instructors",instructors_view);self._presenters["instructors"]=instructors_presenter
         elif session.role == "instructor" and session.instructor_id:
@@ -174,7 +174,7 @@ class MainWindow(QMainWindow):
             self._presenters["users"] = users_presenter
 
             customers_view = CustomersView()
-            customers_presenter = CustomersPresenter(customers_view, self.customer_service, executor=self.operation_executor)
+            customers_presenter = CustomersPresenter(customers_view, self.customer_service, self.user_service, executor=self.operation_executor)
             customers_view.filters_requested.connect(customers_presenter.apply_filters)
             customers_view.page_requested.connect(customers_presenter.page)
             customers_view.customer_selected.connect(customers_presenter.select)

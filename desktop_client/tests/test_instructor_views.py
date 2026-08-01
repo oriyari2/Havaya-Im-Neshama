@@ -26,6 +26,15 @@ class InstructorViewTests(TestCase):
         self.assertNotIn("is_active", dialog.values())
         self.assertFalse(hasattr(profile, "edit_button"))
 
+    def test_create_collects_login_credentials_but_edit_does_not(self):
+        create = InstructorDialog()
+        self.assertIsNotNone(create.password)
+        self.assertIsNotNone(create.password_confirmation)
+        self.assertIn("password", create.values())
+        edit = InstructorDialog({"full_name": "A"})
+        self.assertIsNone(edit.password)
+        self.assertNotIn("password", edit.values())
+
     def test_semantic_table_and_responsive_splitter(self):
         view = InstructorsView()
         self.assertTrue(view.table.property("task20Table"))
