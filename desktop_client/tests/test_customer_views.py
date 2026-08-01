@@ -12,12 +12,28 @@ from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
 from desktop_client.app.views.customer_profile_view import CustomerProfileView
 from desktop_client.app.views.customers_view import CustomersView
+from desktop_client.app.views.shell_view import ShellView
 
 
 class CustomerViewTests(TestCase):
     @classmethod
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
+
+    @staticmethod
+    def _center_x(widget, ancestor) -> int:
+        return widget.mapTo(ancestor, widget.rect().center()).x()
+
+    def _shown_manager_customers(self):
+        shell = ShellView("manager@example.com")
+        view = CustomersView()
+        shell.configure_navigation((("customers", "לקוחות"),))
+        shell.add_page("customers", view)
+        shell.show_page("customers")
+        shell.resize(1200, 760)
+        shell.show()
+        self.app.processEvents()
+        return shell, view
 
     def test_view_has_single_contact_details_and_no_multi_contact_controls(self):
         view = CustomersView()
@@ -36,15 +52,13 @@ class CustomerViewTests(TestCase):
         customer["contacts"] = [contact]
         view.show_details(customer_details(customer), customer)
         rendered = " ".join(
-            form.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
-            for form in view.detail_forms.values()
-            for row in range(form.rowCount())
+            fields.itemAtPosition(row, 0).widget().text()
+            for key, fields in view.detail_forms.items()
+            for row in range(view._detail_rows[key])
         )
         self.assertIn("איש קשר", rendered)
         self.assertIn("050-1", rendered)
-        self.assertEqual(view.customer_details.rowCount(), 7)
-        self.assertEqual(view.contact_details.rowCount(), 2)
-        self.assertEqual(view.system_details.rowCount(), 3)
+        self.assertEqual(view._detail_rows, {"customer": 7, "contact": 2, "system": 3})
         profile = CustomerProfileView()
         self.assertFalse(hasattr(profile, "contacts"))
         profile.show_profile(customer_details(customer))
@@ -86,6 +100,22 @@ class CustomerViewTests(TestCase):
         self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
         self.assertLess(dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topLeft()).y(), dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).y())
         self.assertLess(dialog.fields["contact_name"].mapTo(dialog, dialog.fields["contact_name"].rect().topLeft()).y(), dialog.notes.mapTo(dialog, dialog.notes.rect().topLeft()).y())
+        self.assertGreater(self._center_x(dialog.heading_label, dialog), dialog.width() // 2)
+        self.assertGreater(self._center_x(dialog.save_button, dialog), self._center_x(dialog.cancel_button, dialog))
+        name_label = dialog.form.labelForField(dialog.fields["name"])
+        self.assertGreater(self._center_x(name_label, dialog), dialog.width() // 2)
+        self.assertLess(name_label.geometry().bottom(), dialog.fields["name"].geometry().top())
+        dialog.close()
+
+    def test_edit_dialog_reuses_the_same_rendered_rtl_form_geometry(self):
+        dialog = CustomerDialog({"name": "לקוח", "contact_name": "איש קשר", "contact_phone": "050"})
+        dialog.show()
+        self.app.processEvents()
+        self.assertEqual(dialog.heading_label.text(), "עריכת לקוח")
+        self.assertEqual(dialog.save_button.text(), "שמירת שינויים")
+        self.assertGreater(self._center_x(dialog.heading_label, dialog), dialog.width() // 2)
+        self.assertGreater(self._center_x(dialog.save_button, dialog), self._center_x(dialog.cancel_button, dialog))
+        self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
         dialog.close()
 
     def test_list_selection_open_paths_and_return_preserve_list_state(self):
@@ -113,18 +143,23 @@ class CustomerViewTests(TestCase):
         self.assertIs(view.pages.currentWidget(), view.details_page)
 
     def test_details_header_and_actions_keep_rtl_regions(self):
-        view = CustomersView()
+        shell, view = self._shown_manager_customers()
         customer = {"id": "c1", "name": "לקוח", "is_active": True, "contacts": []}
-        view.resize(1200, 760)
-        view.show()
         view.show_customers([{**customer, "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com"}], offset=0, count=1, filtered=False)
         view.show_details(customer_details(customer), customer)
         view.select_customer("c1")
         view._open_selected_customer()
         self.app.processEvents()
-        self.assertGreater(view.detail_title.geometry().x(), view.edit_button.geometry().x())
-        self.assertGreater(view.back_button.geometry().x(), view.edit_button.geometry().x())
-        view.close()
+        self.assertGreater(self._center_x(view.identity_container, view), self._center_x(view.actions_container, view))
+        self.assertLess(self._center_x(view.back_button, view), view.width() // 2)
+        for key, fields in view.detail_forms.items():
+            heading = view.detail_groups[key].section_heading
+            self.assertGreater(self._center_x(heading, view), view.width() // 2)
+            if view._detail_rows[key]:
+                label = fields.itemAtPosition(0, 1).widget()
+                value = fields.itemAtPosition(0, 0).widget()
+                self.assertGreater(self._center_x(label, view), self._center_x(value, view))
+        shell.close()
 
     def test_sort_by_is_a_single_immediate_selection_without_extra_editors(self):
         view = CustomersView()
@@ -138,19 +173,21 @@ class CustomerViewTests(TestCase):
         self.assertEqual(emitted[-1]["order_by"], "created_at")
 
     def test_final_list_polish_prioritizes_search_table_and_compact_pager(self):
-        view = CustomersView()
-        view.resize(1200, 760)
-        view.show()
-        self.app.processEvents()
+        shell, view = self._shown_manager_customers()
         self.assertEqual(view.toolbar.search_button.objectName(), "customerSearchButton")
-        self.assertGreater(view.toolbar.search_input.geometry().x(), view.toolbar.search_button.geometry().x())
+        positions = [
+            self._center_x(control, view)
+            for control in (view.toolbar.search_input, view.toolbar.search_button, view.sort_by, view.toolbar.refresh_button)
+        ]
+        self.assertEqual(positions, sorted(positions, reverse=True))
         self.assertEqual(view.sort_by.currentData(), "name")
         self.assertLessEqual(view.footer.width(), 440)
         self.assertGreater(view.table.height(), 350)
         self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
-        self.assertGreater(view.scaffold.header.title.geometry().x(), view.create_button.geometry().x())
+        self.assertGreater(self._center_x(view.scaffold.header.title, view), self._center_x(view.create_button, view))
+        self.assertEqual([view.table.horizontalHeader().visualIndex(column) for column in range(4)], [0, 1, 2, 3])
         self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
-        view.close()
+        shell.close()
 
     def test_reset_clears_search_sort_and_selection_and_returns_to_first_page(self):
         view = CustomersView()

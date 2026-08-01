@@ -1,8 +1,8 @@
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import (
     QBoxLayout,
-    QFormLayout,
     QFrame,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -48,6 +48,9 @@ class CustomersView(StatefulWidget):
         self.scaffold.root.setSpacing(SPACE_3)
         self.scaffold.header.layout().setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
         self.scaffold.header.layout().setSpacing(SPACE_2)
+        self.scaffold.header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.scaffold.header.title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.scaffold.header.description.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         root.addWidget(self.scaffold)
 
         self.create_button = QPushButton("לקוח חדש")
@@ -73,6 +76,7 @@ class CustomersView(StatefulWidget):
         self.scaffold.main_content.addWidget(self.pages, 1)
 
         self.footer = PaginationFooter()
+        self.footer.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.footer.page_requested.connect(self.page_requested)
         self.footer.previous_button.setMaximumWidth(120)
         self.footer.next_button.setMaximumWidth(120)
@@ -104,6 +108,7 @@ class CustomersView(StatefulWidget):
         self.list_layout.setSpacing(SPACE_2)
 
         search_panel = QWidget()
+        search_panel.setObjectName("filterPanel")
         search_layout = QVBoxLayout(search_panel)
         search_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
         search_layout.setSpacing(SPACE_3)
@@ -111,8 +116,22 @@ class CustomersView(StatefulWidget):
             placeholder="חיפוש לפי שם, דוא״ל או טלפון",
             sort_options=(("name", "מיון לפי: שם"), ("created_at", "מיון לפי: תאריך יצירה")),
         )
+        self.toolbar.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.toolbar.layout().setDirection(QBoxLayout.Direction.RightToLeft)
-        self.toolbar.search_input.setMinimumWidth(420)
+        self.toolbar.layout().setContentsMargins(0, 0, 0, 0)
+        self.toolbar.layout().setSpacing(SPACE_2)
+        for control in (
+            self.toolbar.search_input,
+            self.toolbar.sort_combo,
+            self.toolbar.search_button,
+            self.toolbar.refresh_button,
+        ):
+            self.toolbar.layout().removeWidget(control)
+        self.toolbar.layout().addWidget(self.toolbar.search_input, 1)
+        self.toolbar.layout().addWidget(self.toolbar.search_button)
+        self.toolbar.layout().addWidget(self.toolbar.sort_combo)
+        self.toolbar.layout().addWidget(self.toolbar.refresh_button)
+        self.toolbar.search_input.setMinimumWidth(300)
         self.toolbar.search_button.setObjectName("customerSearchButton")
         self.toolbar.search_button.setProperty("primary", True)
         self.toolbar.search_requested.connect(self._search)
@@ -121,6 +140,7 @@ class CustomersView(StatefulWidget):
         self.toolbar.refresh_button.setAccessibleDescription("ניקוי החיפוש, איפוס המיון וחזרה לעמוד הראשון")
         self.toolbar.refresh_requested.connect(self._reset_filters)
         self.sort_by = self.toolbar.sort_combo
+        self.sort_by.setMinimumWidth(190)
         self.sort_by.setAccessibleName("מיון לפי")
         self.sort_by.currentIndexChanged.connect(self._sort_changed)
         search_layout.addWidget(self.toolbar)
@@ -151,6 +171,10 @@ class CustomersView(StatefulWidget):
                 ColumnPolicy(ColumnKind.SECONDARY_TEXT),
                 ColumnPolicy(ColumnKind.COMPACT),
             ),
+        )
+        self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.table.horizontalHeader().setDefaultAlignment(
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
         )
         self.table.setAccessibleDescription("חץ למעלה ולמטה לבחירה; Enter או לחיצה כפולה לפתיחת פרטים")
         self.table.itemSelectionChanged.connect(self._select)
@@ -189,31 +213,48 @@ class CustomersView(StatefulWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(SPACE_4)
 
-        navigation = QHBoxLayout()
-        navigation.setDirection(QBoxLayout.Direction.RightToLeft)
+        navigation_widget = QWidget()
+        navigation_widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        navigation = QHBoxLayout(navigation_widget)
+        navigation.setContentsMargins(0, 0, 0, 0)
+        navigation.setDirection(QBoxLayout.Direction.LeftToRight)
         self.back_button = QPushButton("חזרה לרשימת הלקוחות")
         self.back_button.setAccessibleName("חזרה לרשימת הלקוחות")
         self.back_button.clicked.connect(self._set_list_page)
         navigation.addWidget(self.back_button)
         navigation.addStretch()
-        layout.addLayout(navigation)
+        layout.addWidget(navigation_widget)
 
         header = QFrame()
         header.setObjectName("pageHeader")
+        header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         header_layout = QHBoxLayout(header)
-        header_layout.setDirection(QBoxLayout.Direction.RightToLeft)
+        header_layout.setDirection(QBoxLayout.Direction.LeftToRight)
         header_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
-        identity = QVBoxLayout()
+        self.identity_container = QWidget()
+        self.identity_container.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        identity = QVBoxLayout(self.identity_container)
+        identity.setContentsMargins(0, 0, 0, 0)
         identity.setSpacing(SPACE_2)
+        identity_top = QHBoxLayout()
+        identity_top.setContentsMargins(0, 0, 0, 0)
+        identity_top.setDirection(QBoxLayout.Direction.RightToLeft)
         self.detail_title = QLabel("פרטי לקוח")
         self.detail_title.setObjectName("screenTitle")
         self.detail_title.setAccessibleName("פרטי לקוח")
+        self.detail_title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.detail_subtitle = QLabel("מידע מלא ופעולות עבור הלקוח שנבחר")
-        identity.addWidget(self.detail_title)
-        identity.addWidget(self.detail_subtitle)
-        header_layout.addLayout(identity, 1)
+        self.detail_subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.detail_status = ActiveBadge()
-        header_layout.addWidget(self.detail_status)
+        identity_top.addWidget(self.detail_title)
+        identity_top.addWidget(self.detail_status)
+        identity_top.addStretch()
+        identity.addLayout(identity_top)
+        identity.addWidget(self.detail_subtitle)
+        self.actions_container = QWidget()
+        actions = QHBoxLayout(self.actions_container)
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(SPACE_2)
         self.edit_button = QPushButton("עריכת לקוח")
         self.delete_button = QPushButton("מחיקת לקוח")
         self.edit_button.clicked.connect(self.edit_requested)
@@ -221,8 +262,11 @@ class CustomersView(StatefulWidget):
         self.edit_button.setAccessibleName("עריכת הלקוח")
         self.delete_button.setAccessibleName("מחיקת הלקוח")
         self.delete_button.setProperty("destructive", True)
-        header_layout.addWidget(self.edit_button)
-        header_layout.addWidget(self.delete_button)
+        actions.addWidget(self.delete_button)
+        actions.addWidget(self.edit_button)
+        header_layout.addWidget(self.actions_container)
+        header_layout.addStretch()
+        header_layout.addWidget(self.identity_container)
         layout.addWidget(header)
 
         self.detail_loading_label = QLabel("טוען פרטי לקוח…")
@@ -232,11 +276,11 @@ class CustomersView(StatefulWidget):
 
         self.details_widget = QWidget()
         detail_layout = QVBoxLayout(self.details_widget)
-        detail_layout.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6)
-        sections = QHBoxLayout()
-        sections.setDirection(QBoxLayout.Direction.RightToLeft)
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        sections = QVBoxLayout()
+        sections.setContentsMargins(0, 0, 0, 0)
         sections.setSpacing(SPACE_4)
-        self.detail_forms: dict[str, QFormLayout] = {}
+        self.detail_forms: dict[str, QGridLayout] = {}
         customer_group, self.customer_details = self._detail_group("פרטי לקוח")
         contact_group, self.contact_details = self._detail_group("פרטי קשר")
         system_group, self.system_details = self._detail_group("מידע מערכת")
@@ -245,15 +289,17 @@ class CustomersView(StatefulWidget):
             "contact": self.contact_details,
             "system": self.system_details,
         }
-        secondary = QVBoxLayout()
-        secondary.setSpacing(SPACE_4)
-        secondary.addWidget(contact_group)
-        secondary.addWidget(system_group)
-        secondary.addStretch()
-        sections.addWidget(customer_group, 3)
-        sections.addLayout(secondary, 2)
-        detail_layout.addLayout(sections)
-        detail_layout.addStretch()
+        self.detail_groups = {
+            "customer": customer_group,
+            "contact": contact_group,
+            "system": system_group,
+        }
+        self._detail_rows = {key: 0 for key in self.detail_forms}
+        sections.addWidget(customer_group)
+        sections.addWidget(contact_group)
+        sections.addWidget(system_group)
+        sections.addStretch()
+        detail_layout.addLayout(sections, 1)
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
         self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
@@ -262,33 +308,47 @@ class CustomersView(StatefulWidget):
         return page
 
     @staticmethod
-    def _detail_group(title: str) -> tuple[QWidget, QFormLayout]:
-        group = QWidget()
+    def _detail_group(title: str) -> tuple[QFrame, QGridLayout]:
+        group = QFrame()
+        group.setObjectName("detailPanel")
+        group.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         group.setAccessibleName(title)
         layout = QVBoxLayout(group)
-        layout.setContentsMargins(SPACE_4, SPACE_2, SPACE_4, SPACE_2)
+        layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4)
         layout.setSpacing(SPACE_3)
+        heading_row = QWidget()
+        heading_row.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        heading_layout = QHBoxLayout(heading_row)
+        heading_layout.setContentsMargins(0, 0, 0, 0)
+        heading_layout.addStretch()
         heading = QLabel(title)
+        heading.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         heading.setObjectName("sectionTitle")
         heading.setAccessibleName(title)
-        layout.addWidget(heading)
-        form = QFormLayout()
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setVerticalSpacing(SPACE_3)
-        form.setHorizontalSpacing(SPACE_4)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        layout.addLayout(form)
+        heading.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        heading_layout.addWidget(heading)
+        group.section_heading = heading
+        layout.addWidget(heading_row)
+        fields = QGridLayout()
+        fields.setContentsMargins(0, 0, 0, 0)
+        fields.setVerticalSpacing(SPACE_3)
+        fields.setHorizontalSpacing(SPACE_4)
+        fields.setColumnStretch(0, 1)
+        fields.setColumnStretch(1, 0)
+        layout.addLayout(fields)
         layout.addStretch()
-        return group, form
+        return group, fields
 
     def _clear_detail_forms(self) -> None:
-        for form in self.detail_forms.values():
-            while form.rowCount():
-                form.removeRow(0)
+        for key, fields in self.detail_forms.items():
+            while fields.count():
+                item = fields.takeAt(0)
+                if item.widget() is not None:
+                    item.widget().deleteLater()
+            self._detail_rows[key] = 0
 
     def _detail_row_count(self) -> int:
-        return sum(form.rowCount() for form in self.detail_forms.values())
+        return sum(self._detail_rows.values())
 
     def eventFilter(self, watched, event) -> bool:
         if watched is self.table and event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
@@ -327,14 +387,15 @@ class CustomersView(StatefulWidget):
             self.create_requested.emit()
 
     def _select(self) -> None:
-        rows = self.table.selectionModel().selectedRows()
-        if not rows:
+        selected_indexes = self.table.selectionModel().selectedIndexes()
+        if not selected_indexes:
             self._selected_customer_id = None
             self.view_details_button.setEnabled(False)
             set_disabled_explanation(self.view_details_button, "יש לבחור לקוח תחילה")
             return
-        customer_id = str(self.table.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole))
-        if customer_id != self._selected_customer_id:
+        customer_id = str(self.table.item(selected_indexes[0].row(), 0).data(Qt.ItemDataRole.UserRole))
+        selection_changed = customer_id != self._selected_customer_id
+        if selection_changed:
             self._clear_detail_forms()
             self.detail_title.setText("פרטי לקוח")
             self.details_scroll.hide()
@@ -343,7 +404,8 @@ class CustomersView(StatefulWidget):
         self._selected_customer_id = customer_id
         self.view_details_button.setEnabled(True)
         self.view_details_button.setAccessibleDescription("פותח את כרטיס הלקוח שנבחר")
-        self.customer_selected.emit(self._selected_customer_id)
+        if selection_changed:
+            self.customer_selected.emit(self._selected_customer_id)
 
     def _open_selected_customer(self) -> None:
         if not self._selected_customer_id and self.table.currentRow() >= 0:
@@ -415,11 +477,13 @@ class CustomersView(StatefulWidget):
         for row_index, row in enumerate(rows):
             for column, key in enumerate(("name", "customer_type", "city")):
                 item = QTableWidgetItem(str(row[key]))
+                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
                 set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row["id"])
             badge = ActiveBadge()
             badge.set_active(row["is_active"])
+            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.table.setCellWidget(row_index, 3, badge)
         self.results_label.setText(f"לקוחות • {len(rows)}")
         self.footer.set_page(offset=offset, count=count)
@@ -457,17 +521,26 @@ class CustomersView(StatefulWidget):
         for label, value in details:
             content = QLabel(value)
             content.setWordWrap(True)
+            content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             content.setToolTip(value)
             if any(token in label for token in ("דוא", "טלפון", "מזהה")):
                 configure_mixed_direction(content)
+                content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             if label in {"איש קשר", "טלפון איש קשר"}:
-                target = self.contact_details
+                section = "contact"
             elif label in {"מצב", "נוצר", "עודכן"}:
-                target = self.system_details
+                section = "system"
             else:
-                target = self.customer_details
-            target.addRow(label, content)
+                section = "customer"
+            label_widget = QLabel(label)
+            label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            target = self.detail_forms[section]
+            row = self._detail_rows[section]
+            target.addWidget(content, row, 0)
+            target.addWidget(label_widget, row, 1)
+            self._detail_rows[section] += 1
         self.detail_title.setText(str(customer.get("name") or "פרטי לקוח"))
         self.detail_title.setAccessibleName(f"פרטי לקוח: {self.detail_title.text()}")
         self.detail_status.set_active(bool(customer.get("is_active")))
@@ -494,9 +567,19 @@ class CustomersView(StatefulWidget):
     def select_customer(self, customer_id: str) -> None:
         for row in range(self.table.rowCount()):
             if str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)) == customer_id:
+                signals_were_blocked = self.table.blockSignals(True)
+                index = self.table.model().index(row, 0)
+                self.table.selectionModel().setCurrentIndex(
+                    index,
+                    QItemSelectionModel.SelectionFlag.ClearAndSelect
+                    | QItemSelectionModel.SelectionFlag.Rows,
+                )
+                self.table.blockSignals(signals_were_blocked)
+                selection_changed = self._selected_customer_id != customer_id
                 self._selected_customer_id = customer_id
                 self.view_details_button.setEnabled(True)
-                self.table.selectRow(row)
+                if selection_changed:
+                    self.customer_selected.emit(customer_id)
                 break
 
     def open_customer_form(self, initial, submit) -> None:

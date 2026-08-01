@@ -5,6 +5,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFormLayout,
+    QHBoxLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -42,6 +43,7 @@ class _BaseFormDialog(QDialog):
         self.root.setContentsMargins(DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING)
         self.root.setSpacing(DIALOG_SECTION_GAP)
         body = QWidget()
+        body.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.body_layout = QVBoxLayout(body)
         self.body_layout.setContentsMargins(0, 0, 0, 0)
         self.form = QFormLayout()
@@ -60,6 +62,7 @@ class _BaseFormDialog(QDialog):
         self.error_label.hide()
         self.root.addWidget(self.error_label)
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        self.buttons.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.buttons.setAccessibleName("פעולות הטופס")
         self.save_button = self.buttons.button(QDialogButtonBox.StandardButton.Save)
         self.save_button.setText("שמירה")
@@ -108,6 +111,7 @@ class CustomerDialog(_BaseFormDialog):
         self.root.setSpacing(SPACE_3)
 
         heading = QWidget()
+        heading.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         heading_layout = QVBoxLayout(heading)
         heading_layout.setContentsMargins(0, 0, 0, 0)
         heading_layout.setSpacing(SPACE_2)
@@ -116,10 +120,18 @@ class CustomerDialog(_BaseFormDialog):
         self.heading_label.setAccessibleName(self.windowTitle())
         self.heading_description = QLabel("פרטי הלקוח ופרטי איש הקשר")
         self.required_hint = QLabel("* שדה חובה")
+        for label in (self.heading_label, self.heading_description, self.required_hint):
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.required_hint.setAccessibleName("סימון שדות חובה")
-        heading_layout.addWidget(self.heading_label)
-        heading_layout.addWidget(self.heading_description)
-        heading_layout.addWidget(self.required_hint)
+        for label in (self.heading_label, self.heading_description, self.required_hint):
+            row = QWidget()
+            row.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.addStretch()
+            row_layout.addWidget(label)
+            heading_layout.addWidget(row)
         self.root.insertWidget(0, heading)
 
         self.body_layout.removeItem(self.form)
@@ -151,6 +163,7 @@ class CustomerDialog(_BaseFormDialog):
         for key in ("phone", "email", "contact_phone"):
             configure_mixed_direction(self.fields[key])
         self.notes = QPlainTextEdit(str(initial.get("notes") or ""))
+        self.notes.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.notes.setAccessibleName("הערות")
         self.notes.setMinimumHeight(132)
         self.body_layout.addWidget(self.notes)
@@ -180,6 +193,8 @@ class CustomerDialog(_BaseFormDialog):
         form.setHorizontalSpacing(SPACE_3)
         form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
 
     def _add_field(self, form: QFormLayout, key: str, label: str, initial: dict) -> None:
         field = QLineEdit(str(initial.get(key) or ""))
