@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QBoxLayout, QFrame, QHBoxLayout, QLabel, QPushButton, QStackedWidget,
-    QTableWidget, QVBoxLayout, QWidget,
+    QBoxLayout, QFormLayout, QFrame, QHBoxLayout, QLabel, QPushButton,
+    QSizePolicy, QStackedWidget, QTableWidget, QVBoxLayout, QWidget,
 )
 
 from desktop_client.app.views.design_tokens import CONTROL_HEIGHT, SPACE_2, SPACE_3, SPACE_4
@@ -15,6 +15,7 @@ class ManagementWorkspace(QWidget):
     """Shared list-to-details composition for role-specific management modules."""
 
     def __init__(self, *, title: str, subtitle: str, create_text: str, plural: str,
+                 detail_subtitle: str,
                  search_placeholder: str, sort_options: tuple[tuple[str, str], ...],
                  headers: tuple[str, ...], policies: tuple[ColumnPolicy, ...]) -> None:
         super().__init__()
@@ -40,15 +41,25 @@ class ManagementWorkspace(QWidget):
         self.footer = PaginationFooter(); self.footer.setMaximumWidth(440); listing.addWidget(self.footer, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         detail = QVBoxLayout(self.details_page); detail.setContentsMargins(0, 0, 0, 0); detail.setSpacing(SPACE_4)
-        back_row = QHBoxLayout(); self.back_button = QPushButton(f"חזרה לרשימת {plural}"); back_row.addWidget(self.back_button); back_row.addStretch(); detail.addLayout(back_row)
-        self.detail_header = QFrame(); self.detail_header.setObjectName("pageHeader"); header = QHBoxLayout(self.detail_header); header.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
-        self.actions = QHBoxLayout(); self.actions.setDirection(QBoxLayout.Direction.RightToLeft); self.actions.setSpacing(SPACE_2); header.addLayout(self.actions); header.addStretch()
-        identity = QVBoxLayout(); self.detail_title = QLabel(); self.detail_title.setObjectName("screenTitle"); self.detail_status = ActiveBadge(); identity.addWidget(self.detail_title); identity.addWidget(self.detail_status, alignment=Qt.AlignmentFlag.AlignRight); header.addLayout(identity); detail.addWidget(self.detail_header)
-        self.cards = QHBoxLayout(); self.cards.setDirection(QBoxLayout.Direction.RightToLeft); self.cards.setSpacing(SPACE_4); detail.addLayout(self.cards, 1)
-        self.back_button.clicked.connect(lambda: self.pages.setCurrentWidget(self.list_page)); self.pages.setCurrentWidget(self.list_page)
+        navigation = QWidget(); navigation.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        back_row = QHBoxLayout(navigation); back_row.setContentsMargins(0, 0, 0, 0); back_row.setDirection(QBoxLayout.Direction.LeftToRight)
+        self.back_button = QPushButton(f"חזרה לרשימת {plural}"); back_row.addWidget(self.back_button); back_row.addStretch(); detail.addWidget(navigation)
+        self.detail_header = QFrame(); self.detail_header.setObjectName("pageHeader"); self.detail_header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        header = QHBoxLayout(self.detail_header); header.setDirection(QBoxLayout.Direction.LeftToRight); header.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
+        self.actions_container = QWidget(); self.actions = QHBoxLayout(self.actions_container); self.actions.setContentsMargins(0, 0, 0, 0); self.actions.setSpacing(SPACE_2); header.addWidget(self.actions_container); header.addStretch()
+        self.identity_container = QWidget(); self.identity_container.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        identity = QVBoxLayout(self.identity_container); identity.setContentsMargins(0, 0, 0, 0); identity.setSpacing(SPACE_2)
+        identity_top = QHBoxLayout(); identity_top.setContentsMargins(0, 0, 0, 0); identity_top.setDirection(QBoxLayout.Direction.RightToLeft)
+        self.detail_title = QLabel(); self.detail_title.setObjectName("screenTitle"); self.detail_title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        identity_top.addWidget(self.detail_title); identity_top.addStretch(); identity.addLayout(identity_top)
+        self.detail_status = ActiveBadge(); identity.addWidget(self.detail_status, alignment=Qt.AlignmentFlag.AlignRight)
+        self.detail_subtitle = QLabel(detail_subtitle); self.detail_subtitle.setWordWrap(True); self.detail_subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); identity.addWidget(self.detail_subtitle)
+        header.addWidget(self.identity_container); detail.addWidget(self.detail_header)
+        self.cards = QBoxLayout(QBoxLayout.Direction.RightToLeft); self.cards.setContentsMargins(0, 0, 0, 0); self.cards.setSpacing(SPACE_4); detail.addLayout(self.cards, 1)
+        self.back_button.clicked.connect(self.show_list); self.pages.setCurrentWidget(self.list_page)
 
     def add_action(self, text: str, *, destructive: bool = False) -> QPushButton:
-        button = QPushButton(text); button.setMinimumSize(148, CONTROL_HEIGHT); button.setMaximumWidth(148); button.setProperty("destructive", destructive); self.actions.addWidget(button); return button
+        button = QPushButton(text); button.setMinimumSize(148, CONTROL_HEIGHT); button.setMaximumWidth(148); button.setProperty("destructive", destructive); self.actions.insertWidget(0, button); return button
 
     def set_actions_enabled(self, enabled: bool) -> None:
         for index in range(self.actions.count()):
@@ -58,7 +69,38 @@ class ManagementWorkspace(QWidget):
     def show_detail_identity(self, name: str, active: bool) -> None:
         self.detail_title.setText(name); self.detail_status.set_active(active)
 
+    def show_details(self) -> None:
+        self.scaffold.header.hide(); self.pages.setCurrentWidget(self.details_page); self.back_button.setFocus()
+
+    def show_list(self) -> None:
+        self.scaffold.header.show(); self.pages.setCurrentWidget(self.list_page); self.table.setFocus()
+
     def add_card(self, title: str):
-        frame = QFrame(); frame.setObjectName("detailPanel"); layout = QVBoxLayout(frame); layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4); heading = QLabel(title); heading.setObjectName("sectionTitle"); layout.addWidget(heading)
-        from PySide6.QtWidgets import QFormLayout
-        form = QFormLayout(); form.setLabelAlignment(Qt.AlignmentFlag.AlignRight); form.setVerticalSpacing(SPACE_3); layout.addLayout(form); layout.addStretch(); self.cards.addWidget(frame, 1); return form
+        frame = QFrame(); frame.setObjectName("detailPanel"); frame.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        layout = QVBoxLayout(frame); layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4); layout.setSpacing(SPACE_3)
+        heading_row = QHBoxLayout(); heading_row.setContentsMargins(0, 0, 0, 0); heading_row.addStretch()
+        heading = QLabel(title); heading.setObjectName("sectionTitle"); heading.setLayoutDirection(Qt.LayoutDirection.RightToLeft); heading.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); heading_row.addWidget(heading); layout.addLayout(heading_row)
+        form_host = QWidget(); form_host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        form = QFormLayout(form_host); form.setContentsMargins(0, 0, 0, 0); form.setHorizontalSpacing(SPACE_4); form.setVerticalSpacing(SPACE_3); form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight); form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        layout.addWidget(form_host); layout.addStretch(); self.cards.addWidget(frame)
+        count = self.cards.count()
+        for index in range(count): self.cards.setStretch(index, 3 if index == 0 else 2)
+        return form
+
+    @staticmethod
+    def add_property_row(form: QFormLayout, label: str, content: QLabel) -> None:
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+        form.addRow(label, content)
+        label_widget = form.itemAt(form.rowCount() - 1, QFormLayout.ItemRole.LabelRole).widget()
+        if isinstance(label_widget, QLabel):
+            label_widget.setFixedWidth(140); label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft); label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+    @staticmethod
+    def configure_status_badge(badge: ActiveBadge) -> None:
+        badge.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+        badge.setContentsMargins(SPACE_3, 0, SPACE_3, 0)
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        self.cards.setDirection(QBoxLayout.Direction.RightToLeft if event.size().width() >= 880 else QBoxLayout.Direction.TopToBottom)
+        super().resizeEvent(event)

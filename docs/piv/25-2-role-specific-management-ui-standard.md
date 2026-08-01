@@ -72,3 +72,16 @@ Focused tests cover top-level-window lifecycle, startup replacement, module
 string isolation, toolbar order and immediate sorting, explicit RTL alignment,
 semantic widths, and repository sort whitelists. No screenshots or visual
 assets were created.
+
+## Final visual parity follow-up
+
+Instructor and Manager Details now use the Customer Details hero as their
+literal composition reference: opening Details hides the list-page header,
+Back restores it, and the hero owns the title, status, module-specific
+subtitle, and equal-width actions. Property cards share the Customer padding,
+heading alignment, 140-pixel label column, right-aligned expanding values,
+3:2 wide-screen proportions, and stacked narrow-screen composition. Management
+status cells use the same active badge while retaining explicit RTL item
+alignment. The shared table foundation continues to provide identical row and
+header heights, typography, selection, alternation, padding, scrolling, and
+column-resize behavior.
