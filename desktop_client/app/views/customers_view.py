@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
@@ -28,6 +29,9 @@ from desktop_client.app.views.ui_foundations import (
     set_disabled_explanation,
     set_item_text,
 )
+
+DETAIL_LABEL_WIDTH = 140
+DETAILS_WIDE_BREAKPOINT = 880
 
 
 class CustomersView(StatefulWidget):
@@ -166,15 +170,19 @@ class CustomersView(StatefulWidget):
             self.table,
             "רשימת לקוחות",
             (
-                ColumnPolicy(ColumnKind.PRIMARY_TEXT),
+                ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180),
+                ColumnPolicy(ColumnKind.SECONDARY_TEXT, 140, 220),
+                ColumnPolicy(ColumnKind.SECONDARY_TEXT, 150, 240),
                 ColumnPolicy(ColumnKind.COMPACT, 110),
-                ColumnPolicy(ColumnKind.SECONDARY_TEXT),
-                ColumnPolicy(ColumnKind.COMPACT),
             ),
         )
+        self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.table.horizontalHeader().setDefaultAlignment(
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
+            Qt.AlignmentFlag.AlignRight
+            | Qt.AlignmentFlag.AlignVCenter
+            | Qt.AlignmentFlag.AlignAbsolute
         )
         self.table.setAccessibleDescription("חץ למעלה ולמטה לבחירה; Enter או לחיצה כפולה לפתיחת פרטים")
         self.table.itemSelectionChanged.connect(self._select)
@@ -244,6 +252,7 @@ class CustomersView(StatefulWidget):
         self.detail_title.setAccessibleName("פרטי לקוח")
         self.detail_title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.detail_subtitle = QLabel("מידע מלא ופעולות עבור הלקוח שנבחר")
+        self.detail_subtitle.setWordWrap(True)
         self.detail_subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.detail_status = ActiveBadge()
         identity_top.addWidget(self.detail_title)
@@ -275,11 +284,12 @@ class CustomersView(StatefulWidget):
         layout.addWidget(self.detail_loading_label, 1)
 
         self.details_widget = QWidget()
+        self.details_widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         detail_layout = QVBoxLayout(self.details_widget)
         detail_layout.setContentsMargins(0, 0, 0, 0)
-        sections = QVBoxLayout()
-        sections.setContentsMargins(0, 0, 0, 0)
-        sections.setSpacing(SPACE_4)
+        self.detail_sections = QBoxLayout(QBoxLayout.Direction.TopToBottom)
+        self.detail_sections.setContentsMargins(0, 0, 0, 0)
+        self.detail_sections.setSpacing(SPACE_4)
         self.detail_forms: dict[str, QGridLayout] = {}
         customer_group, self.customer_details = self._detail_group("פרטי לקוח")
         contact_group, self.contact_details = self._detail_group("פרטי קשר")
@@ -295,15 +305,26 @@ class CustomersView(StatefulWidget):
             "system": system_group,
         }
         self._detail_rows = {key: 0 for key in self.detail_forms}
-        sections.addWidget(customer_group)
-        sections.addWidget(contact_group)
-        sections.addWidget(system_group)
-        sections.addStretch()
-        detail_layout.addLayout(sections, 1)
+        self.secondary_details = QWidget()
+        self.secondary_details.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        secondary = QVBoxLayout(self.secondary_details)
+        secondary.setContentsMargins(0, 0, 0, 0)
+        secondary.setSpacing(SPACE_4)
+        secondary.addWidget(contact_group)
+        secondary.addWidget(system_group)
+        secondary.addStretch()
+        self.detail_sections.addWidget(customer_group)
+        self.detail_sections.addWidget(self.secondary_details)
+        detail_layout.addLayout(self.detail_sections)
+        detail_layout.addStretch()
         self.details_scroll = QScrollArea()
         self.details_scroll.setWidgetResizable(True)
         self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self.details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.details_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.details_scroll.setWidget(self.details_widget)
+        self.details_scroll.viewport().installEventFilter(self)
+        self._update_details_composition(self.details_scroll.viewport().width())
         layout.addWidget(self.details_scroll, 1)
         return page
 
@@ -335,6 +356,7 @@ class CustomersView(StatefulWidget):
         fields.setHorizontalSpacing(SPACE_4)
         fields.setColumnStretch(0, 1)
         fields.setColumnStretch(1, 0)
+        fields.setColumnMinimumWidth(1, DETAIL_LABEL_WIDTH)
         layout.addLayout(fields)
         layout.addStretch()
         return group, fields
@@ -354,7 +376,18 @@ class CustomersView(StatefulWidget):
         if watched is self.table and event.type() == QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
             self._open_selected_customer()
             return True
+        details_scroll = getattr(self, "details_scroll", None)
+        if details_scroll is not None and watched is details_scroll.viewport() and event.type() == QEvent.Type.Resize:
+            self._update_details_composition(event.size().width())
         return super().eventFilter(watched, event)
+
+    def _update_details_composition(self, width: int) -> None:
+        wide = width >= DETAILS_WIDE_BREAKPOINT
+        self.detail_sections.setDirection(
+            QBoxLayout.Direction.RightToLeft if wide else QBoxLayout.Direction.TopToBottom
+        )
+        self.detail_sections.setStretch(0, 3 if wide else 0)
+        self.detail_sections.setStretch(1, 2 if wide else 0)
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape and self.pages.currentWidget() is self.details_page:
@@ -477,13 +510,22 @@ class CustomersView(StatefulWidget):
         for row_index, row in enumerate(rows):
             for column, key in enumerate(("name", "customer_type", "city")):
                 item = QTableWidgetItem(str(row[key]))
-                item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                item.setTextAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter
+                    | Qt.AlignmentFlag.AlignAbsolute
+                )
                 set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
                 if column == 0:
                     item.setData(Qt.ItemDataRole.UserRole, row["id"])
             badge = ActiveBadge()
             badge.set_active(row["is_active"])
-            badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            badge.setAlignment(
+                Qt.AlignmentFlag.AlignRight
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.AlignmentFlag.AlignAbsolute
+            )
+            badge.setContentsMargins(SPACE_3, 0, SPACE_3, 0)
             self.table.setCellWidget(row_index, 3, badge)
         self.results_label.setText(f"לקוחות • {len(rows)}")
         self.footer.set_page(offset=offset, count=count)
@@ -521,12 +563,21 @@ class CustomersView(StatefulWidget):
         for label, value in details:
             content = QLabel(value)
             content.setWordWrap(True)
-            content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+            content.setAlignment(
+                Qt.AlignmentFlag.AlignRight
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.AlignmentFlag.AlignAbsolute
+            )
             content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             content.setToolTip(value)
             if any(token in label for token in ("דוא", "טלפון", "מזהה")):
                 configure_mixed_direction(content)
-                content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                content.setAlignment(
+                    Qt.AlignmentFlag.AlignRight
+                    | Qt.AlignmentFlag.AlignVCenter
+                    | Qt.AlignmentFlag.AlignAbsolute
+                )
             if label in {"איש קשר", "טלפון איש קשר"}:
                 section = "contact"
             elif label in {"מצב", "נוצר", "עודכן"}:
@@ -535,7 +586,12 @@ class CustomersView(StatefulWidget):
                 section = "customer"
             label_widget = QLabel(label)
             label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-            label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            label_widget.setFixedWidth(DETAIL_LABEL_WIDTH)
+            label_widget.setAlignment(
+                Qt.AlignmentFlag.AlignRight
+                | Qt.AlignmentFlag.AlignVCenter
+                | Qt.AlignmentFlag.AlignAbsolute
+            )
             target = self.detail_forms[section]
             row = self._detail_rows[section]
             target.addWidget(content, row, 0)

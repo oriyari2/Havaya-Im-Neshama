@@ -41,6 +41,11 @@ _COLUMN_DEFAULTS = {
 class ColumnPolicy:
     kind: ColumnKind
     minimum: int | None = None
+    maximum: int | None = None
+
+    def __post_init__(self) -> None:
+        if self.maximum is not None and self.maximum < self.minimum_width:
+            raise ValueError("Column maximum width cannot be smaller than its minimum width")
 
     @property
     def minimum_width(self) -> int:
@@ -65,15 +70,25 @@ class _SemanticColumnSizer(QObject):
             return
         available = max(0, self.table.viewport().width() - 1)
         widths = [policy.minimum_width for policy in self.policies]
-        extra = available - sum(widths)
-        total_weight = sum(policy.stretch_weight for policy in self.policies)
-        if extra > 0 and total_weight:
+        remaining = max(0, available - sum(widths))
+        active = [index for index, policy in enumerate(self.policies) if policy.stretch_weight]
+        while remaining and active:
+            total_weight = sum(self.policies[index].stretch_weight for index in active)
             distributed = 0
-            weighted = [index for index, policy in enumerate(self.policies) if policy.stretch_weight]
-            for index in weighted[:-1]:
-                addition = extra * self.policies[index].stretch_weight // total_weight
-                widths[index] += addition; distributed += addition
-            widths[weighted[-1]] += extra - distributed
+            for index in tuple(active):
+                policy = self.policies[index]
+                share = max(1, remaining * policy.stretch_weight // total_weight)
+                capacity = remaining if policy.maximum is None else max(0, policy.maximum - widths[index])
+                addition = min(share, capacity, remaining - distributed)
+                widths[index] += addition
+                distributed += addition
+                if policy.maximum is not None and widths[index] >= policy.maximum:
+                    active.remove(index)
+                if distributed >= remaining:
+                    break
+            if not distributed:
+                break
+            remaining -= distributed
         for index, width in enumerate(widths):
             self.table.setColumnWidth(index, width)
 

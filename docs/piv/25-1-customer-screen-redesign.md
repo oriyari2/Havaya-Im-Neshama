@@ -199,6 +199,36 @@ Compilation is validated with:
   retain its authenticated session, and the Customer view returns to the list.
 - No screenshots, images, mockups, or other visual assets were created.
 
+## Responsive layout completion
+
+- The Customer table now uses semantic column policies instead of incidental
+  viewport proportions: Customer Name has a 180 px minimum and receives the
+  flexible remainder, Customer Type is bounded to 140–220 px, City is bounded
+  to 150–240 px, and Status retains a 110 px minimum. The 580 px combined
+  minimum is preserved, with an as-needed horizontal scrollbar below that
+  width and no scrollbar when the viewport can contain the columns.
+- Header and cell RTL alignment, row-wide selection, elision, and full-value
+  tooltips remain intact. Both table scrollbars use as-needed behavior.
+- Customer Details uses a responsive composition. At a details viewport of
+  880 px or wider, Customer Information is the right-hand primary region with
+  a 3:2 share and Contact/System form the left-hand secondary region. Below
+  that breakpoint, the sections stack as Customer, Contact, then System.
+- All Details cards retain the shared 140 px label column, consistent field
+  gap, right-anchored values, selectable mixed-direction values, and vertical
+  scrolling only when the stacked content exceeds the available height.
+- Rendered tests cover 1024×640, 1200×760, and 1440×900 composition, semantic
+  widths and caps, minimum-width horizontal scrolling, card proportions,
+  narrow stacking order, field alignment, long-value tooltips, and scrollbar
+  state.
+
+Files changed by this responsive completion:
+
+- `desktop_client/app/views/customers_view.py`
+- `desktop_client/app/views/ui_foundations.py`
+- `desktop_client/tests/test_customer_views.py`
+- `desktop_client/tests/test_ui_foundations.py`
+- `docs/piv/25-1-customer-screen-redesign.md`
+
 ## Next task
 
 Wait for explicit product-owner direction. Do not redesign another screen as

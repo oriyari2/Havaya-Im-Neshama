@@ -132,6 +132,22 @@ class UiFoundationTests(unittest.TestCase):
         self.assertLessEqual(abs(table.viewport().width() - 1 - sum(large)), 1)
         self.assertGreater(large[0], small[0]); self.assertEqual(large[2], small[2]); table.close()
 
+    def test_semantic_table_policy_caps_bounded_columns_and_preserves_minimums(self) -> None:
+        table = QTableWidget(0, 4); configure_data_table(table, "table", (
+            ColumnPolicy(ColumnKind.PRIMARY_TEXT, 180),
+            ColumnPolicy(ColumnKind.SECONDARY_TEXT, 140, 220),
+            ColumnPolicy(ColumnKind.SECONDARY_TEXT, 150, 240),
+            ColumnPolicy(ColumnKind.COMPACT, 110),
+        ))
+        table.resize(1100, 240); table.show(); self.app.processEvents()
+        widths = tuple(table.columnWidth(index) for index in range(4))
+        self.assertGreater(widths[0], widths[1])
+        self.assertEqual(widths[1:], (220, 240, 110))
+        self.assertLessEqual(abs(table.viewport().width() - 1 - sum(widths)), 1)
+        with self.assertRaises(ValueError):
+            ColumnPolicy(ColumnKind.COMPACT, 100, 90)
+        table.close()
+
     def test_elided_tooltips_preserve_full_directional_values(self) -> None:
         from PySide6.QtWidgets import QTableWidgetItem
         table = QTableWidget(1, 2); configure_data_table(table, "table")

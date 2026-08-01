@@ -24,13 +24,13 @@ class CustomerViewTests(TestCase):
     def _center_x(widget, ancestor) -> int:
         return widget.mapTo(ancestor, widget.rect().center()).x()
 
-    def _shown_manager_customers(self):
+    def _shown_manager_customers(self, width=1200, height=760):
         shell = ShellView("manager@example.com")
         view = CustomersView()
         shell.configure_navigation((("customers", "לקוחות"),))
         shell.add_page("customers", view)
         shell.show_page("customers")
-        shell.resize(1200, 760)
+        shell.resize(width, height)
         shell.show()
         self.app.processEvents()
         return shell, view
@@ -154,12 +154,63 @@ class CustomerViewTests(TestCase):
         self.assertLess(self._center_x(view.back_button, view), view.width() // 2)
         for key, fields in view.detail_forms.items():
             heading = view.detail_groups[key].section_heading
-            self.assertGreater(self._center_x(heading, view), view.width() // 2)
+            group = view.detail_groups[key]
+            self.assertGreater(self._center_x(heading, group), group.width() // 2)
             if view._detail_rows[key]:
                 label = fields.itemAtPosition(0, 1).widget()
                 value = fields.itemAtPosition(0, 0).widget()
                 self.assertGreater(self._center_x(label, view), self._center_x(value, view))
+        labels = [
+            fields.itemAtPosition(row, 1).widget()
+            for key, fields in view.detail_forms.items()
+            for row in range(view._detail_rows[key])
+        ]
+        values = [
+            fields.itemAtPosition(row, 0).widget()
+            for key, fields in view.detail_forms.items()
+            for row in range(view._detail_rows[key])
+        ]
+        self.assertEqual(len({label.width() for label in labels}), 1)
+        for key, fields in view.detail_forms.items():
+            right_edges = [
+                fields.itemAtPosition(row, 0).widget().geometry().right()
+                for row in range(view._detail_rows[key])
+            ]
+            self.assertLessEqual(max(right_edges) - min(right_edges), 1)
+        for widget in labels + values:
+            self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignRight)
+            self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignAbsolute)
         shell.close()
+
+    def test_details_switches_between_wide_rtl_composition_and_narrow_stack(self):
+        customer = {
+            "id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה",
+            "email": "a-very-long-customer-address@example-domain.test", "is_active": True,
+            "contacts": [{"full_name": "איש קשר", "phone": "050-1234567", "is_primary": True, "is_active": True}],
+        }
+        for size, expect_wide in (((1024, 640), False), ((1200, 760), True), ((1440, 900), True)):
+            shell, view = self._shown_manager_customers(*size)
+            view.show_customers([customer], offset=0, count=1, filtered=False)
+            view.show_details(customer_details(customer), customer)
+            view.select_customer("c1")
+            view._open_selected_customer()
+            self.app.processEvents()
+            groups = view.detail_groups
+            if expect_wide:
+                self.assertGreater(groups["customer"].geometry().x(), groups["contact"].mapTo(view.details_widget, groups["contact"].rect().topLeft()).x())
+                ratio = groups["customer"].width() / view.details_scroll.viewport().width()
+                self.assertGreaterEqual(ratio, 0.58)
+                self.assertLessEqual(ratio, 0.66)
+                self.assertEqual(view.details_scroll.verticalScrollBar().maximum(), 0)
+            else:
+                tops = [groups[key].mapTo(view.details_widget, groups[key].rect().topLeft()).y() for key in ("customer", "contact", "system")]
+                self.assertEqual(tops, sorted(tops))
+                self.assertEqual(len(set(tops)), 3)
+            self.assertEqual(view.details_scroll.horizontalScrollBar().maximum(), 0)
+            self.assertGreater(self._center_x(view.identity_container, view), self._center_x(view.actions_container, view))
+            email = view.customer_details.itemAtPosition(5, 0).widget()
+            self.assertIn("example-domain.test", email.toolTip())
+            shell.close()
 
     def test_sort_by_is_a_single_immediate_selection_without_extra_editors(self):
         view = CustomersView()
@@ -174,6 +225,11 @@ class CustomerViewTests(TestCase):
 
     def test_final_list_polish_prioritizes_search_table_and_compact_pager(self):
         shell, view = self._shown_manager_customers()
+        view.show_customers([{
+            "id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה",
+            "phone": "050", "email": "a@example.com", "is_active": True,
+        }], offset=0, count=1, filtered=False)
+        self.app.processEvents()
         self.assertEqual(view.toolbar.search_button.objectName(), "customerSearchButton")
         positions = [
             self._center_x(control, view)
@@ -186,8 +242,57 @@ class CustomerViewTests(TestCase):
         self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
         self.assertGreater(self._center_x(view.scaffold.header.title, view), self._center_x(view.create_button, view))
         self.assertEqual([view.table.horizontalHeader().visualIndex(column) for column in range(4)], [0, 1, 2, 3])
+        for column in range(3):
+            alignment = view.table.item(0, column).textAlignment()
+            self.assertTrue(alignment & Qt.AlignmentFlag.AlignRight)
+            self.assertTrue(alignment & Qt.AlignmentFlag.AlignAbsolute)
+        status = view.table.cellWidget(0, 3)
+        self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignAbsolute)
         self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
         shell.close()
+
+    def test_customer_table_semantic_widths_and_scrollbars_at_supported_sizes(self):
+        long_name = "שם לקוח ארוך במיוחד שנועד להיחתך בצורה תקינה"
+        for width, height in ((1024, 640), (1200, 760), (1440, 900)):
+            shell, view = self._shown_manager_customers(width, height)
+            view.show_customers([{
+                "id": "c1", "name": long_name, "customer_type": "לקוח עסקי",
+                "city": "ירושלים", "phone": "050", "email": "a@example.com", "is_active": False,
+            }], offset=0, count=1, filtered=False)
+            self.app.processEvents()
+            widths = [view.table.columnWidth(column) for column in range(4)]
+            self.assertEqual(view.table.columnCount(), 4)
+            self.assertGreater(widths[0], max(widths[1:]))
+            self.assertGreaterEqual(widths[1], 140)
+            self.assertLessEqual(widths[1], 220)
+            self.assertGreaterEqual(widths[2], 150)
+            self.assertLessEqual(widths[2], 240)
+            self.assertGreaterEqual(widths[3], 110)
+            self.assertEqual(view.table.horizontalScrollBar().maximum(), 0)
+            self.assertEqual(view.table.verticalScrollBar().maximum(), 0)
+            for column in range(4):
+                required = view.table.fontMetrics().horizontalAdvance(view.table.horizontalHeaderItem(column).text()) + 24
+                self.assertGreaterEqual(widths[column], required)
+            self.assertIn(long_name, view.table.item(0, 0).toolTip())
+            if width == 1024:
+                rows = [{
+                    "id": f"c{index}", "name": f"לקוח {index}", "customer_type": "עסקי",
+                    "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True,
+                } for index in range(40)]
+                view.show_customers(rows, offset=0, count=len(rows), filtered=False)
+                self.app.processEvents()
+                self.assertGreater(view.table.verticalScrollBar().maximum(), 0)
+            shell.close()
+
+        view = CustomersView()
+        view.resize(900, 640)
+        view.table.setFixedWidth(500)
+        view.show()
+        self.app.processEvents()
+        self.assertGreater(view.table.horizontalScrollBar().maximum(), 0)
+        self.assertEqual([view.table.columnWidth(column) for column in range(4)], [180, 140, 150, 110])
+        view.close()
 
     def test_reset_clears_search_sort_and_selection_and_returns_to_first_page(self):
         view = CustomersView()
