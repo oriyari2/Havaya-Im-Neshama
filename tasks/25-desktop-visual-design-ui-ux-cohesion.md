@@ -119,3 +119,9 @@ Instructor and Manager screens no longer use the legacy split-pane layout.
 Login email is read-only during edit. Manager edit changes the manager name
 while the permanent login identifier remains unchanged. No screenshots or
 visual artifacts were created for Task 25.2.
+
+The final Task 25.2 stabilization removes unlaid loading overlays and completes
+the single-window Login-to-Shell lifecycle. All three role-management toolbars
+now follow the approved Customer order inside identical framed containers, with
+immediate whitelisted sorting and explicit RTL cell alignment. The backend/UI
+coverage audit and intentional omissions are recorded in the Task 25.2 PIV.

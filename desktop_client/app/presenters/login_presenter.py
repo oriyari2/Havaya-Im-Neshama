@@ -24,11 +24,13 @@ class LoginPresenter:
         self.auth_service = auth_service
         self.on_authenticated = on_authenticated
         self._loading = False
+        self._authenticated = False
         self._operations = PresenterOperations(executor, "login")
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
         self._loading = False
+        self._authenticated = False
 
     def login(self, email: str, password: str) -> None:
         if self._loading:
@@ -40,6 +42,7 @@ class LoginPresenter:
         if context is None:
             return
         self._loading = True
+        self._authenticated = False
         self.view.set_loading(True)
         self.view.render_request_state(RequestState(RequestPhase.LOADING, "מתחבר…", "login", blocks_primary_action=True))
         def failed(exc: Exception) -> None:
@@ -59,13 +62,15 @@ class LoginPresenter:
         def succeeded(session: Session) -> None:
             if not self._operations.is_current(context):
                 return
+            self._authenticated = True
             self.on_authenticated(session)
 
         def finished() -> None:
             if not self._operations.finish(context):
                 return
             self._loading = False
-            self.view.set_loading(False)
+            if not self._authenticated:
+                self.view.set_loading(False)
 
         self._operations.executor.submit(
             context,

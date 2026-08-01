@@ -13,7 +13,7 @@ class UsersPresenter:
         self.service = service
         self.current_user_id = current_user_id
         self.session_role = session_role
-        self.filters = {"search": None, "role": "manager", "is_active": None, "limit": limit, "offset": 0}
+        self.filters = {"search": None, "role": "manager", "is_active": None, "order_by": "display_name", "limit": limit, "offset": 0}
         self.selected_id: str | None = None
         self.selected: dict | None = None
         self.loading = False
@@ -71,7 +71,7 @@ class UsersPresenter:
         self._operations.executor.submit(context, lambda: self.service.list_users(filters), success, failure, finished)
 
     def apply_filters(self, values: dict) -> None:
-        self.filters.update({key: values.get(key) for key in ("search", "is_active") if key in values})
+        self.filters.update({key: values.get(key) for key in ("search", "is_active", "order_by") if key in values})
         self.filters["role"] = "manager"
         self.filters["offset"] = 0
         self.load()

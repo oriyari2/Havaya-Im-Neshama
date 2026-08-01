@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QBoxLayout,
     QComboBox,
     QHBoxLayout,
     QLabel,
@@ -46,6 +47,28 @@ class SearchToolbar(QWidget):
 
     def _emit_search(self) -> None:
         self.search_requested.emit(self.search_input.text().strip(), str(self.sort_combo.currentData() or ""))
+
+
+def configure_reference_toolbar(toolbar: SearchToolbar) -> None:
+    """Apply the approved Customer RTL control order to every management toolbar."""
+    layout = toolbar.layout()
+    toolbar.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+    layout.setDirection(QBoxLayout.Direction.RightToLeft)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    toolbar.search_input.setMinimumWidth(300)
+    toolbar.sort_combo.setMinimumWidth(190)
+    toolbar.search_button.setProperty("primary", True)
+    toolbar.search_button.style().unpolish(toolbar.search_button)
+    toolbar.search_button.style().polish(toolbar.search_button)
+    for control in (toolbar.search_input, toolbar.sort_combo, toolbar.search_button, toolbar.refresh_button):
+        layout.removeWidget(control)
+    layout.addWidget(toolbar.search_input, 1)
+    layout.addWidget(toolbar.search_button)
+    if toolbar.sort_combo.count():
+        toolbar.sort_combo.show()
+        layout.addWidget(toolbar.sort_combo)
+    layout.addWidget(toolbar.refresh_button)
 
 
 class PaginationFooter(QWidget):

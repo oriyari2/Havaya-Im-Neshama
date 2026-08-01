@@ -15,7 +15,7 @@ def errors(exc:Exception)->NoReturn:
     if isinstance(exc,service.InstructorDeleteConflictError):raise HTTPException(409,str(exc)) from exc
     raise exc
 @router.get("/instructors",response_model=InstructorListResponse)
-def list_items(search:str|None=None,city:str|None=None,is_active:bool|None=None,order_by:Annotated[str,Query(pattern="^(full_name|created_at)$")]="full_name",limit:Annotated[int,Query(ge=1,le=200)]=50,offset:Annotated[int,Query(ge=0)]=0,current_user:dict=Depends(get_current_user)):
+def list_items(search:str|None=None,city:str|None=None,is_active:bool|None=None,order_by:Annotated[str,Query(pattern="^(full_name|city|phone|email|is_active|created_at|updated_at)$")]="full_name",limit:Annotated[int,Query(ge=1,le=200)]=50,offset:Annotated[int,Query(ge=0)]=0,current_user:dict=Depends(get_current_user)):
     try:items=service.list_instructors(search=search,city=city,is_active=is_active,order_by=order_by,limit=limit,offset=offset,current_user=current_user)
     except Exception as exc:
         try:errors(exc)

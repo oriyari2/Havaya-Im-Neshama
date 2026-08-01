@@ -249,8 +249,10 @@ class MainWindow(QMainWindow):
         self.shell.add_page("ai_chat", ai_chat_view)
         self._presenters["ai_chat"] = ai_chat_presenter
 
+        self._active_page = "dashboard"
+        self.shell.show_page("dashboard")
+        dashboard_presenter.load()
         self.setCentralWidget(self.shell)
-        self._navigate("dashboard")
 
     def _navigate(self, key: str) -> None:
         self._invalidate_page(self._active_page, unless=key)

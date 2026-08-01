@@ -10,7 +10,7 @@ def list_instructors(cur, *, search, city, is_active, order_by, limit, offset):
         value=f"%{search.strip()}%"; clauses.append("(full_name ILIKE %s OR email ILIKE %s OR phone ILIKE %s OR city ILIKE %s)"); params.extend([value]*4)
     if city and city.strip(): clauses.append("city ILIKE %s"); params.append(f"%{city.strip()}%")
     if is_active is not None: clauses.append("is_active = %s"); params.append(is_active)
-    sort={"full_name":"full_name ASC, id ASC","created_at":"created_at DESC, id ASC"}[order_by]
+    sort={"full_name":"full_name ASC, id ASC","city":"city ASC NULLS LAST, full_name ASC","phone":"phone ASC NULLS LAST, full_name ASC","email":"email ASC NULLS LAST, full_name ASC","is_active":"is_active DESC, full_name ASC","created_at":"created_at DESC, id ASC","updated_at":"updated_at DESC, id ASC"}[order_by]
     where=f"WHERE {' AND '.join(clauses)}" if clauses else ""
     cur.execute(f"SELECT {COLUMNS} FROM instructors {where} ORDER BY {sort} LIMIT %s OFFSET %s;",[*params,limit,offset]); return list(cur.fetchall())
 

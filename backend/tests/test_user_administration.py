@@ -51,10 +51,10 @@ class UserAdministrationTests(TestCase):
 
     def test_repository_list_is_parameterized_filtered_and_safe(self) -> None:
         cur = MagicMock(); cur.fetchall.return_value = []
-        repo.list_users(cur, search=" User ", role="customer", is_active=False, limit=25, offset=50)
+        repo.list_users(cur, search=" User ", role="customer", is_active=False, order_by="display_name", limit=25, offset=50)
         sql, params = cur.execute.call_args.args
         self.assertIn("u.email ILIKE %s", sql); self.assertIn("c.name ILIKE %s", sql); self.assertIn("i.full_name ILIKE %s", sql); self.assertIn("u.role = %s", sql); self.assertIn("u.is_active = %s", sql)
-        self.assertEqual(params, ["%User%", "%User%", "%User%", "%User%", "customer", False, 25, 50]); self.assertNotIn("password_hash", sql)
+        self.assertEqual(params, ["%User%", "%User%", "%User%", "%User%", "customer", False, 25, 50]); self.assertNotIn("password_hash", sql); self.assertIn("lower(u.display_name)", sql)
 
     def test_manager_can_list_and_non_managers_are_forbidden(self) -> None:
         client = TestClient(app); self.assertEqual(client.get("/users").status_code, 401); app.dependency_overrides[get_current_user] = lambda: {"id":str(uuid4()),"role":"manager"}

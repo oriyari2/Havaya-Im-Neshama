@@ -4,7 +4,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QTableWidget, QTableWidgetItem, QWidget
 
 from desktop_client.app.models.request_state import RequestPhase, RequestState
-from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, FeedbackBanner, StatePanel, configure_data_table, set_item_text
+from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, configure_data_table, set_item_text
 
 
 BOOKING_COLUMNS = (
@@ -20,20 +20,12 @@ BOOKING_COLUMNS = (
 class StatefulWidget(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.state_panel = StatePanel(self)
-        self.feedback_banner = FeedbackBanner(self)
-        self.state_label = QLabel()
+        self.state_label = QLabel(self)
         self.state_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.state_label.setAccessibleName("מצב תוכן")
         self.state_label.hide()
 
     def render_request_state(self, state: RequestState) -> None:
-        if state.phase in {RequestPhase.SUCCESS, RequestPhase.VALIDATION_ERROR}:
-            self.state_panel.hide()
-            self.feedback_banner.render(state)
-        else:
-            self.feedback_banner.hide()
-            self.state_panel.render(state)
         if state.phase in {RequestPhase.LOADING, RequestPhase.EMPTY, RequestPhase.CONNECTION_ERROR, RequestPhase.SERVER_ERROR, RequestPhase.AUTHORIZATION_ERROR} and state.message:
             self.state_label.setText(state.message)
             self.state_label.show()
@@ -44,7 +36,6 @@ class StatefulWidget(QWidget):
         if loading:
             self.render_request_state(RequestState(RequestPhase.LOADING, "טוען נתונים…", "load", blocks_primary_action=True))
         elif self.state_label.text() == "טוען נתונים…":
-            self.state_panel.hide()
             self.state_label.hide()
 
     def show_error(self, message: str) -> None:

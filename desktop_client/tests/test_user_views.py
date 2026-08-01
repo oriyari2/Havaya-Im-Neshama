@@ -26,4 +26,7 @@ class UserViewTests(TestCase):
         edit=EditUserDialog(USER);self.assertTrue(edit.email.isReadOnly());self.assertEqual(edit.values(),{"email":"manager@example.com","manager_name":"מנהלת"})
         reset=ResetPasswordDialog(USER);self.assertEqual(reset.password.echoMode(),QLineEdit.EchoMode.Password);self.assertEqual(set(reset.values()),{"password","password_confirmation"})
     def test_table_resizes_without_squeezing_semantic_minimums(self):
-        view=UsersView();view.resize(1024,640);view.show();self.app.processEvents();policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,180);self.assertGreater(view.table.columnWidth(0),view.table.columnWidth(2));view.close()
+        view=UsersView();view.resize(1024,640);view.show();self.app.processEvents();policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,210);self.assertGreater(view.table.columnWidth(0),view.table.columnWidth(2));view.close()
+    def test_reference_toolbar_order_sort_and_explicit_rtl_cells(self):
+        view=UsersView();layout=view.toolbar.layout();self.assertEqual([layout.itemAt(i).widget() for i in range(layout.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button]);emitted=[];view.filters_requested.connect(emitted.append);view.toolbar.sort_combo.setCurrentIndex(1);self.assertEqual(emitted[-1]["order_by"],"email");view.show_users([USER],offset=0,count=1,filtered=False)
+        for column in range(view.table.columnCount()):self.assertTrue(view.table.item(0,column).textAlignment() & Qt.AlignmentFlag.AlignRight)

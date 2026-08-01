@@ -9,6 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
+from shiboken6 import isValid
 
 from desktop_client.app.infrastructure.qt_operations import OperationCapacityError, QtOperationExecutor
 from desktop_client.app.main import MainWindow
@@ -257,6 +258,10 @@ class BackgroundOperationTests(unittest.TestCase):
         self.assertTrue(window.login_presenter._loading)
         self.wait_until(lambda: hasattr(window, "shell"), timeout_ms=2000)
         self.assertEqual(api.login_payload["email"], "manager@example.com")
+        self.assertIs(window.centralWidget(), window.shell)
+        self.assertFalse(isValid(window.login_view) and window.login_view.isVisible())
+        visible_extras=[widget for widget in QApplication.topLevelWidgets() if widget.isVisible() and widget is not window]
+        self.assertEqual(visible_extras, [])
         window.close()
 
 

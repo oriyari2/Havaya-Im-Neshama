@@ -20,7 +20,7 @@ from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.customer_dialogs import CustomerDialog
 from desktop_client.app.views.account_dialogs import ChangePasswordDialog
 from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4, SPACE_6
-from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar, confirm_action
+from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar, configure_reference_toolbar, confirm_action
 from desktop_client.app.views.ui_foundations import (
     ColumnKind,
     ColumnPolicy,
@@ -52,7 +52,7 @@ class CustomersView(StatefulWidget):
         root.setContentsMargins(0, 0, 0, 0)
         self.scaffold = PageScaffold("לקוחות", "ניהול לקוחות ופרטי קשר")
         self.scaffold.root.setSpacing(SPACE_3)
-        self.scaffold.header.layout().setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
+        self.scaffold.header.layout().setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
         self.scaffold.header.layout().setSpacing(SPACE_2)
         self.scaffold.header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.scaffold.header.title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -134,21 +134,7 @@ class CustomersView(StatefulWidget):
             placeholder="חיפוש לפי שם, דוא״ל או טלפון",
             sort_options=(("name", "מיון לפי: שם"), ("created_at", "מיון לפי: תאריך יצירה")),
         )
-        self.toolbar.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.toolbar.layout().setDirection(QBoxLayout.Direction.RightToLeft)
-        self.toolbar.layout().setContentsMargins(0, 0, 0, 0)
-        self.toolbar.layout().setSpacing(SPACE_2)
-        for control in (
-            self.toolbar.search_input,
-            self.toolbar.sort_combo,
-            self.toolbar.search_button,
-            self.toolbar.refresh_button,
-        ):
-            self.toolbar.layout().removeWidget(control)
-        self.toolbar.layout().addWidget(self.toolbar.search_input, 1)
-        self.toolbar.layout().addWidget(self.toolbar.search_button)
-        self.toolbar.layout().addWidget(self.toolbar.sort_combo)
-        self.toolbar.layout().addWidget(self.toolbar.refresh_button)
+        configure_reference_toolbar(self.toolbar)
         self.toolbar.search_input.setMinimumWidth(300)
         self.toolbar.search_button.setObjectName("customerSearchButton")
         self.toolbar.search_button.setProperty("primary", True)

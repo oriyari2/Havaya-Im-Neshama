@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from desktop_client.app.views.design_tokens import CONTROL_HEIGHT, SPACE_2, SPACE_3, SPACE_4
-from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, SearchToolbar
+from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, SearchToolbar, configure_reference_toolbar
 from desktop_client.app.views.ui_foundations import ColumnPolicy, PageScaffold, configure_data_table
 
 
@@ -32,10 +32,11 @@ class ManagementWorkspace(QWidget):
         self.pages = QStackedWidget(); self.list_page = QWidget(); self.details_page = QWidget(); self.pages.addWidget(self.list_page); self.pages.addWidget(self.details_page); self.scaffold.main_content.addWidget(self.pages, 1)
 
         listing = QVBoxLayout(self.list_page); listing.setContentsMargins(0, 0, 0, 0); listing.setSpacing(SPACE_2)
-        toolbar_panel = QFrame(); toolbar_panel.setObjectName("filterPanel"); toolbar_layout = QVBoxLayout(toolbar_panel); toolbar_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
-        self.toolbar = SearchToolbar(placeholder=search_placeholder, sort_options=sort_options); self.toolbar.setLayoutDirection(Qt.LayoutDirection.RightToLeft); self.toolbar.refresh_button.setText("איפוס"); toolbar_layout.addWidget(self.toolbar); listing.addWidget(toolbar_panel)
+        toolbar_panel = QFrame(); toolbar_panel.setObjectName("filterPanel"); toolbar_layout = QVBoxLayout(toolbar_panel); toolbar_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3); toolbar_layout.setSpacing(SPACE_3)
+        self.toolbar = SearchToolbar(placeholder=search_placeholder, sort_options=sort_options); configure_reference_toolbar(self.toolbar); self.toolbar.refresh_button.setText("איפוס"); toolbar_layout.addWidget(self.toolbar); listing.addWidget(toolbar_panel)
         heading = QHBoxLayout(); heading.setDirection(QBoxLayout.Direction.RightToLeft); self.results_label = QLabel(f"רשימת {plural}"); self.results_label.setObjectName("sectionTitle"); heading.addWidget(self.results_label); heading.addStretch(); self.view_details_button = QPushButton("הצגת פרטים"); heading.addWidget(self.view_details_button); listing.addLayout(heading)
-        self.table = QTableWidget(0, len(headers)); self.table.setHorizontalHeaderLabels(list(headers)); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", policies); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); listing.addWidget(self.table, 1)
+        self.empty_label = QLabel(); self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_label.hide(); listing.addWidget(self.empty_label)
+        self.table = QTableWidget(0, len(headers)); self.table.setHorizontalHeaderLabels(list(headers)); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", policies); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); listing.addWidget(self.table, 1)
         self.footer = PaginationFooter(); self.footer.setMaximumWidth(440); listing.addWidget(self.footer, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         detail = QVBoxLayout(self.details_page); detail.setContentsMargins(0, 0, 0, 0); detail.setSpacing(SPACE_4)

@@ -34,12 +34,13 @@ def list_users(
     search: str | None = None,
     role: UserRole | None = None,
     is_active: bool | None = None,
+    order_by: Annotated[str, Query(pattern="^(display_name|email|is_active|created_at|updated_at)$")] = "display_name",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     _current_user: dict = RequireManager,
 ) -> UserListResponse:
     try:
-        items = service.list_users(search=search, role=role, is_active=is_active, limit=limit, offset=offset)
+        items = service.list_users(search=search, role=role, is_active=is_active, order_by=order_by, limit=limit, offset=offset)
         return UserListResponse(items=items, count=len(items))
     except Exception as exc:
         _error(exc)

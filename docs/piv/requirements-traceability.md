@@ -782,3 +782,7 @@ Implemented a shared RTL list-to-details management pattern for Customers,
 Instructors, and Managers. The modules share page hierarchy, semantic tables,
 pagination, cards, equal action buttons, dialog conventions, permanent
 read-only login email during edit, and centralized write-only password changes.
+The final stabilization adds a single-window startup lifecycle, removes unlaid
+loading overlays, standardizes the Customer-reference toolbar with immediate
+server-whitelisted sorting, and records the backend/Desktop completeness audit
+in the Task 25.2 PIV.

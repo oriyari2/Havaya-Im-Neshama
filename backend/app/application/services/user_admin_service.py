@@ -21,10 +21,10 @@ class UserConflictError(Exception):
     pass
 
 
-def list_users(*, search: str | None, role: str | None, is_active: bool | None, limit: int, offset: int) -> list[dict]:
+def list_users(*, search: str | None, role: str | None, is_active: bool | None, order_by: str = "email", limit: int, offset: int) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
-            return repo.list_users(cur, search=search, role=role, is_active=is_active, limit=limit, offset=offset)
+            return repo.list_users(cur, search=search, role=role, is_active=is_active, order_by=order_by, limit=limit, offset=offset)
 
 
 def get_user(user_id: UUID) -> dict:

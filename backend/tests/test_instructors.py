@@ -8,6 +8,8 @@ from backend.app.schemas.instructor import InstructorCreate,InstructorUpdate
 class InstructorTests(TestCase):
     def test_list_sql_filters_sort_pagination(self):
         cur=Mock();cur.fetchall.return_value=[];r.list_instructors(cur,search=" Name ",city=" City ",is_active=False,order_by="created_at",limit=10,offset=20);sql,params=cur.execute.call_args.args;self.assertIn("ILIKE",sql);self.assertIn("ORDER BY created_at DESC",sql);self.assertEqual(params[-3:],[False,10,20])
+        for order_by,column in (("city","city ASC"),("phone","phone ASC"),("email","email ASC"),("is_active","is_active DESC"),("updated_at","updated_at DESC")):
+            r.list_instructors(cur,search=None,city=None,is_active=None,order_by=order_by,limit=10,offset=0);self.assertIn(column,cur.execute.call_args.args[0])
     def test_authorization_and_me_scope(self):
         with self.assertRaises(s.InstructorAccessDeniedError):s.list_instructors(search=None,city=None,is_active=None,order_by="full_name",limit=1,offset=0,current_user={"role":"instructor"})
         with self.assertRaises(s.InstructorAccessDeniedError):s.get_my_profile({"role":"customer"})

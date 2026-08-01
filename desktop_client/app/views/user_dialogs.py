@@ -9,7 +9,6 @@ from desktop_client.app.views.account_dialogs import ChangePasswordDialog
 from desktop_client.app.views.ui_foundations import configure_mixed_direction
 
 
-ROLE_LABELS = {"manager": "מנהל", "customer": "לקוח", "instructor": "מדריך"}
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -88,7 +87,7 @@ class EditUserDialog(_BaseFormDialog):
         configure_mixed_direction(self.email)
         self.form.addRow("דוא״ל *", self.email)
         self.fields["email"] = self.email
-        self.role = QLabel(ROLE_LABELS["manager"])
+        self.role = QLabel("מנהל")
         self.form.addRow("תפקיד", self.role)
         self.manager_name = QLineEdit(str(user.get("display_name") or "מנהל"))
         self.manager_name.setAccessibleName("שם מנהל")

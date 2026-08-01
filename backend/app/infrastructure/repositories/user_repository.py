@@ -36,7 +36,7 @@ def get_user_by_id(cur, user_id: UUID) -> dict | None:
     return cur.fetchone()
 
 
-def list_users(cur, *, search: str | None, role: str | None, is_active: bool | None, limit: int, offset: int) -> list[dict]:
+def list_users(cur, *, search: str | None, role: str | None, is_active: bool | None, order_by: str = "email", limit: int, offset: int) -> list[dict]:
     clauses: list[str] = []
     params: list[object] = []
     if search:
@@ -50,13 +50,20 @@ def list_users(cur, *, search: str | None, role: str | None, is_active: bool | N
         clauses.append("u.is_active = %s")
         params.append(is_active)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    sort = {
+        "display_name": "lower(u.display_name) ASC NULLS LAST, u.id ASC",
+        "email": "lower(u.email) ASC, u.id ASC",
+        "is_active": "u.is_active DESC, lower(u.display_name) ASC NULLS LAST",
+        "created_at": "u.created_at DESC, u.id ASC",
+        "updated_at": "u.updated_at DESC, u.id ASC",
+    }[order_by]
     cur.execute(
         f"""
         SELECT {SAFE_USER_COLUMNS}
         FROM users u
         {SAFE_USER_JOINS}
         {where}
-        ORDER BY lower(u.email) ASC, u.id ASC
+        ORDER BY {sort}
         LIMIT %s OFFSET %s;
         """,
         [*params, limit, offset],

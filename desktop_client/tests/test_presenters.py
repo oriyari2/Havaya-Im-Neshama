@@ -241,7 +241,8 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("דוא״ל", view.error)
         presenter.login("customer@example.com", "secret")
         self.assertEqual(authenticated, [expected])
-        self.assertEqual(view.loading, [True, False])
+        self.assertEqual(view.loading, [True])
+        self.assertFalse(presenter._loading)
         self.assertEqual(view.request_states[0].phase.value, "loading")
 
     def test_login_presenter_sanitizes_failures_and_releases_guard(self) -> None:
