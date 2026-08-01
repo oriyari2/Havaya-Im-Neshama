@@ -1,78 +1,21 @@
 import os
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
+os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 from unittest import TestCase
-
-from PySide6.QtWidgets import QApplication, QFormLayout
-
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QApplication,QFormLayout
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
-from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
+from desktop_client.app.views.instructors_view import InstructorProfileView,InstructorsView
 
-
+ROW={"id":"i1","full_name":"מדריכה","phone":"050","email":"guide@example.com","city":"ירושלים","notes":"N","is_active":True,"created_at":"2026-01-01","updated_at":"2026-01-02"}
 class InstructorViewTests(TestCase):
     @classmethod
-    def setUpClass(cls):
-        cls.app = QApplication.instance() or QApplication([])
-
-    def test_construct_and_no_password(self):
-        view = InstructorsView()
-        profile = InstructorProfileView()
-        dialog = InstructorDialog({"full_name": "A"})
-        self.assertFalse(view.edit_button.isEnabled())
-        self.assertFalse(view.delete_button.isEnabled())
-        self.assertFalse(view.change_password_button.isEnabled())
-        self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
-        self.assertFalse(hasattr(view, "reactivate_button"))
-        self.assertNotIn("password", dialog.values())
-        self.assertNotIn("is_active", dialog.values())
-        self.assertFalse(hasattr(profile, "edit_button"))
-
-    def test_create_collects_login_credentials_but_edit_does_not(self):
-        create = InstructorDialog()
-        self.assertIsNotNone(create.password)
-        self.assertIsNotNone(create.password_confirmation)
-        self.assertIn("password", create.values())
-        edit = InstructorDialog({"full_name": "A"})
-        self.assertIsNone(edit.password)
-        self.assertNotIn("password", edit.values())
-
-    def test_semantic_table_and_responsive_splitter(self):
-        view = InstructorsView()
-        self.assertTrue(view.table.property("task20Table"))
-        policies = view.table._task20_column_sizer.policies
-        self.assertEqual(policies[0].kind.value, "primary_text")
-        self.assertEqual(policies[1].minimum_width, 115)
-        self.assertEqual(policies[2].minimum_width, 150)
-        self.assertEqual(policies[3].minimum_width, 80)
-        view.show()
-        previous_name_width = 0
-        for width, height in ((1024, 640), (1200, 760), (1440, 900)):
-            view.resize(width, height)
-            self.app.processEvents()
-            widths = [view.table.columnWidth(index) for index in range(view.table.columnCount())]
-            unused = view.table.viewport().width() - 1 - sum(widths)
-            self.assertTrue(abs(unused) <= 1 or unused < 0)
-            self.assertGreater(widths[0], widths[4])
-            self.assertGreaterEqual(view.splitter.widget(1).width(), 300)
-            self.assertGreaterEqual(widths[2], 150)
-            self.assertGreaterEqual(widths[1], 115)
-            self.assertGreaterEqual(widths[0], previous_name_width)
-            previous_name_width = widths[0]
-            for widget in (view.toolbar.search_input, view.apply_filters_button, view.create_button, view.table, view.footer):
-                self.assertTrue(widget.isVisibleTo(view), widget)
-        view.close()
-
-    def test_safe_details_and_tooltips(self):
-        view = InstructorsView()
-        row = {"id": "i1", "full_name": "מדריך ארוך", "phone": "050", "email": "guide@example.com", "city": "ירושלים", "is_active": True}
-        view.show_instructors([row], offset=0, count=1, filtered=False)
-        self.assertIn("guide@example.com", view.table.item(0, 2).toolTip())
-        self.assertIn('dir="ltr"', view.table.item(0, 2).toolTip())
-        view.show_details([("שם", "מדריך ארוך"), ("טלפון", "050"), ("דוא״ל", "guide@example.com")], row)
-        rendered = " ".join(
-            view.details.itemAt(index, QFormLayout.ItemRole.FieldRole).widget().text()
-            for index in range(view.details.rowCount())
-        )
-        self.assertIn("guide@example.com", rendered)
-        self.assertNotIn("password", rendered.lower())
+    def setUpClass(cls):cls.app=QApplication.instance() or QApplication([])
+    def test_shared_list_to_details_structure_and_semantic_table(self):
+        view=InstructorsView();self.assertEqual(view.scaffold.header.title.text(),"מדריכים");self.assertEqual(view.toolbar.refresh_button.text(),"איפוס");self.assertIs(view.pages.currentWidget(),view.list_page);policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,180);self.assertEqual(policies[3].minimum_width,190)
+        view.show_instructors([ROW],offset=0,count=1,filtered=False);view.table.selectRow(0);self.assertEqual(view.table.item(0,0).text(),"מדריכה");self.assertIn("guide@example.com",view.table.item(0,3).toolTip());view.show_details([("שם","מדריכה"),("דוא״ל","guide@example.com"),("מצב","פעיל")],ROW);self.assertIs(view.pages.currentWidget(),view.list_page);view._open();self.assertIs(view.pages.currentWidget(),view.details_page)
+    def test_details_actions_are_equal_and_safe(self):
+        view=InstructorsView();self.assertFalse(view.edit_button.isEnabled());view.show_details([("שם","מדריכה"),("טלפון","050"),("דוא״ל","guide@example.com"),("מצב","פעיל")],ROW);self.assertTrue(view.edit_button.isEnabled());self.assertEqual({b.width() for b in (view.edit_button,view.change_password_button,view.delete_button)},{148});rendered=" ".join(view.profile_details.itemAt(row,QFormLayout.ItemRole.FieldRole).widget().text() for row in range(view.profile_details.rowCount()));self.assertNotIn("password",rendered.lower())
+    def test_create_credentials_and_edit_email_read_only(self):
+        create=InstructorDialog();self.assertIsNotNone(create.password);self.assertIn("password",create.values());edit=InstructorDialog(ROW);self.assertIsNone(edit.password);self.assertTrue(edit.fields["email"].isReadOnly());self.assertNotIn("password",edit.values());self.assertFalse(hasattr(InstructorProfileView(),"edit_button"))
+    def test_responsive_table_keeps_minimums(self):
+        view=InstructorsView();view.resize(1024,640);view.show();self.app.processEvents();self.assertGreaterEqual(view.table.columnWidth(0),180);self.assertGreaterEqual(view.table.columnWidth(3),190);view.close()

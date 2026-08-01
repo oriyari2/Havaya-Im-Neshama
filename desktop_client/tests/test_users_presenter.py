@@ -30,7 +30,7 @@ class UsersPresenterTests(TestCase):
 
     def test_email_edit_activate_deactivate_and_reset(self) -> None:
         self.presenter.selected_id="u1"; self.presenter.selected=USER
-        form=Mock(); self.service.update_email.return_value={**USER,"email":"new@example.com"}; self.presenter.submit_edit({"email":"NEW@example.com"},form); self.service.update_email.assert_called_with("u1","new@example.com")
+        form=Mock(); self.service.update_manager.return_value={**USER,"display_name":"מנהלת חדשה"}; self.presenter.submit_edit({"manager_name":"מנהלת חדשה"},form); self.service.update_manager.assert_called_with("u1","מנהלת חדשה")
         self.service.activate.return_value={**USER,"is_active":True}; self.presenter.activate(); self.service.activate.assert_called_with("u1")
         self.view.confirm_deactivation.return_value=True; self.service.deactivate.return_value={**USER,"is_active":False}; self.presenter.deactivate(); self.service.deactivate.assert_called_with("u1")
         reset=Mock(); self.presenter.selected_id="u1"; self.presenter.selected=USER; self.presenter.submit_reset_password({"password":"newpass123","password_confirmation":"newpass123"},reset); self.service.reset_password.assert_called_with("u1","newpass123")

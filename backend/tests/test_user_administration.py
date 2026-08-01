@@ -15,7 +15,7 @@ from backend.app.core.auth import get_current_user
 from backend.app.core.security import hash_password, verify_password
 from backend.app.infrastructure.repositories import user_repository as repo
 from backend.app.main import app
-from backend.app.schemas.user_admin import PasswordResetRequest, UserCreateRequest, UserEmailUpdateRequest, UserResponse
+from backend.app.schemas.user_admin import ManagerUpdateRequest, PasswordResetRequest, UserCreateRequest, UserEmailUpdateRequest, UserResponse
 
 
 def safe_user(**changes):
@@ -72,8 +72,8 @@ class UserAdministrationTests(TestCase):
             response = client.post("/users", json={"email":"user@example.com","password":"password1","role":"manager","manager_name":"Manager"})
             self.assertEqual(response.status_code, 201)
         with patch("backend.app.routers.users.service.get_user", return_value=user): self.assertEqual(client.get(f"/users/{user['id']}").status_code, 200)
-        with patch("backend.app.routers.users.service.update_email", return_value={**user,"email":"new@example.com"}): self.assertEqual(client.put(f"/users/{user['id']}", json={"email":"new@example.com"}).status_code, 200)
-        self.assertEqual(client.put(f"/users/{user['id']}", json={"email":"new@example.com","role":"customer"}).status_code, 422)
+        with patch("backend.app.routers.users.service.update_manager", return_value={**user,"display_name":"New Manager"}): self.assertEqual(client.put(f"/users/{user['id']}", json={"manager_name":"New Manager"}).status_code, 200)
+        self.assertEqual(client.put(f"/users/{user['id']}", json={"email":"new@example.com"}).status_code, 422)
         with patch("backend.app.routers.users.service.set_active", return_value={**user,"is_active":False}) as action:
             self.assertEqual(client.post(f"/users/{user['id']}/deactivate", json={}).status_code, 200); action.assert_called_once()
         with patch("backend.app.routers.users.service.set_active", return_value={**user,"is_active":True}) as action:
@@ -174,6 +174,11 @@ class UserAdministrationTests(TestCase):
         user_id = uuid4(); cursor.fetchone.side_effect=[{"id":user_id},{"id":user_id}]
         service.reset_password(user_id, PasswordResetRequest(new_password="newpass123")); stored = cursor.execute.call_args_list[1].args[1][0]
         self.assertFalse(verify_password("oldpass123", stored)); self.assertTrue(verify_password("newpass123", stored)); connection.commit.assert_called_once()
+
+    @patch.object(service, "get_connection")
+    def test_manager_edit_updates_name_without_changing_login_email(self, get_connection) -> None:
+        connection=MagicMock();cursor=MagicMock();get_connection.return_value.__enter__.return_value=connection;connection.cursor.return_value.__enter__.return_value=cursor;user_id=uuid4();existing=safe_user(id=user_id);updated={**existing,"display_name":"New Name"};cursor.fetchone.side_effect=[existing,{"id":user_id},updated]
+        result=service.update_manager(user_id,ManagerUpdateRequest(manager_name=" New Name "));self.assertEqual(result["display_name"],"New Name");sql=" ".join(call.args[0] for call in cursor.execute.call_args_list);self.assertIn("display_name",sql);self.assertNotIn("SET email",sql);connection.commit.assert_called_once()
 
     @patch.object(service, "get_connection")
     def test_profile_password_reset_resolves_linked_user_and_reuses_hashing(self, get_connection) -> None:

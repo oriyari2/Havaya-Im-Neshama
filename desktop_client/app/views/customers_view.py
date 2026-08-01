@@ -57,6 +57,7 @@ class CustomersView(StatefulWidget):
         self.scaffold.header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.scaffold.header.title.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.scaffold.header.description.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.scaffold.header.description.setWordWrap(False)
         root.addWidget(self.scaffold)
 
         self.create_button = QPushButton("לקוח חדש")
@@ -269,9 +270,9 @@ class CustomersView(StatefulWidget):
         self.detail_subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.detail_status = ActiveBadge()
         identity_top.addWidget(self.detail_title)
-        identity_top.addWidget(self.detail_status)
         identity_top.addStretch()
         identity.addLayout(identity_top)
+        identity.addWidget(self.detail_status, alignment=Qt.AlignmentFlag.AlignRight)
         identity.addWidget(self.detail_subtitle)
         self.actions_container = QWidget()
         actions = QHBoxLayout(self.actions_container)
@@ -290,6 +291,9 @@ class CustomersView(StatefulWidget):
         actions.addWidget(self.delete_button)
         actions.addWidget(self.change_password_button)
         actions.addWidget(self.edit_button)
+        for button in (self.edit_button, self.change_password_button, self.delete_button):
+            button.setMinimumSize(148, 40)
+            button.setMaximumWidth(148)
         header_layout.addWidget(self.actions_container)
         header_layout.addStretch()
         header_layout.addWidget(self.identity_container)

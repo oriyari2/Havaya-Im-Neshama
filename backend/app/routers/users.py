@@ -9,8 +9,8 @@ from backend.app.application.services import user_admin_service as service
 from backend.app.core.auth import require_roles
 from backend.app.schemas.user_admin import (
     PasswordResetRequest,
+    ManagerUpdateRequest,
     UserCreateRequest,
-    UserEmailUpdateRequest,
     UserListResponse,
     UserResponse,
     UserRole,
@@ -62,9 +62,9 @@ def get_user(user_id: UUID, _current_user: dict = RequireManager) -> UserRespons
 
 
 @router.put("/users/{user_id}", response_model=UserResponse)
-def update_user(user_id: UUID, payload: UserEmailUpdateRequest, _current_user: dict = RequireManager) -> UserResponse:
+def update_user(user_id: UUID, payload: ManagerUpdateRequest, _current_user: dict = RequireManager) -> UserResponse:
     try:
-        return UserResponse(**service.update_email(user_id, payload))
+        return UserResponse(**service.update_manager(user_id, payload))
     except Exception as exc:
         _error(exc)
 

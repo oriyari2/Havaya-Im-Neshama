@@ -87,6 +87,19 @@ class UserEmailUpdateRequest(BaseModel):
         return normalize_email(value)
 
 
+class ManagerUpdateRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    manager_name: str
+
+    @field_validator("manager_name")
+    @classmethod
+    def manager_name_valid(cls, value: str) -> str:
+        cleaned = value.strip()
+        if not cleaned:
+            raise ValueError("manager_name must not be empty")
+        return cleaned
+
+
 class PasswordResetRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     new_password: str

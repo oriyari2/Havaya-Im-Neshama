@@ -13,10 +13,10 @@ class Api:
 class UserServiceTests(TestCase):
     def test_uses_only_lean_user_endpoints(self) -> None:
         api = Api(); service = UserService(api)
-        service.list_users({"role":"manager"}); service.user("u1"); service.create_user({"email":"a@example.com"}); service.update_email("u1","b@example.com"); service.activate("u1"); service.deactivate("u1"); service.reset_password("u1","password1")
+        service.list_users({"role":"manager"}); service.user("u1"); service.create_user({"email":"a@example.com"}); service.update_manager("u1","Manager"); service.activate("u1"); service.deactivate("u1"); service.reset_password("u1","password1")
         self.assertEqual(api.calls, [
             ("GET","/users",{"role":"manager"}), ("GET","/users/u1",None),
-            ("POST","/users",{"email":"a@example.com"}), ("PUT","/users/u1",{"email":"b@example.com"}),
+            ("POST","/users",{"email":"a@example.com"}), ("PUT","/users/u1",{"manager_name":"Manager"}),
             ("POST","/users/u1/activate",{}), ("POST","/users/u1/deactivate",{}),
             ("POST","/users/u1/reset-password",{"new_password":"password1"}),
         ])

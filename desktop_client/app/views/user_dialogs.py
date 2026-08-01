@@ -83,17 +83,21 @@ class EditUserDialog(_BaseFormDialog):
         self.fields = {}
         self.email = QLineEdit(str(user["email"]))
         self.email.setAccessibleName("דוא״ל")
+        self.email.setReadOnly(True)
+        self.email.setAccessibleDescription("דוא״ל ההתחברות קבוע ואינו ניתן לעריכה")
         configure_mixed_direction(self.email)
         self.form.addRow("דוא״ל *", self.email)
         self.fields["email"] = self.email
         self.role = QLabel(ROLE_LABELS["manager"])
         self.form.addRow("תפקיד", self.role)
-        self.profile = QLabel(str(user.get("display_name") or "מנהל"))
-        self.form.addRow("שם", self.profile)
-        self.email.setFocus()
+        self.manager_name = QLineEdit(str(user.get("display_name") or "מנהל"))
+        self.manager_name.setAccessibleName("שם מנהל")
+        self.form.addRow("שם *", self.manager_name)
+        self.fields["manager_name"] = self.manager_name
+        self.manager_name.setFocus()
 
     def values(self) -> dict:
-        return {"email": self.email.text()}
+        return {"email": self.email.text(), "manager_name": self.manager_name.text()}
 
 
 class ResetPasswordDialog(ChangePasswordDialog):

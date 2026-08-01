@@ -175,6 +175,9 @@ class CustomerDialog(_BaseFormDialog):
             self._add_field(self.contact_form, key, label, initial)
         for key in ("phone", "email", "contact_phone"):
             configure_mixed_direction(self.fields[key])
+        if initial:
+            self.fields["email"].setReadOnly(True)
+            self.fields["email"].setAccessibleDescription("דוא״ל ההתחברות קבוע ואינו ניתן לעריכה")
         self.notes = QPlainTextEdit(str(initial.get("notes") or ""))
         self.notes.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.notes.setAccessibleName("הערות")

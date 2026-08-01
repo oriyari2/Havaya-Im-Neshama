@@ -152,11 +152,10 @@ class UsersPresenter:
         if not self.selected_id or self.submitting:
             return
         try:
-            email = login_email(values.get("email"))
+            manager_name = self._required(values.get("manager_name"), "יש להזין שם מנהל.")
         except ValueError as exc:
-            form.show_error(str(exc))
-            return
-        self._submit(form, lambda: self.service.update_email(self.selected_id, email), "כתובת הדוא״ל עודכנה.")
+            form.show_error(str(exc)); return
+        self._submit(form, lambda: self.service.update_manager(self.selected_id, manager_name), "פרטי המנהל עודכנו.")
 
     def begin_reset_password(self) -> None:
         if self.selected:

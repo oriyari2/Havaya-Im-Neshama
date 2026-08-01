@@ -10,7 +10,7 @@ from backend.app.db.connection import get_connection
 from backend.app.infrastructure.repositories import customer_repository
 from backend.app.infrastructure.repositories import instructor_repository
 from backend.app.infrastructure.repositories import user_repository as repo
-from backend.app.schemas.user_admin import PasswordResetRequest, UserCreateRequest, UserEmailUpdateRequest
+from backend.app.schemas.user_admin import ManagerUpdateRequest, PasswordResetRequest, UserCreateRequest, UserEmailUpdateRequest
 
 
 class UserNotFoundError(Exception):
@@ -125,6 +125,23 @@ def update_email(user_id: UUID, payload: UserEmailUpdateRequest) -> dict:
         except IntegrityError as exc:
             conn.rollback()
             raise _translate_integrity_error(exc) from exc
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def update_manager(user_id: UUID, payload: ManagerUpdateRequest) -> dict:
+    with get_connection() as conn:
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                existing = repo.get_user_by_id(cur, user_id)
+                if existing is None or existing["role"] != "manager":
+                    raise UserNotFoundError
+                if not repo.update_manager_name(cur, user_id, payload.manager_name):
+                    raise UserNotFoundError
+                result = repo.get_safe_user(cur, user_id)
+            conn.commit()
+            return result
         except Exception:
             conn.rollback()
             raise

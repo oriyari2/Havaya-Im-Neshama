@@ -117,6 +117,14 @@ def update_user_email(cur, user_id: UUID, email: str) -> bool:
     return cur.fetchone() is not None
 
 
+def update_manager_name(cur, user_id: UUID, manager_name: str) -> bool:
+    cur.execute(
+        "UPDATE users SET display_name = %s, updated_at = now() WHERE id = %s AND role = 'manager' RETURNING id;",
+        (manager_name, user_id),
+    )
+    return cur.fetchone() is not None
+
+
 def set_user_active(cur, user_id: UUID, is_active: bool) -> bool:
     cur.execute(
         "UPDATE users SET is_active = %s, updated_at = now() WHERE id = %s RETURNING id;",

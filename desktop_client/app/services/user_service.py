@@ -22,6 +22,9 @@ class UserService:
     def update_email(self, user_id: str, email: str) -> dict:
         return self.api_client.put(f"/users/{user_id}", {"email": email})
 
+    def update_manager(self, user_id: str, manager_name: str) -> dict:
+        return self.api_client.put(f"/users/{user_id}", {"manager_name": manager_name})
+
     def activate(self, user_id: str) -> dict:
         return self.api_client.post(f"/users/{user_id}/activate", {})
 

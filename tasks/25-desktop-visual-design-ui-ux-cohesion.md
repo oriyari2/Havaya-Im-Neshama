@@ -106,3 +106,16 @@ details, create-dialog, and edit-dialog screenshots under `docs/screenshots/`.
 Do not begin another screen automatically. Continue Task 25 only after the
 product owner explicitly selects the next bounded screen or visual-design
 subtask.
+
+## Task 25.2 — role-specific management UI standard (COMPLETE)
+
+Customers, Instructors, and Managers now share one professional RTL management
+language: grouped title/subtitle headers, independent creation actions,
+search/reset toolbars, semantic resizable tables, centered pagination,
+list-to-details navigation, information cards, equal detail actions, shared
+dialogs, and the shared write-only password workflow.
+
+Instructor and Manager screens no longer use the legacy split-pane layout.
+Login email is read-only during edit. Manager edit changes the manager name
+while the permanent login identifier remains unchanged. No screenshots or
+visual artifacts were created for Task 25.2.

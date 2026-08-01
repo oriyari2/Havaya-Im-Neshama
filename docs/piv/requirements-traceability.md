@@ -776,3 +776,9 @@ Manual acceptance checks.
 
 PIV documentation update.
 
+### Task 25.2 — role-specific management UI standard
+
+Implemented a shared RTL list-to-details management pattern for Customers,
+Instructors, and Managers. The modules share page hierarchy, semantic tables,
+pagination, cards, equal action buttons, dialog conventions, permanent
+read-only login email during edit, and centralized write-only password changes.

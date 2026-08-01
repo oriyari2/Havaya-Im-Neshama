@@ -43,6 +43,8 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
         self.assertIs(view.scaffold.header.title.parentWidget(), view.header_identity)
         self.assertIs(view.scaffold.header.description.parentWidget(), view.header_identity)
+        self.assertFalse(view.scaffold.header.description.wordWrap())
+        self.assertEqual({button.minimumWidth() for button in (view.edit_button, view.change_password_button, view.delete_button)}, {148})
         for obsolete in (
             "contacts",
             "add_contact",
@@ -82,6 +84,7 @@ class CustomerViewTests(TestCase):
         self.assertNotIn("role_title", values)
         self.assertNotIn("is_primary", values)
         self.assertNotIn("is_active", values)
+        self.assertTrue(dialog.fields["email"].isReadOnly())
         dialog.show_error("bad")
         self.assertFalse(dialog.error_label.isHidden())
         dialog.set_submitting(True)
