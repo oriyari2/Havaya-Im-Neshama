@@ -9,8 +9,8 @@ from desktop_client.app.views.ui_foundations import configure_mixed_direction
 
 class ShellView(QWidget):
     navigation_requested = Signal(str); logout_requested = Signal()
-    def __init__(self, email: str) -> None:
-        super().__init__(); self.setObjectName("applicationRoot"); self.setLayoutDirection(Qt.LayoutDirection.RightToLeft); root = QHBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
+    def __init__(self, email: str, parent: QWidget | None = None) -> None:
+        super().__init__(parent); self.setObjectName("applicationRoot"); self.setLayoutDirection(Qt.LayoutDirection.RightToLeft); root = QHBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         sidebar = QFrame(); sidebar.setObjectName("sidebar"); sidebar.setMinimumWidth(200); sidebar.setMaximumWidth(240)
         self.sidebar_layout = QVBoxLayout(sidebar); self.sidebar_layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4); self.sidebar_layout.setSpacing(SPACE_3)
         brand = QLabel("חוויה עם נשמה"); brand.setObjectName("brand"); brand.setAccessibleName("חוויה עם נשמה"); self.sidebar_layout.addWidget(brand)

@@ -7,11 +7,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QPushButton, QTableWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QPushButton, QTableWidget, QWidget
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
 from desktop_client.app.views.customer_dialogs import CustomerDialog
+from desktop_client.app.views.instructor_dialogs import InstructorDialog
+from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog
 from desktop_client.app.views.customers_view import CustomersView
 from desktop_client.app.views.activities_view import ActivitiesView
 from desktop_client.app.views.ai_chat_view import AIChatView
@@ -76,12 +78,20 @@ class UiFoundationTests(unittest.TestCase):
 
     def test_feedback_and_state_panels_render_distinct_mechanisms(self) -> None:
         banner = FeedbackBanner(); banner.render(RequestState(RequestPhase.SUCCESS, "נשמר", "save")); self.assertFalse(banner.isHidden()); self.assertEqual(banner.property("feedback"), "success")
+        self.assertEqual(banner._dismiss_timer.interval() + banner._fade.duration(), 2500); self.assertTrue(banner._dismiss_timer.isActive()); banner._fade_success(); QTest.qWait(300); self.assertTrue(banner.isHidden())
         panel = StatePanel(); panel.render(RequestState(RequestPhase.CONNECTION_ERROR, "אין חיבור", "list", retryable=True)); self.assertFalse(panel.isHidden()); self.assertFalse(panel.retry_button.isHidden())
         panel.render(RequestState(RequestPhase.STALE, "ישן", "list")); self.assertTrue(panel.isHidden())
         for phase in RequestPhase:
             panel.render(RequestState(phase, "מצב", "test", retryable=phase == RequestPhase.CONNECTION_ERROR))
             expected = phase in {RequestPhase.LOADING, RequestPhase.EMPTY, RequestPhase.CONNECTION_ERROR, RequestPhase.SERVER_ERROR, RequestPhase.AUTHORIZATION_ERROR}
             self.assertEqual(not panel.isHidden(), expected, phase)
+
+    def test_entity_dialogs_share_customer_geometry_hierarchy_and_actions(self) -> None:
+        dialogs = (CustomerDialog(), InstructorDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
+        for dialog in dialogs:
+            self.assertEqual(dialog.minimumSize().width(), 760); self.assertEqual(dialog.minimumSize().height(), 600); self.assertEqual(dialog.maximumWidth(), 860)
+            self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.WrapAllRows)
+            self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
 
     def test_table_policy_sets_accessibility_density_and_elision(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "בדיקה", (

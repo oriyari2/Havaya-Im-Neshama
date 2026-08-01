@@ -17,31 +17,38 @@ class CreateUserDialog(_BaseFormDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__("מנהל חדש", parent)
+        self.apply_entity_standard("פרטי המנהל וחשבון ההתחברות")
+        self.body_layout.insertWidget(0, self._section_label("פרטי מנהל"))
         self.fields = {}
         self.email = QLineEdit()
-        self.email.setAccessibleName("אימייל להתחברות")
+        self.email.setMinimumWidth(240)
+        self.email.setAccessibleName("דוא״ל להתחברות")
         configure_mixed_direction(self.email)
-        self.form.addRow("אימייל להתחברות *", self.email)
+        self.form.addRow("דוא״ל להתחברות *", self.email)
         self.fields["email"] = self.email
         self.password = QLineEdit()
+        self.password.setMinimumWidth(240)
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self.password.setAccessibleName("סיסמה")
         configure_mixed_direction(self.password)
         self.form.addRow("סיסמה *", self.password)
         self.fields["password"] = self.password
         self.confirmation = QLineEdit()
+        self.confirmation.setMinimumWidth(240)
         self.confirmation.setEchoMode(QLineEdit.EchoMode.Password)
         self.confirmation.setAccessibleName("אימות סיסמה")
         configure_mixed_direction(self.confirmation)
         self.form.addRow("אימות סיסמה *", self.confirmation)
         self.fields["password_confirmation"] = self.confirmation
         self.manager_name = QLineEdit()
+        self.manager_name.setMinimumWidth(240)
         self.manager_name.setAccessibleName("שם מנהל")
         self.form.addRow("שם מנהל *", self.manager_name)
         self.fields["manager_name"] = self.manager_name
         for field in self.fields.values():
             field.textChanged.connect(self._update_save_enabled)
         self._update_save_enabled()
+        self.save_button.setText("יצירת מנהל")
         self.email.setFocus()
         order = [self.email, self.password, self.confirmation, self.manager_name, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
@@ -79,8 +86,11 @@ class CreateUserDialog(_BaseFormDialog):
 class EditUserDialog(_BaseFormDialog):
     def __init__(self, user: dict, parent=None) -> None:
         super().__init__("עריכת מנהל", parent)
+        self.apply_entity_standard("פרטי המנהל וחשבון ההתחברות")
+        self.body_layout.insertWidget(0, self._section_label("פרטי מנהל"))
         self.fields = {}
         self.email = QLineEdit(str(user["email"]))
+        self.email.setMinimumWidth(240)
         self.email.setAccessibleName("דוא״ל")
         self.email.setReadOnly(True)
         self.email.setAccessibleDescription("דוא״ל ההתחברות קבוע ואינו ניתן לעריכה")
@@ -90,9 +100,11 @@ class EditUserDialog(_BaseFormDialog):
         self.role = QLabel("מנהל")
         self.form.addRow("תפקיד", self.role)
         self.manager_name = QLineEdit(str(user.get("display_name") or "מנהל"))
+        self.manager_name.setMinimumWidth(240)
         self.manager_name.setAccessibleName("שם מנהל")
         self.form.addRow("שם *", self.manager_name)
         self.fields["manager_name"] = self.manager_name
+        self.save_button.setText("שמירת שינויים")
         self.manager_name.setFocus()
 
     def values(self) -> dict:

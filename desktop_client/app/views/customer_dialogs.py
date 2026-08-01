@@ -74,6 +74,59 @@ class _BaseFormDialog(QDialog):
         self.buttons.rejected.connect(self.reject)
         self.root.addWidget(self.buttons)
 
+    def apply_entity_standard(self, description: str) -> None:
+        """Apply the canonical Customer create/edit dialog composition."""
+        self.setMinimumSize(760, 600)
+        self.setMaximumWidth(860)
+        self.resize(820, 650)
+        self.root.setSpacing(SPACE_3)
+        heading = QWidget()
+        heading.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        heading_layout = QVBoxLayout(heading)
+        heading_layout.setContentsMargins(0, 0, 0, 0)
+        heading_layout.setSpacing(SPACE_2)
+        self.heading_label = QLabel(self.windowTitle())
+        self.heading_label.setObjectName("screenTitle")
+        self.heading_description = QLabel(description)
+        self.required_hint = QLabel("* שדה חובה")
+        for label in (self.heading_label, self.heading_description, self.required_hint):
+            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            row = QWidget()
+            row.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+            row_layout = QHBoxLayout(row)
+            row_layout.setContentsMargins(0, 0, 0, 0)
+            row_layout.addStretch()
+            row_layout.addWidget(label)
+            heading_layout.addWidget(row)
+        self.heading_label.setAccessibleName(self.windowTitle())
+        self.required_hint.setAccessibleName("סימון שדות חובה")
+        self.root.insertWidget(0, heading)
+        self._configure_form(self.form)
+        self.save_button.setProperty("primary", True)
+        self.save_button.style().unpolish(self.save_button)
+        self.save_button.style().polish(self.save_button)
+        for button in (self.save_button, self.cancel_button):
+            button.setMinimumWidth(120)
+            button.setMinimumHeight(CONTROL_HEIGHT_LARGE)
+
+    @staticmethod
+    def _section_label(title: str) -> QLabel:
+        label = QLabel(title)
+        label.setObjectName("sectionTitle")
+        label.setAccessibleName(title)
+        return label
+
+    @staticmethod
+    def _configure_form(form: QFormLayout) -> None:
+        form.setContentsMargins(0, 0, 0, 0)
+        form.setVerticalSpacing(DIALOG_ROW_GAP)
+        form.setHorizontalSpacing(SPACE_3)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+
     def _submit(self) -> None:
         if self.buttons.isEnabled():
             self.submitted.emit(self.values(), self)
@@ -105,34 +158,7 @@ class CustomerDialog(_BaseFormDialog):
     def __init__(self, initial=None, parent=None) -> None:
         super().__init__("עריכת לקוח" if initial else "לקוח חדש", parent)
         initial = initial or {}
-        self.setMinimumSize(760, 600)
-        self.setMaximumWidth(860)
-        self.resize(820, 650)
-        self.root.setSpacing(SPACE_3)
-
-        heading = QWidget()
-        heading.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        heading_layout = QVBoxLayout(heading)
-        heading_layout.setContentsMargins(0, 0, 0, 0)
-        heading_layout.setSpacing(SPACE_2)
-        self.heading_label = QLabel(self.windowTitle())
-        self.heading_label.setObjectName("screenTitle")
-        self.heading_label.setAccessibleName(self.windowTitle())
-        self.heading_description = QLabel("פרטי הלקוח ופרטי איש הקשר")
-        self.required_hint = QLabel("* שדה חובה")
-        for label in (self.heading_label, self.heading_description, self.required_hint):
-            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.required_hint.setAccessibleName("סימון שדות חובה")
-        for label in (self.heading_label, self.heading_description, self.required_hint):
-            row = QWidget()
-            row.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-            row_layout = QHBoxLayout(row)
-            row_layout.setContentsMargins(0, 0, 0, 0)
-            row_layout.addStretch()
-            row_layout.addWidget(label)
-            heading_layout.addWidget(row)
-        self.root.insertWidget(0, heading)
+        self.apply_entity_standard("פרטי הלקוח ופרטי איש הקשר")
 
         self.body_layout.removeItem(self.form)
         self.body_layout.setSpacing(DIALOG_SECTION_GAP)
@@ -187,9 +213,6 @@ class CustomerDialog(_BaseFormDialog):
         self.save_button.setText("שמירת שינויים" if initial else "יצירת לקוח")
         self.save_button.style().unpolish(self.save_button)
         self.save_button.style().polish(self.save_button)
-        for button in (self.save_button, self.cancel_button):
-            button.setMinimumWidth(120)
-            button.setMinimumHeight(CONTROL_HEIGHT_LARGE)
         self.fields["name"].setFocus()
         credentials = [field for field in (self.password, self.password_confirmation) if field is not None]
         main_fields = [self.fields[key] for key in ("name", "customer_type", "city", "address", "phone", "email")]
@@ -197,23 +220,6 @@ class CustomerDialog(_BaseFormDialog):
         order = main_fields + credentials + contact_fields + [self.notes, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
-
-    @staticmethod
-    def _section_label(title: str) -> QLabel:
-        label = QLabel(title)
-        label.setObjectName("sectionTitle")
-        label.setAccessibleName(title)
-        return label
-
-    @staticmethod
-    def _configure_form(form: QFormLayout) -> None:
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setVerticalSpacing(DIALOG_ROW_GAP)
-        form.setHorizontalSpacing(SPACE_3)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
 
     def _add_field(self, form: QFormLayout, key: str, label: str, initial: dict) -> None:
         field = QLineEdit(str(initial.get(key) or ""))

@@ -120,7 +120,7 @@ class MainWindow(QMainWindow):
 
     def _show_workspace(self, session: Session) -> None:
         self.session = session
-        self.shell = ShellView(session.email)
+        self.shell = ShellView(session.email, self)
         navigation = navigation_for_role(session.role, has_profile=bool(session.customer_id or session.instructor_id))
         self.shell.configure_navigation(navigation)
         self.shell.navigation_requested.connect(self._navigate)
@@ -260,6 +260,9 @@ class MainWindow(QMainWindow):
         self.shell.show_page(key)
         presenter = self._presenters.get(key)
         if presenter is not None:
+            reset = getattr(presenter, "reset_to_default", None)
+            if reset is not None and key in {"customers", "instructors", "users"}:
+                reset()
             presenter.load()
 
     def _navigate_with_filters(self, key: str, filters: dict | None = None) -> None:

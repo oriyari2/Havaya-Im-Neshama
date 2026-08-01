@@ -4,9 +4,9 @@ from dataclasses import dataclass
 from enum import Enum
 from html import escape
 
-from PySide6.QtCore import QEvent, QObject, QTimer, Qt, Signal
+from PySide6.QtCore import QAbstractAnimation, QEasingCurve, QEvent, QObject, QPropertyAnimation, QTimer, Qt, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QPushButton,
+    QAbstractItemView, QFrame, QGraphicsOpacityEffect, QHBoxLayout, QHeaderView, QLabel, QPushButton,
     QTableWidget, QVBoxLayout, QWidget,
 )
 from shiboken6 import isValid
@@ -144,12 +144,22 @@ class DetailPanel(QFrame):
 
 class FeedbackBanner(QLabel):
     def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent); self.setWordWrap(True); self.setAccessibleName("משוב פעולה"); self.setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2); self.hide()
+        super().__init__(parent); self.setWordWrap(True); self.setAccessibleName("משוב פעולה"); self.setContentsMargins(SPACE_3, SPACE_2, SPACE_3, SPACE_2)
+        self._dismiss_timer = QTimer(self); self._dismiss_timer.setSingleShot(True); self._dismiss_timer.setInterval(2250); self._dismiss_timer.timeout.connect(self._fade_success)
+        self._opacity = QGraphicsOpacityEffect(self); self.setGraphicsEffect(self._opacity)
+        self._fade = QPropertyAnimation(self._opacity, b"opacity", self); self._fade.setDuration(250); self._fade.setEasingCurve(QEasingCurve.Type.InOutQuad); self._fade.finished.connect(self.hide)
+        self.hide()
     def render(self, state: RequestState) -> None:
         mapping = {RequestPhase.SUCCESS: "success", RequestPhase.AUTHORIZATION_ERROR: "error", RequestPhase.CONNECTION_ERROR: "warning", RequestPhase.SERVER_ERROR: "error", RequestPhase.VALIDATION_ERROR: "error"}
         feedback = mapping.get(state.phase)
+        self._dismiss_timer.stop(); self._fade.stop(); self._opacity.setOpacity(1.0)
         if not feedback or not state.message: self.hide(); return
         self.setProperty("feedback", feedback); self.setText(state.message); self.setAccessibleDescription(state.message); self.style().unpolish(self); self.style().polish(self); self.show()
+        if state.phase == RequestPhase.SUCCESS: self._dismiss_timer.start()
+
+    def _fade_success(self) -> None:
+        if self.property("feedback") != "success" or self.isHidden(): return
+        self._fade.setStartValue(1.0); self._fade.setEndValue(0.0); self._fade.start(QAbstractAnimation.DeletionPolicy.KeepWhenStopped)
 
 
 class StatePanel(QFrame):

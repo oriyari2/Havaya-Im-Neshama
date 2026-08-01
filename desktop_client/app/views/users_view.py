@@ -20,10 +20,11 @@ class UsersView(StatefulWidget):
         self.edit_button=self.workspace.add_action("עריכת מנהל");self.reset_button=self.workspace.add_action("שינוי סיסמה");self.activate_button=self.workspace.add_action("הפעלה");self.deactivate_button=self.workspace.add_action("מחיקת מנהל",destructive=True)
         self.account_details=self.workspace.add_card("פרטי מנהל");self.system_details=self.workspace.add_card("מידע מערכת")
         for button,signal in ((self.create_button,self.create_requested),(self.edit_button,self.edit_requested),(self.reset_button,self.reset_password_requested),(self.activate_button,self.activate_requested),(self.deactivate_button,self.deactivate_requested)):button.clicked.connect(signal);button.setAccessibleName(button.text())
-        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "display_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda _r,_c:self._open());self.table.installEventFilter(self);self.view_details_button.clicked.connect(self._open);self.clear_details()
+        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "display_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda _r,_c:self._open());self.table.installEventFilter(self);self.view_details_button.clicked.connect(self._open);self.workspace.empty_action_button.clicked.connect(self._empty_action);self._empty_filtered=False;self.clear_details()
     def _sort_changed(self,_index):self.filters_requested.emit({"search":self.toolbar.search_input.text().strip() or None,"order_by":str(self.toolbar.sort_combo.currentData() or "display_name")})
     def _reset_toolbar(self):
         self.toolbar.search_input.clear();self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(False);self.filters_requested.emit({"search":None,"is_active":None,"order_by":"display_name"})
+    def _empty_action(self):self._reset_toolbar() if self._empty_filtered else self.create_requested.emit()
     def eventFilter(self,watched,event):
         if watched is self.table and event.type()==QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return,Qt.Key.Key_Enter):self._open();return True
         return super().eventFilter(watched,event)
@@ -41,7 +42,7 @@ class UsersView(StatefulWidget):
                 if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(user["id"]))
             status_item=QTableWidgetItem("פעיל" if user["is_active"] else "לא פעיל");status_item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);self.table.setItem(ri,2,status_item)
             status=ActiveBadge();status.set_active(bool(user["is_active"]));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,2,status)
-        self.footer.set_page(offset=offset,count=len(rows));self.workspace.empty_label.setVisible(not rows);self.workspace.empty_label.setText("לא נמצאו מנהלים." if filtered else "אין מנהלים להצגה.")
+        self.footer.set_page(offset=offset,count=len(rows));self.workspace.results_label.setText(f"מנהלים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מנהלים")
     def show_details(self,user,*,current_user_id):
         self._clear_forms();name=user.get("display_name") or "מנהל";email=QLabel(str(user["email"]));configure_mixed_direction(email);self.workspace.add_property_row(self.account_details,"שם",QLabel(name));self.workspace.add_property_row(self.account_details,"דוא״ל התחברות",email)
         self.workspace.add_property_row(self.system_details,"מצב חשבון",QLabel("פעיל" if user["is_active"] else "לא פעיל"));self.workspace.add_property_row(self.system_details,"נוצר",QLabel(str(user["created_at"])));self.workspace.add_property_row(self.system_details,"עודכן",QLabel(str(user["updated_at"])))
@@ -53,12 +54,15 @@ class UsersView(StatefulWidget):
     def clear_details(self):
         if hasattr(self,"account_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.set_actions_enabled(False);self.workspace.show_list()
         self.view_details_button.setEnabled(False)
+    def reset_to_default(self):
+        dialog=getattr(self,"_dialog",None)
+        if dialog is not None and dialog.isVisible():dialog.reject()
+        self.scaffold.feedback.hide();self.toolbar.search_input.clear();blocked=self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(blocked);self.table.clearSelection();self.clear_details()
     def set_detail_loading(self,value):
         if value:self.workspace.set_actions_enabled(False)
     def set_loading(self,value):
         self.create_button.setEnabled(not value);self.toolbar.search_button.setEnabled(not value);self.toolbar.refresh_button.setEnabled(not value);self.toolbar.sort_combo.setEnabled(not value)
-        if value and not self.table.rowCount():self.workspace.empty_label.setText("טוען מנהלים…");self.workspace.empty_label.show()
-        elif value is False and self.workspace.empty_label.text()=="טוען מנהלים…":self.workspace.empty_label.hide()
+        if value and not self.table.rowCount():self.workspace.show_loading("טוען מנהלים…")
     def show_error(self,message,*,retriable=False,permission=False):self.scaffold.feedback.render(RequestState(RequestPhase.AUTHORIZATION_ERROR if permission else RequestPhase.CONNECTION_ERROR if retriable else RequestPhase.SERVER_ERROR,message,"users",retryable=retriable))
     def show_success(self,message):self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS,message,"users"))
     def select_user(self,user_id):

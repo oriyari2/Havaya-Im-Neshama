@@ -21,6 +21,13 @@ class UsersPresenter:
         self._operations = PresenterOperations(executor, "users")
         self._last_list_render = None
 
+    def reset_to_default(self) -> None:
+        limit = self.filters["limit"]
+        self.filters = {"search": None, "role": "manager", "is_active": None, "order_by": "display_name", "limit": limit, "offset": 0}
+        self.selected_id = self.selected = None
+        self._last_list_render = None
+        self.view.reset_to_default()
+
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
         self.loading = False

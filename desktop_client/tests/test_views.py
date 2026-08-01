@@ -7,7 +7,7 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QCoreApplication, QEvent
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QWidget
 
 from desktop_client.app.main import MainWindow
 from desktop_client.app.models.session import Session
@@ -143,6 +143,13 @@ class ViewTests(unittest.TestCase):
         first = shell.stack.currentWidget()
         shell.show_page("forbidden")
         self.assertIs(shell.stack.currentWidget(), first)
+
+    def test_management_navigation_is_module_home_and_shell_never_becomes_top_level(self) -> None:
+        class Api:
+            def set_unauthorized_handler(self, handler): self.handler = handler
+        window = MainWindow(Api()); window.shell = ShellView("manager@example.com", window); page = QWidget(); window.shell.add_page("customers", page)
+        presenter = Mock(); window._presenters = {"customers": presenter}; window._active_page = "customers"; window._navigate("customers")
+        presenter.reset_to_default.assert_called_once_with(); presenter.load.assert_called_once_with(); self.assertFalse(window.shell.isWindow())
 
     def test_main_window_builds_expected_pages_for_every_role(self) -> None:
         class Api:

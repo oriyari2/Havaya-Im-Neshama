@@ -83,6 +83,13 @@ class CustomersPresenter:
         self._executor = executor or ImmediateOperationExecutor()
         self._last_list_render: tuple[dict, list] | None = None
 
+    def reset_to_default(self) -> None:
+        limit = self.filters["limit"]
+        self.filters = {"search": None, "city": None, "customer_type": None, "is_active": None, "order_by": "name", "limit": limit, "offset": 0}
+        self.selected_id = self.selected_customer = None
+        self._last_list_render = None
+        self.view.reset_to_default()
+
     def _begin_request(self, operation_key: str, resource_id: str | None = None) -> RequestIdentity:
         cancel_operation = getattr(self._executor, "cancel_operation", None)
         if cancel_operation is not None:

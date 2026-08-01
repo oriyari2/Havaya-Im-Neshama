@@ -41,6 +41,9 @@ class InstructorsPresenter:
         self._operations = PresenterOperations(executor, "instructors")
         self._last_list_render = None
 
+    def reset_to_default(self):
+        limit=self.filters["limit"];self.filters={"search":None,"city":None,"is_active":None,"order_by":"full_name","limit":limit,"offset":0};self.selected_id=self.selected=None;self._last_list_render=None;self.view.reset_to_default()
+
     def invalidate_requests(self):
         self._operations.invalidate()
         self.loading = False

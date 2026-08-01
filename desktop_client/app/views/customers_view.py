@@ -631,6 +631,18 @@ class CustomersView(StatefulWidget):
         if hasattr(self, "pages"):
             self._set_list_page()
 
+    def reset_to_default(self) -> None:
+        dialog = getattr(self, "_dialog", None)
+        if dialog is not None and dialog.isVisible():
+            dialog.reject()
+        self.scaffold.feedback.hide()
+        self.toolbar.search_input.clear()
+        blocked = self.sort_by.blockSignals(True)
+        self.sort_by.setCurrentIndex(0)
+        self.sort_by.blockSignals(blocked)
+        self.table.clearSelection()
+        self.clear_details()
+
     def select_customer(self, customer_id: str) -> None:
         for row in range(self.table.rowCount()):
             if str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)) == customer_id:

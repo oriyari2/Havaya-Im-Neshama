@@ -21,10 +21,11 @@ class InstructorsView(StatefulWidget):
         self.edit_button=self.workspace.add_action("עריכת מדריך");self.change_password_button=self.workspace.add_action("שינוי סיסמה");self.delete_button=self.workspace.add_action("מחיקת מדריך",destructive=True)
         self.profile_details=self.workspace.add_card("פרטי מדריך");self.system_details=self.workspace.add_card("מידע מערכת")
         self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.change_password_button.clicked.connect(self.change_password_requested);self.delete_button.clicked.connect(self.delete_requested)
-        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "full_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda _r,_c:self._open());self.table.installEventFilter(self);self.view_details_button.clicked.connect(self._open);self.clear_details()
+        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "full_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda _r,_c:self._open());self.table.installEventFilter(self);self.view_details_button.clicked.connect(self._open);self.workspace.empty_action_button.clicked.connect(self._empty_action);self._empty_filtered=False;self.clear_details()
     def _sort_changed(self,_index):self.filters_requested.emit({"search":self.toolbar.search_input.text().strip() or None,"order_by":str(self.toolbar.sort_combo.currentData() or "full_name")})
     def _reset_toolbar(self):
         self.toolbar.search_input.clear();self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(False);self.filters_requested.emit({"search":None,"city":None,"is_active":None,"order_by":"full_name"})
+    def _empty_action(self):self._reset_toolbar() if self._empty_filtered else self.create_requested.emit()
     def eventFilter(self,watched,event):
         if watched is self.table and event.type()==QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return,Qt.Key.Key_Enter):self._open();return True
         return super().eventFilter(watched,event)
@@ -41,7 +42,7 @@ class InstructorsView(StatefulWidget):
                 if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
             status_item=QTableWidgetItem("פעיל" if row.get("is_active") else "לא פעיל");status_item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);self.table.setItem(ri,4,status_item)
             status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,4,status)
-        self.footer.set_page(offset=offset,count=count);self.workspace.empty_label.setVisible(not rows);self.workspace.empty_label.setText("לא נמצאו מדריכים." if filtered else "אין מדריכים להצגה.")
+        self.footer.set_page(offset=offset,count=count);self.workspace.results_label.setText(f"מדריכים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מדריכים")
     def show_details(self,details,item):
         self._clear_forms()
         for label,value in details:
@@ -55,6 +56,10 @@ class InstructorsView(StatefulWidget):
     def clear_details(self):
         if hasattr(self,"profile_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.set_actions_enabled(False);self.workspace.show_list()
         self.view_details_button.setEnabled(False)
+    def reset_to_default(self):
+        dialog=getattr(self,"_dialog",None)
+        if dialog is not None and dialog.isVisible():dialog.reject()
+        self.scaffold.feedback.hide();self.toolbar.search_input.clear();blocked=self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(blocked);self.table.clearSelection();self.clear_details()
     def show_error(self,message,*,retriable=False,permission=False):self.scaffold.feedback.render(RequestState(RequestPhase.CONNECTION_ERROR if retriable else RequestPhase.SERVER_ERROR,message,"instructors",retryable=retriable))
     def show_success(self,message):self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS,message,"instructors"))
     def select_instructor(self,instructor_id):
@@ -65,8 +70,7 @@ class InstructorsView(StatefulWidget):
     def confirm_deletion(self,name):return confirm_action(self,"אישור מחיקה",f"למחוק לצמיתות את המדריך {name}? לא ניתן לבטל פעולה זו.")
     def set_loading(self,value):
         self.create_button.setEnabled(not value);self.toolbar.search_button.setEnabled(not value);self.toolbar.refresh_button.setEnabled(not value);self.toolbar.sort_combo.setEnabled(not value)
-        if value and not self.table.rowCount():self.workspace.empty_label.setText("טוען מדריכים…");self.workspace.empty_label.show()
-        elif value is False and self.workspace.empty_label.text()=="טוען מדריכים…":self.workspace.empty_label.hide()
+        if value and not self.table.rowCount():self.workspace.show_loading("טוען מדריכים…")
     def set_detail_loading(self,value):
         if value:self.workspace.set_actions_enabled(False)
 

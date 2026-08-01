@@ -3,10 +3,10 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QBoxLayout, QFormLayout, QFrame, QHBoxLayout, QLabel, QPushButton,
-    QSizePolicy, QStackedWidget, QTableWidget, QVBoxLayout, QWidget,
+    QScrollArea, QSizePolicy, QStackedWidget, QTableWidget, QVBoxLayout, QWidget,
 )
 
-from desktop_client.app.views.design_tokens import CONTROL_HEIGHT, SPACE_2, SPACE_3, SPACE_4
+from desktop_client.app.views.design_tokens import CONTROL_HEIGHT, SPACE_2, SPACE_3, SPACE_4, SPACE_6
 from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, SearchToolbar, configure_reference_toolbar
 from desktop_client.app.views.ui_foundations import ColumnPolicy, PageScaffold, configure_data_table
 
@@ -21,6 +21,7 @@ class ManagementWorkspace(QWidget):
         super().__init__()
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         self.scaffold = PageScaffold(title, subtitle); self.scaffold.root.setSpacing(SPACE_3); root.addWidget(self.scaffold)
+        self.scaffold.header.layout().setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3); self.scaffold.header.layout().setSpacing(SPACE_2)
         self.scaffold.header.description.setWordWrap(False)
         self.scaffold.header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         title_row = self.scaffold.header.layout().itemAt(0).layout(); title_row.setDirection(QBoxLayout.Direction.RightToLeft)
@@ -36,9 +37,11 @@ class ManagementWorkspace(QWidget):
         toolbar_panel = QFrame(); toolbar_panel.setObjectName("filterPanel"); toolbar_layout = QVBoxLayout(toolbar_panel); toolbar_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3); toolbar_layout.setSpacing(SPACE_3)
         self.toolbar = SearchToolbar(placeholder=search_placeholder, sort_options=sort_options); configure_reference_toolbar(self.toolbar); self.toolbar.refresh_button.setText("איפוס"); toolbar_layout.addWidget(self.toolbar); listing.addWidget(toolbar_panel)
         heading = QHBoxLayout(); heading.setDirection(QBoxLayout.Direction.RightToLeft); self.results_label = QLabel(f"רשימת {plural}"); self.results_label.setObjectName("sectionTitle"); heading.addWidget(self.results_label); heading.addStretch(); self.view_details_button = QPushButton("הצגת פרטים"); heading.addWidget(self.view_details_button); listing.addLayout(heading)
-        self.empty_label = QLabel(); self.empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_label.hide(); listing.addWidget(self.empty_label)
-        self.table = QTableWidget(0, len(headers)); self.table.setHorizontalHeaderLabels(list(headers)); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", policies); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); listing.addWidget(self.table, 1)
-        self.footer = PaginationFooter(); self.footer.setMaximumWidth(440); listing.addWidget(self.footer, alignment=Qt.AlignmentFlag.AlignHCenter)
+        self.table = QTableWidget(0, len(headers)); self.table.setHorizontalHeaderLabels(list(headers)); self.table.verticalHeader().hide(); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", policies); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.table_region = QStackedWidget(); self.table_region.addWidget(self.table)
+        self.empty_state = QWidget(); empty = QVBoxLayout(self.empty_state); empty.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6); empty.setSpacing(SPACE_3); empty.addStretch(); self.empty_title = QLabel(); self.empty_title.setObjectName("sectionTitle"); self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description = QLabel(); self.empty_description.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description.setWordWrap(True); self.empty_action_button = QPushButton(); self.empty_action_button.setProperty("primary", True); self.empty_action_button.setMinimumWidth(160); empty.addWidget(self.empty_title); empty.addWidget(self.empty_description); empty.addWidget(self.empty_action_button, alignment=Qt.AlignmentFlag.AlignHCenter); empty.addStretch(); self.table_region.addWidget(self.empty_state); listing.addWidget(self.table_region, 1)
+        self.empty_label = self.empty_description
+        self.footer = PaginationFooter(); self.footer.setLayoutDirection(Qt.LayoutDirection.RightToLeft); self.footer.previous_button.setMaximumWidth(120); self.footer.next_button.setMaximumWidth(120); self.footer.label.setAlignment(Qt.AlignmentFlag.AlignCenter); self.footer.setMaximumWidth(440); listing.addWidget(self.footer, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         detail = QVBoxLayout(self.details_page); detail.setContentsMargins(0, 0, 0, 0); detail.setSpacing(SPACE_4)
         navigation = QWidget(); navigation.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
@@ -55,7 +58,9 @@ class ManagementWorkspace(QWidget):
         self.detail_status = ActiveBadge(); identity.addWidget(self.detail_status, alignment=Qt.AlignmentFlag.AlignRight)
         self.detail_subtitle = QLabel(detail_subtitle); self.detail_subtitle.setWordWrap(True); self.detail_subtitle.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); identity.addWidget(self.detail_subtitle)
         header.addWidget(self.identity_container); detail.addWidget(self.detail_header)
-        self.cards = QBoxLayout(QBoxLayout.Direction.RightToLeft); self.cards.setContentsMargins(0, 0, 0, 0); self.cards.setSpacing(SPACE_4); detail.addLayout(self.cards, 1)
+        self.details_widget = QWidget(); self.details_widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight); detail_body = QVBoxLayout(self.details_widget); detail_body.setContentsMargins(0, 0, 0, 0)
+        self.cards = QBoxLayout(QBoxLayout.Direction.RightToLeft); self.cards.setContentsMargins(0, 0, 0, 0); self.cards.setSpacing(SPACE_4); detail_body.addLayout(self.cards); detail_body.addStretch()
+        self.details_scroll = QScrollArea(); self.details_scroll.setWidgetResizable(True); self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame); self.details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); self.details_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.details_scroll.setWidget(self.details_widget); detail.addWidget(self.details_scroll, 1)
         self.back_button.clicked.connect(self.show_list); self.pages.setCurrentWidget(self.list_page)
 
     def add_action(self, text: str, *, destructive: bool = False) -> QPushButton:
@@ -74,6 +79,16 @@ class ManagementWorkspace(QWidget):
 
     def show_list(self) -> None:
         self.scaffold.header.show(); self.pages.setCurrentWidget(self.list_page); self.table.setFocus()
+
+    def show_empty_state(self, *, empty: bool, filtered: bool, plural: str) -> None:
+        self.table_region.setCurrentWidget(self.empty_state if empty else self.table)
+        self.empty_title.show(); self.empty_description.show(); self.empty_action_button.show()
+        self.empty_title.setText(f"לא נמצאו {plural}" if filtered else f"אין {plural} להצגה")
+        self.empty_description.setText("אפשר לאפס את החיפוש ולנסות שוב." if filtered else f"אפשר ליצור {plural} חדשים כדי להתחיל.")
+        self.empty_action_button.setText("איפוס חיפוש" if filtered else "יצירה חדשה")
+
+    def show_loading(self, text: str) -> None:
+        self.table_region.setCurrentWidget(self.empty_state); self.empty_title.hide(); self.empty_action_button.hide(); self.empty_description.setText(text); self.empty_description.show()
 
     def add_card(self, title: str):
         frame = QFrame(); frame.setObjectName("detailPanel"); frame.setLayoutDirection(Qt.LayoutDirection.LeftToRight)

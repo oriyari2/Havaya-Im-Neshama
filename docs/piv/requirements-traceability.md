@@ -786,3 +786,12 @@ The final stabilization adds a single-window startup lifecycle, removes unlaid
 loading overlays, standardizes the Customer-reference toolbar with immediate
 server-whitelisted sorting, and records the backend/Desktop completeness audit
 in the Task 25.2 PIV.
+
+The closing Task 25.2 pass makes Customer the canonical implementation for
+Instructor/Manager list, Details, empty-state and create/edit-dialog geometry;
+module navigation resets to the default list state; shared success feedback
+auto-dismisses after a consistent 2.5-second display/fade cycle; and workspace
+construction cannot expose `ShellView` as a temporary top-level window. The
+backend/Desktop capability matrix and prioritized UX findings are documented
+in `docs/piv/25-2-role-specific-management-ui-standard.md`; recommendations
+remain unimplemented pending explicit future-task approval.
