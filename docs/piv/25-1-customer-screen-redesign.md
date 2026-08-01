@@ -233,3 +233,20 @@ Files changed by this responsive completion:
 
 Wait for explicit product-owner direction. Do not redesign another screen as
 part of Task 25.1.
+
+## Account password completion
+
+- Customer Details now exposes the same write-only `שינוי סיסמה` action used
+  for Instructor and Manager accounts. The shared RTL modal accepts only a new
+  password and confirmation; no existing password or hash is ever returned or
+  rendered.
+- Customer and Instructor profile routes resolve their linked account inside
+  the backend, then delegate to the existing user-administration password
+  service and hashing implementation. Manager password changes continue to use
+  the existing User endpoint.
+- The Customer list heading now keeps `לקוחות` and
+  `ניהול לקוחות ופרטי קשר` in one identity block, independently from the
+  `לקוח חדש` action.
+- Focused backend, service, Presenter, and View tests cover delegation,
+  validation, write-only fields, button state, and the corrected header
+  ownership. No screenshot or visual artifact was created.

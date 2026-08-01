@@ -170,7 +170,7 @@ class UsersPresenter:
         except ValueError as exc:
             form.show_error(str(exc))
             return
-        self._submit(form, lambda: (self.service.reset_password(self.selected_id, password) or self.selected), "הסיסמה אופסה בהצלחה.")
+        self._submit(form, lambda: (self.service.reset_password(self.selected_id, password) or self.selected), "הסיסמה שונתה בהצלחה.")
 
     def activate(self) -> None:
         if self.selected_id:

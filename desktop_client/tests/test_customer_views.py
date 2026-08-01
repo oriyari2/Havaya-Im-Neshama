@@ -39,6 +39,10 @@ class CustomerViewTests(TestCase):
         view = CustomersView()
         self.assertFalse(view.edit_button.isEnabled())
         self.assertFalse(view.delete_button.isEnabled())
+        self.assertFalse(view.change_password_button.isEnabled())
+        self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
+        self.assertIs(view.scaffold.header.title.parentWidget(), view.header_identity)
+        self.assertIs(view.scaffold.header.description.parentWidget(), view.header_identity)
         for obsolete in (
             "contacts",
             "add_contact",

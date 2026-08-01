@@ -81,6 +81,14 @@ class UserAdministrationTests(TestCase):
         with patch("backend.app.routers.users.service.reset_password") as reset:
             self.assertEqual(client.post(f"/users/{user['id']}/reset-password", json={"new_password":"newpass123"}).status_code, 204); reset.assert_called_once()
 
+    def test_role_specific_password_routes_delegate_to_canonical_account_service(self) -> None:
+        client=TestClient(app);app.dependency_overrides[get_current_user]=lambda:{"id":uuid4(),"role":"manager"}
+        for role,path in (("customer","customers"),("instructor","instructors")):
+            profile_id=uuid4()
+            with self.subTest(role=role),patch(f"backend.app.routers.{path}.user_admin_service.reset_profile_password") as reset:
+                response=client.post(f"/{path}/{profile_id}/reset-password",json={"new_password":"newpass123"})
+                self.assertEqual(response.status_code,204);self.assertEqual(reset.call_args.args[:2],(role,profile_id));self.assertNotIn("password_hash",response.text)
+
     @patch.object(service, "get_connection")
     def test_create_hashes_password_and_returns_safe_user(self, get_connection) -> None:
         connection = MagicMock(); cursor = MagicMock(); get_connection.return_value.__enter__.return_value = connection; connection.cursor.return_value.__enter__.return_value = cursor
@@ -166,6 +174,13 @@ class UserAdministrationTests(TestCase):
         user_id = uuid4(); cursor.fetchone.side_effect=[{"id":user_id},{"id":user_id}]
         service.reset_password(user_id, PasswordResetRequest(new_password="newpass123")); stored = cursor.execute.call_args_list[1].args[1][0]
         self.assertFalse(verify_password("oldpass123", stored)); self.assertTrue(verify_password("newpass123", stored)); connection.commit.assert_called_once()
+
+    @patch.object(service, "get_connection")
+    def test_profile_password_reset_resolves_linked_user_and_reuses_hashing(self, get_connection) -> None:
+        connection = MagicMock(); cursor = MagicMock(); get_connection.return_value.__enter__.return_value = connection; connection.cursor.return_value.__enter__.return_value = cursor
+        user_id=uuid4(); profile_id=uuid4(); cursor.fetchone.side_effect=[{"id":user_id},{"id":user_id}]
+        service.reset_profile_password("customer",profile_id,PasswordResetRequest(new_password="newpass123")); stored=cursor.execute.call_args_list[1].args[1][0]
+        self.assertTrue(verify_password("newpass123",stored));self.assertNotEqual(stored,"newpass123");connection.commit.assert_called_once()
 
     @patch.object(auth_service, "get_connection")
     def test_inactive_login_rejected_and_active_login_succeeds(self, get_connection) -> None:

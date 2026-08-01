@@ -21,6 +21,8 @@ class InstructorViewTests(TestCase):
         dialog = InstructorDialog({"full_name": "A"})
         self.assertFalse(view.edit_button.isEnabled())
         self.assertFalse(view.delete_button.isEnabled())
+        self.assertFalse(view.change_password_button.isEnabled())
+        self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
         self.assertFalse(hasattr(view, "reactivate_button"))
         self.assertNotIn("password", dialog.values())
         self.assertNotIn("is_active", dialog.values())

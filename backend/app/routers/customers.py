@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 
 from backend.app.application.services import customer_service
+from backend.app.application.services import user_admin_service
 from backend.app.core.auth import get_current_user, require_roles
 from backend.app.schemas.customer import (
     CustomerContactCreate,
@@ -16,6 +17,7 @@ from backend.app.schemas.customer import (
     CustomerResponse,
     CustomerUpdate,
 )
+from backend.app.schemas.user_admin import PasswordResetRequest
 
 
 router = APIRouter(tags=["customers"])
@@ -130,6 +132,19 @@ def delete_customer(customer_id: UUID, _current_user: dict = RequireManager) -> 
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail="Could not delete customer") from exc
+    return Response(status_code=204)
+
+
+@router.post("/customers/{customer_id}/reset-password", status_code=204)
+def reset_customer_password(
+    customer_id: UUID,
+    payload: PasswordResetRequest,
+    _current_user: dict = RequireManager,
+) -> Response:
+    try:
+        user_admin_service.reset_profile_password("customer", customer_id, payload)
+    except user_admin_service.UserNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Customer account not found") from exc
     return Response(status_code=204)
 
 

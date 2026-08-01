@@ -170,3 +170,20 @@ def reset_password(user_id: UUID, payload: PasswordResetRequest) -> None:
         except Exception:
             conn.rollback()
             raise
+
+
+def reset_profile_password(role: str, profile_id: UUID, payload: PasswordResetRequest) -> None:
+    if role not in {"customer", "instructor"}:
+        raise ValueError("Unsupported account profile role")
+    with get_connection() as conn:
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                user_id = repo.get_user_id_for_profile(cur, role=role, profile_id=profile_id)
+                if user_id is None:
+                    raise UserNotFoundError
+                if not repo.set_password_hash(cur, user_id, hash_password(payload.new_password)):
+                    raise UserNotFoundError
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise

@@ -2,8 +2,10 @@ from typing import Annotated,NoReturn
 from uuid import UUID
 from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from backend.app.application.services import instructor_service as service
+from backend.app.application.services import user_admin_service
 from backend.app.core.auth import get_current_user,require_roles
 from backend.app.schemas.instructor import InstructorCreate,InstructorListResponse,InstructorResponse,InstructorUpdate
+from backend.app.schemas.user_admin import PasswordResetRequest
 
 router=APIRouter(tags=["instructors"]); Manager=Depends(require_roles("manager"))
 def errors(exc:Exception)->NoReturn:
@@ -41,3 +43,8 @@ def delete(instructor_id:UUID,_user:dict=Manager):
     try:service.delete_instructor(instructor_id);return Response(status_code=204)
     except (service.InstructorNotFoundError,service.InstructorAccessDeniedError,service.InstructorConflictError,service.InstructorDeleteConflictError) as exc:errors(exc)
     except Exception as exc:raise HTTPException(500,"Could not delete instructor") from exc
+
+@router.post("/instructors/{instructor_id}/reset-password",status_code=204)
+def reset_password(instructor_id:UUID,payload:PasswordResetRequest,_user:dict=Manager):
+    try:user_admin_service.reset_profile_password("instructor",instructor_id,payload);return Response(status_code=204)
+    except user_admin_service.UserNotFoundError as exc:raise HTTPException(404,"Instructor account not found") from exc

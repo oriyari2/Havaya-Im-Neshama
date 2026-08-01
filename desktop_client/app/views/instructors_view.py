@@ -18,6 +18,7 @@ from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.design_tokens import DETAIL_MIN_WIDTH, TABLE_MIN_WIDTH
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
+from desktop_client.app.views.account_dialogs import ChangePasswordDialog
 from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar, confirm_action
 from desktop_client.app.views.ui_foundations import (
     ColumnKind,
@@ -38,6 +39,7 @@ class InstructorsView(StatefulWidget):
     create_requested = Signal()
     edit_requested = Signal()
     delete_requested = Signal()
+    change_password_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -82,14 +84,17 @@ class InstructorsView(StatefulWidget):
         self.create_button = QPushButton("מדריך חדש")
         self.edit_button = QPushButton("עריכה")
         self.delete_button = QPushButton("מחיקה")
+        self.change_password_button = QPushButton("שינוי סיסמה")
         for button, signal in (
             (self.create_button, self.create_requested),
             (self.edit_button, self.edit_requested),
             (self.delete_button, self.delete_requested),
+            (self.change_password_button, self.change_password_requested),
         ):
             button.clicked.connect(signal)
             button.setAccessibleName(button.text())
         self.scaffold.action_bar.add_action(self.delete_button, destructive=True)
+        self.scaffold.action_bar.add_action(self.change_password_button)
         self.scaffold.action_bar.add_action(self.edit_button)
         self.scaffold.action_bar.add_action(self.create_button, primary=True)
         self.scaffold.action_bar.show()
@@ -145,6 +150,7 @@ class InstructorsView(StatefulWidget):
             self.apply_filters_button,
             self.create_button,
             self.edit_button,
+            self.change_password_button,
             self.delete_button,
             self.table,
         )
@@ -196,11 +202,12 @@ class InstructorsView(StatefulWidget):
             self.details.addRow(label, content)
         self.edit_button.setEnabled(True)
         self.delete_button.setEnabled(True)
+        self.change_password_button.setEnabled(True)
 
     def clear_details(self) -> None:
         while getattr(self, "details", None) is not None and self.details.rowCount():
             self.details.removeRow(0)
-        for name in ("edit_button", "delete_button"):
+        for name in ("edit_button", "change_password_button", "delete_button"):
             button = getattr(self, name, None)
             if button:
                 button.setEnabled(False)
@@ -220,6 +227,11 @@ class InstructorsView(StatefulWidget):
 
     def open_form(self, initial, submit) -> None:
         self._dialog = InstructorDialog(initial, self)
+        self._dialog.submitted.connect(submit)
+        self._dialog.open()
+
+    def open_change_password(self, submit) -> None:
+        self._dialog = ChangePasswordDialog(self)
         self._dialog.submitted.connect(submit)
         self._dialog.open()
 

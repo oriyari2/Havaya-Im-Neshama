@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.customer_dialogs import CustomerDialog
+from desktop_client.app.views.account_dialogs import ChangePasswordDialog
 from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4, SPACE_6
 from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar, confirm_action
 from desktop_client.app.views.ui_foundations import (
@@ -42,6 +43,7 @@ class CustomersView(StatefulWidget):
     create_requested = Signal()
     edit_requested = Signal()
     delete_requested = Signal()
+    change_password_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -64,6 +66,16 @@ class CustomersView(StatefulWidget):
         self.create_button.clicked.connect(self.create_requested)
         self.scaffold.header.add_action(self.create_button)
         self.scaffold.header.layout().itemAt(0).layout().setDirection(QBoxLayout.Direction.RightToLeft)
+        title_row = self.scaffold.header.layout().itemAt(0).layout()
+        title_row.removeWidget(self.scaffold.header.title)
+        self.scaffold.header.layout().removeWidget(self.scaffold.header.description)
+        self.header_identity = QWidget()
+        header_identity_layout = QVBoxLayout(self.header_identity)
+        header_identity_layout.setContentsMargins(0, 0, 0, 0)
+        header_identity_layout.setSpacing(SPACE_2)
+        header_identity_layout.addWidget(self.scaffold.header.title)
+        header_identity_layout.addWidget(self.scaffold.header.description)
+        title_row.insertWidget(0, self.header_identity)
 
         self.retry = RetryState()
         self.retry.hide()
@@ -100,6 +112,7 @@ class CustomersView(StatefulWidget):
             self.view_details_button,
             self.back_button,
             self.edit_button,
+            self.change_password_button,
             self.delete_button,
         )
         for first, second in zip(order, order[1:]):
@@ -265,13 +278,17 @@ class CustomersView(StatefulWidget):
         actions.setContentsMargins(0, 0, 0, 0)
         actions.setSpacing(SPACE_2)
         self.edit_button = QPushButton("עריכת לקוח")
+        self.change_password_button = QPushButton("שינוי סיסמה")
         self.delete_button = QPushButton("מחיקת לקוח")
         self.edit_button.clicked.connect(self.edit_requested)
+        self.change_password_button.clicked.connect(self.change_password_requested)
         self.delete_button.clicked.connect(self.delete_requested)
         self.edit_button.setAccessibleName("עריכת הלקוח")
+        self.change_password_button.setAccessibleName("שינוי סיסמת הלקוח")
         self.delete_button.setAccessibleName("מחיקת הלקוח")
         self.delete_button.setProperty("destructive", True)
         actions.addWidget(self.delete_button)
+        actions.addWidget(self.change_password_button)
         actions.addWidget(self.edit_button)
         header_layout.addWidget(self.actions_container)
         header_layout.addStretch()
@@ -433,6 +450,7 @@ class CustomersView(StatefulWidget):
             self.detail_title.setText("פרטי לקוח")
             self.details_scroll.hide()
             self.edit_button.setEnabled(False)
+            self.change_password_button.setEnabled(False)
             self.delete_button.setEnabled(False)
         self._selected_customer_id = customer_id
         self.view_details_button.setEnabled(True)
@@ -464,6 +482,7 @@ class CustomersView(StatefulWidget):
         self.view_details_button.setEnabled(not value and self._selected_customer_id is not None)
         has_details = self._detail_row_count() > 0
         self.edit_button.setEnabled(not value and has_details)
+        self.change_password_button.setEnabled(not value and has_details)
         self.delete_button.setEnabled(not value and has_details)
 
     def set_detail_loading(self, value: bool) -> None:
@@ -471,6 +490,7 @@ class CustomersView(StatefulWidget):
         self.details_scroll.setVisible(not value and self._detail_row_count() > 0)
         if value:
             self.edit_button.setEnabled(False)
+            self.change_password_button.setEnabled(False)
             self.delete_button.setEnabled(False)
 
     def render_request_state(self, state: RequestState) -> None:
@@ -603,6 +623,7 @@ class CustomersView(StatefulWidget):
         self.detail_loading_label.hide()
         self.details_scroll.show()
         self.edit_button.setEnabled(True)
+        self.change_password_button.setEnabled(True)
         self.delete_button.setEnabled(True)
 
     def clear_details(self) -> None:
@@ -613,7 +634,7 @@ class CustomersView(StatefulWidget):
             self.details_scroll.hide()
             self.detail_loading_label.hide()
         self._selected_customer_id = None
-        for button in (getattr(self, "view_details_button", None), getattr(self, "edit_button", None), getattr(self, "delete_button", None)):
+        for button in (getattr(self, "view_details_button", None), getattr(self, "edit_button", None), getattr(self, "change_password_button", None), getattr(self, "delete_button", None)):
             if button:
                 button.setEnabled(False)
                 set_disabled_explanation(button, "יש לבחור לקוח תחילה")
@@ -640,6 +661,11 @@ class CustomersView(StatefulWidget):
 
     def open_customer_form(self, initial, submit) -> None:
         self._dialog = CustomerDialog(initial, self)
+        self._dialog.submitted.connect(submit)
+        self._dialog.open()
+
+    def open_change_password(self, submit) -> None:
+        self._dialog = ChangePasswordDialog(self)
         self._dialog.submitted.connect(submit)
         self._dialog.open()
 

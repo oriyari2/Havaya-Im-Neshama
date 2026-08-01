@@ -133,6 +133,41 @@ class InstructorsPresenter:
         if self.selected:
             self.view.open_form(self.selected, self.submit_edit)
 
+    def begin_change_password(self):
+        if self.selected:
+            self.view.open_change_password(self.submit_change_password)
+
+    def submit_change_password(self, values, form):
+        if self.submitting or not self.selected_id:
+            return
+        try:
+            password = account_password(values.get("password"), values.get("password_confirmation"))
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        instructor_id = self.selected_id
+        context = self._operations.begin("password")
+        if context is None:
+            return
+        self.submitting = True
+        form.set_submitting(True)
+
+        def success(_value):
+            if self._operations.is_current(context):
+                form.close_success()
+                self.view.show_success("הסיסמה שונתה בהצלחה.")
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                form.show_error(self.message(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                form.set_submitting(False)
+
+        self._operations.executor.submit(context, lambda: self.service.reset_password(instructor_id, password), success, failure, finished)
+
     def submit_create(self, values, form):
         if self.submitting:
             return

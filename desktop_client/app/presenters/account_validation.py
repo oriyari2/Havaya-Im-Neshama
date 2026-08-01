@@ -15,6 +15,10 @@ def login_email(value: object) -> str:
 
 def account_password(value: object, confirmation: object) -> str:
     password = str(value or "")
+    if not password:
+        raise ValueError("יש להזין סיסמה.")
+    if not str(confirmation or ""):
+        raise ValueError("יש להזין אימות סיסמה.")
     if not 8 <= len(password) <= 128 or password != password.strip():
         raise ValueError("הסיסמה חייבת להכיל 8 עד 128 תווים ללא רווחים בתחילה או בסוף.")
     if any(not character.isprintable() for character in password):

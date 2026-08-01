@@ -28,7 +28,7 @@ class UserViewTests(TestCase):
         view.show_details(USER,current_user_id="other"); self.assertTrue(view.deactivate_button.isEnabled()); self.assertFalse(view.activate_button.isEnabled())
 
     def test_visible_actions_and_selection_states(self) -> None:
-        view=UsersView(); self.assertEqual(view.create_button.text(),"מנהל חדש"); self.assertEqual(view.deactivate_button.text(),"מחיקת מנהל"); self.assertEqual(view.activate_button.text(),"הפעלה"); self.assertEqual(view.reset_button.text(),"איפוס סיסמה"); self.assertEqual(view.toolbar.refresh_button.text(),"רענון")
+        view=UsersView(); self.assertEqual(view.create_button.text(),"מנהל חדש"); self.assertEqual(view.deactivate_button.text(),"מחיקת מנהל"); self.assertEqual(view.activate_button.text(),"הפעלה"); self.assertEqual(view.reset_button.text(),"שינוי סיסמה"); self.assertEqual(view.toolbar.refresh_button.text(),"רענון")
         self.assertFalse(view.create_button.isHidden()); self.assertTrue(view.create_button.isEnabled()); self.assertFalse(view.deactivate_button.isEnabled()); self.assertFalse(view.activate_button.isEnabled()); self.assertFalse(view.reset_button.isEnabled()); self.assertFalse(view.edit_button.isEnabled())
         created=[]; view.create_requested.connect(lambda: created.append(True)); view.create_button.click(); self.assertEqual(created,[True])
         view.show_details(USER,current_user_id="other"); self.assertTrue(view.deactivate_button.isEnabled()); self.assertFalse(view.activate_button.isEnabled()); self.assertTrue(view.reset_button.isEnabled()); self.assertTrue(view.edit_button.isEnabled())

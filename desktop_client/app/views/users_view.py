@@ -22,7 +22,7 @@ class UsersView(StatefulWidget):
         self.apply_button = QPushButton("החל סינון"); self.apply_button.clicked.connect(self._filters)
         for widget in (self.status_filter, self.apply_button): row.addWidget(widget)
         self.scaffold.filter_panel.layout.addLayout(row); self.scaffold.filter_panel.show()
-        self.create_button = QPushButton("מנהל חדש"); self.edit_button = QPushButton("עריכת אימייל"); self.activate_button = QPushButton("הפעלה"); self.deactivate_button = QPushButton("מחיקת מנהל"); self.reset_button = QPushButton("איפוס סיסמה")
+        self.create_button = QPushButton("מנהל חדש"); self.edit_button = QPushButton("עריכת אימייל"); self.activate_button = QPushButton("הפעלה"); self.deactivate_button = QPushButton("מחיקת מנהל"); self.reset_button = QPushButton("שינוי סיסמה")
         for button, signal in ((self.create_button, self.create_requested), (self.edit_button, self.edit_requested), (self.activate_button, self.activate_requested), (self.deactivate_button, self.deactivate_requested), (self.reset_button, self.reset_password_requested)): button.clicked.connect(signal); button.setAccessibleName(button.text())
         self.scaffold.action_bar.add_action(self.deactivate_button, destructive=True); self.scaffold.action_bar.add_action(self.activate_button); self.scaffold.action_bar.add_action(self.reset_button); self.scaffold.action_bar.add_action(self.edit_button); self.scaffold.action_bar.add_action(self.create_button, primary=True); self.scaffold.action_bar.show()
         splitter = QSplitter(Qt.Orientation.Horizontal); splitter.setChildrenCollapsible(False)

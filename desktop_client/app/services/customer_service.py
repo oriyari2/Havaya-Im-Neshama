@@ -24,3 +24,6 @@ class CustomerService:
 
     def delete_customer(self, customer_id: str) -> None:
         self.api_client.delete(f"/customers/{customer_id}")
+
+    def reset_password(self, customer_id: str, new_password: str) -> None:
+        self.api_client.post(f"/customers/{customer_id}/reset-password", {"new_password": new_password})

@@ -87,6 +87,16 @@ def get_instructor_profile(cur, instructor_id: UUID) -> dict | None:
     return cur.fetchone()
 
 
+def get_user_id_for_profile(cur, *, role: str, profile_id: UUID) -> UUID | None:
+    profile_column = {"customer": "customer_id", "instructor": "instructor_id"}[role]
+    cur.execute(
+        f"SELECT id FROM users WHERE role = %s AND {profile_column} = %s LIMIT 1;",
+        (role, profile_id),
+    )
+    row = cur.fetchone()
+    return row["id"] if row else None
+
+
 def create_user(cur, *, email: str, password_hash: str, role: str, display_name: str | None, customer_id: UUID | None, instructor_id: UUID | None) -> dict:
     cur.execute(
         f"""

@@ -31,6 +31,7 @@ class CustomersViewPort(Protocol):
     def select_customer(self, customer_id: str) -> None: ...
     def open_customer_form(self, initial: dict | None, submit: Callable) -> None: ...
     def confirm_customer_deletion(self, name: str) -> bool: ...
+    def open_change_password(self, submit: Callable) -> None: ...
 
 
 class CustomerServicePort(Protocol):
@@ -207,6 +208,40 @@ class CustomersPresenter:
             initial["contact_name"] = contact.get("full_name") if contact else ""
             initial["contact_phone"] = contact.get("phone") if contact else ""
             self.view.open_customer_form(initial, self.submit_edit)
+
+    def begin_change_password(self) -> None:
+        if self.selected_customer:
+            self.view.open_change_password(self.submit_change_password)
+
+    def submit_change_password(self, values: dict[str, object], form: FormPort) -> None:
+        if self._submitting or not self.selected_id:
+            return
+        try:
+            password = account_password(values.get("password"), values.get("password_confirmation"))
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        customer_id = self.selected_id
+        self._submitting = True
+        form.set_submitting(True)
+        identity = self._begin_request("password", customer_id)
+
+        def succeeded(_result: object) -> None:
+            if self._is_current(identity):
+                form.close_success()
+                self.view.show_success("הסיסמה שונתה בהצלחה.")
+
+        def failed(exc: Exception) -> None:
+            if self._is_current(identity):
+                form.show_error(self._message(exc))
+
+        def finished() -> None:
+            if self._is_current(identity):
+                self._current_requests.pop("password", None)
+                self._submitting = False
+                form.set_submitting(False)
+
+        self._executor.submit(identity, lambda: self.service.reset_password(customer_id, password), succeeded, failed, finished)
 
     def submit_create(self, values: dict[str, object], form: FormPort) -> None:
         if self._submitting:

@@ -5,6 +5,7 @@ import re
 from PySide6.QtWidgets import QLabel, QLineEdit, QWidget
 
 from desktop_client.app.views.customer_dialogs import _BaseFormDialog
+from desktop_client.app.views.account_dialogs import ChangePasswordDialog
 from desktop_client.app.views.ui_foundations import configure_mixed_direction
 
 
@@ -95,30 +96,6 @@ class EditUserDialog(_BaseFormDialog):
         return {"email": self.email.text()}
 
 
-class ResetPasswordDialog(_BaseFormDialog):
-    def __init__(self, user: dict, parent=None) -> None:
-        super().__init__("איפוס סיסמה", parent)
-        self.fields = {}
-        target = QLabel(str(user["email"]))
-        configure_mixed_direction(target)
-        target.setAccessibleName("מנהל יעד")
-        self.form.addRow("מנהל", target)
-        self.password = QLineEdit()
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        configure_mixed_direction(self.password)
-        self.form.addRow("סיסמה חדשה *", self.password)
-        self.fields["password"] = self.password
-        self.confirmation = QLineEdit()
-        self.confirmation.setEchoMode(QLineEdit.EchoMode.Password)
-        configure_mixed_direction(self.confirmation)
-        self.form.addRow("אימות סיסמה *", self.confirmation)
-        self.fields["password_confirmation"] = self.confirmation
-        self.password.setFocus()
-
-    def values(self) -> dict:
-        return {"password": self.password.text(), "password_confirmation": self.confirmation.text()}
-
-    def show_error(self, message: str) -> None:
-        self.password.clear()
-        self.confirmation.clear()
-        super().show_error(message)
+class ResetPasswordDialog(ChangePasswordDialog):
+    def __init__(self, _user: dict | None = None, parent=None) -> None:
+        super().__init__(parent)

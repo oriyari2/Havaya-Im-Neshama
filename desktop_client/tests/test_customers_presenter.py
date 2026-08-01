@@ -19,6 +19,10 @@ class CustomersPresenterTests(TestCase):
         self.presenter.select("c1"); self.view.show_details.assert_called(); self.presenter.begin_edit(); self.view.open_customer_form.assert_called()
         form=Mock(); self.service.update_customer.return_value=CUSTOMER; self.presenter.submit_edit({"name":"Task","email":"ok@example.com","contact_name":"Updated","contact_phone":"051"},form); form.close_success.assert_called_once(); self.assertEqual(self.service.update_customer.call_args.args[1]["contact_name"], "Updated")
         self.view.confirm_customer_deletion.return_value=True; self.presenter.delete(); self.service.delete_customer.assert_called_once_with("c1"); self.view.clear_details.assert_called(); self.assertIsNone(self.presenter.selected_id)
+    def test_change_password_is_write_only_and_uses_customer_account_endpoint(self):
+        self.presenter.select("c1"); self.presenter.begin_change_password(); self.view.open_change_password.assert_called_once()
+        form=Mock(); self.presenter.submit_change_password({"password":"newpass123","password_confirmation":"newpass123"},form); self.service.reset_password.assert_called_once_with("c1","newpass123"); form.close_success.assert_called_once()
+        form=Mock(); self.presenter.submit_change_password({"password":"newpass123","password_confirmation":"different"},form); form.show_error.assert_called(); self.assertEqual(self.service.reset_password.call_count,1)
     def test_delete_conflict_preserves_selection_and_duplicate_guard(self):
         self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("customer has bookings",status_code=409,kind=ApiErrorKind.CONFLICT)
         self.presenter.delete(); self.assertEqual(self.presenter.selected_id,"c1"); self.view.show_error.assert_called_with("לא ניתן למחוק את הלקוח כל עוד קיימות רשומות תלויות."); self.service.delete_customer.reset_mock(); self.presenter._submitting=True; self.presenter.delete(); self.service.delete_customer.assert_not_called()
