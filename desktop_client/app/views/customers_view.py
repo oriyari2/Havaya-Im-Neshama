@@ -125,7 +125,7 @@ class CustomersView(StatefulWidget):
         self.list_layout.setContentsMargins(0, 0, 0, 0)
         self.list_layout.setSpacing(SPACE_2)
 
-        search_panel = QWidget()
+        search_panel = QFrame()
         search_panel.setObjectName("filterPanel")
         search_layout = QVBoxLayout(search_panel)
         search_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)

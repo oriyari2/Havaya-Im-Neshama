@@ -27,6 +27,14 @@ class UserViewTests(TestCase):
         reset=ResetPasswordDialog(USER);self.assertEqual(reset.password.echoMode(),QLineEdit.EchoMode.Password);self.assertEqual(set(reset.values()),{"password","password_confirmation"})
     def test_table_resizes_without_squeezing_semantic_minimums(self):
         view=UsersView();view.resize(1024,640);view.show();self.app.processEvents();policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,210);self.assertGreater(view.table.columnWidth(0),view.table.columnWidth(2));view.close()
+    def test_status_badges_never_duplicate_wrap_clip_or_change_row_height(self):
+        view=UsersView();view.show_users([USER,{**USER,"id":"u2","is_active":False}],offset=0,count=2,filtered=False)
+        for width in (1024,1400):
+            view.resize(width,700);view.show();self.app.processEvents()
+            for row,text in ((0,"פעיל"),(1,"לא פעיל")):
+                badge=view.table.cellWidget(row,2);self.assertIsNone(view.table.item(row,2));self.assertEqual(badge.text(),text);self.assertFalse(badge.wordWrap());self.assertEqual(view.table.rowHeight(row),40);self.assertLessEqual(badge.sizeHint().height(),view.table.rowHeight(row))
+        view.close()
     def test_reference_toolbar_order_sort_and_explicit_rtl_cells(self):
         view=UsersView();layout=view.toolbar.layout();self.assertEqual([layout.itemAt(i).widget() for i in range(layout.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button]);emitted=[];view.filters_requested.connect(emitted.append);view.toolbar.sort_combo.setCurrentIndex(1);self.assertEqual(emitted[-1]["order_by"],"email");view.show_users([USER],offset=0,count=1,filtered=False)
-        for column in range(view.table.columnCount()):self.assertTrue(view.table.item(0,column).textAlignment() & Qt.AlignmentFlag.AlignRight)
+        for column in (0,1,3):self.assertTrue(view.table.item(0,column).textAlignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertIsNone(view.table.item(0,2));self.assertTrue(view.table.cellWidget(0,2).alignment() & Qt.AlignmentFlag.AlignRight)

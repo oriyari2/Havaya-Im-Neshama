@@ -19,6 +19,13 @@ class InstructorViewTests(TestCase):
         create=InstructorDialog();self.assertIsNotNone(create.password);self.assertIn("password",create.values());edit=InstructorDialog(ROW);self.assertIsNone(edit.password);self.assertTrue(edit.fields["email"].isReadOnly());self.assertNotIn("password",edit.values());self.assertFalse(hasattr(InstructorProfileView(),"edit_button"))
     def test_responsive_table_keeps_minimums(self):
         view=InstructorsView();view.resize(1024,640);view.show();self.app.processEvents();self.assertGreaterEqual(view.table.columnWidth(0),200);self.assertGreaterEqual(view.table.columnWidth(3),210);view.close()
+    def test_status_badges_never_duplicate_wrap_clip_or_change_row_height(self):
+        view=InstructorsView();view.show_instructors([ROW,{**ROW,"id":"i2","is_active":False}],offset=0,count=2,filtered=False)
+        for width in (1024,1400):
+            view.resize(width,700);view.show();self.app.processEvents()
+            for row,text in ((0,"פעיל"),(1,"לא פעיל")):
+                badge=view.table.cellWidget(row,4);self.assertIsNone(view.table.item(row,4));self.assertEqual(badge.text(),text);self.assertFalse(badge.wordWrap());self.assertEqual(view.table.rowHeight(row),40);self.assertLessEqual(badge.sizeHint().height(),view.table.rowHeight(row))
+        view.close()
     def test_reference_toolbar_order_immediate_sort_and_no_loading_popup(self):
         view=InstructorsView();layout=view.toolbar.layout();self.assertEqual([layout.itemAt(i).widget() for i in range(layout.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button]);emitted=[];view.filters_requested.connect(emitted.append);view.toolbar.sort_combo.setCurrentIndex(1);self.assertEqual(emitted[-1]["order_by"],"city")
         view.show();self.app.processEvents();before={w for w in self.app.topLevelWidgets() if w.isVisible()};view.set_loading(True);self.app.processEvents();after={w for w in self.app.topLevelWidgets() if w.isVisible()};self.assertEqual(after,before);self.assertFalse(any(isinstance(w,QDialog) and w.isVisible() for w in after));view.close()

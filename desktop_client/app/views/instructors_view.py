@@ -31,7 +31,8 @@ class InstructorsView(StatefulWidget):
         return super().eventFilter(watched,event)
     def _select(self):
         rows=self.table.selectionModel().selectedRows()
-        if rows:self.instructor_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)));self.view_details_button.setEnabled(True)
+        if rows:self.instructor_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)));self.view_details_button.setEnabled(True);set_disabled_explanation(self.view_details_button,"")
+        else:self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מדריך תחילה")
     def _open(self):
         if self.workspace.detail_title.text():self.workspace.show_details()
     def show_instructors(self,rows,*,offset,count,filtered):
@@ -40,7 +41,6 @@ class InstructorsView(StatefulWidget):
             for ci,key in enumerate(("full_name","city","phone","email")):
                 item=QTableWidgetItem(str(row.get(key) or "—"));set_item_text(self.table,ri,ci,item,tooltip_direction=Qt.LayoutDirection.LeftToRight if key in {"phone","email"} else Qt.LayoutDirection.RightToLeft);item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
                 if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
-            status_item=QTableWidgetItem("פעיל" if row.get("is_active") else "לא פעיל");status_item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);self.table.setItem(ri,4,status_item)
             status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,4,status)
         self.footer.set_page(offset=offset,count=count);self.workspace.results_label.setText(f"מדריכים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מדריכים")
     def show_details(self,details,item):
@@ -50,12 +50,14 @@ class InstructorsView(StatefulWidget):
             if any(x in label for x in ("דוא","טלפון")):configure_mixed_direction(content)
             self.workspace.add_property_row(self.system_details if label in {"מצב","נוצר","עודכן"} else self.profile_details,label,content)
         self.workspace.show_detail_identity(str(item.get("full_name") or "פרטי מדריך"),bool(item.get("is_active")));self.workspace.set_actions_enabled(True)
+        for button in (self.edit_button,self.change_password_button,self.delete_button):set_disabled_explanation(button,"")
     def _clear_forms(self):
         for form in (self.profile_details,self.system_details):
             while form.rowCount():form.removeRow(0)
     def clear_details(self):
         if hasattr(self,"profile_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.set_actions_enabled(False);self.workspace.show_list()
-        self.view_details_button.setEnabled(False)
+        self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מדריך תחילה")
+        for button in (self.edit_button,self.change_password_button,self.delete_button):set_disabled_explanation(button,"יש לבחור מדריך תחילה")
     def reset_to_default(self):
         dialog=getattr(self,"_dialog",None)
         if dialog is not None and dialog.isVisible():dialog.reject()

@@ -185,3 +185,46 @@ Navigation, information hierarchy, action placement, table selection, Details
 scannability, form hierarchy, keyboard order and Hebrew RTL behavior are now
 consistent across the three modules. The remaining recommendations require
 separate product approval and were intentionally not implemented in Task 25.2.
+
+## Final QA closure
+
+The Instructor and Manager status columns previously installed both a backing
+text item and an `ActiveBadge` in the same cell. The backing item was removed;
+status now follows the Customer implementation exactly and has one non-wrapping
+badge per cell. Focused Qt tests cover both `פעיל` and `לא פעיל` at 1024 and
+1400 pixel window widths and assert the canonical 40-pixel row height.
+
+The final endpoint-level classification is:
+
+| Module | Backend capability | Desktop support | Status |
+|---|---|---|---|
+| Customers | `GET /customers`: search, name/created sort, paging | Search, both sorts, pagination | Implemented in Desktop |
+| Customers | `GET /customers`: city/type/active filters | No advanced-filter controls | Intentionally hidden |
+| Customers | `GET /customers/{id}` | Details and customer self-profile | Implemented in Desktop |
+| Customers | `POST /customers` | Customer/account create dialog | Implemented in Desktop |
+| Customers | `PUT /customers/{id}` business/contact fields | Customer edit dialog | Implemented in Desktop |
+| Customers | `PUT /customers/{id}` direct `is_active` mutation | No standalone status editor | Intentionally hidden |
+| Customers | `DELETE /customers/{id}` | Guarded Delete action | Implemented in Desktop |
+| Customers | `POST /customers/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
+| Customers | Contact list/create/update/soft-delete endpoints and extended contact metadata | One current primary contact is embedded in Customer workflow | Backend only |
+| Instructors | `GET /instructors`: search, all whitelisted sorts, paging | Search, seven sorts, pagination | Implemented in Desktop |
+| Instructors | `GET /instructors`: city/active filters | No advanced-filter controls | Intentionally hidden |
+| Instructors | `GET /instructors/{id}` | Manager Details | Implemented in Desktop |
+| Instructors | `GET /instructors/me` | Instructor self-profile | Implemented in Desktop |
+| Instructors | `POST`, `PUT`, `DELETE /instructors` | Create, edit and guarded delete | Implemented in Desktop |
+| Instructors | Direct `is_active` update accepted by schema/service | No standalone status editor | Intentionally hidden |
+| Instructors | `POST /instructors/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
+| Managers | `GET /users` with fixed manager role, search, sorts and paging | Manager list/search/sort/pagination | Implemented in Desktop |
+| Managers | Generic user role and active filters | Role is fixed; active filter has no control | Intentionally hidden |
+| Managers | `POST /users` for manager creation | Manager create dialog | Implemented in Desktop |
+| Managers | Generic `/users` creation of customer/instructor identities | Dedicated domain workflows are used instead | Backend only |
+| Managers | `GET /users/{id}` and `PUT /users/{id}` manager name | Details and edit dialog | Implemented in Desktop |
+| Managers | Application-service email update workflow | No router contract or Desktop action; login identity remains immutable | Backend only |
+| Managers | Activate/deactivate endpoints with self-deactivation guard | Activate and logical Delete/deactivate actions | Implemented in Desktop |
+| Managers | `POST /users/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
+
+No audited capability is marked Deprecated. Internal repository primitives are
+implementation details rather than independent Desktop workflows. The dead-UI
+scan found no unreachable management dialog, unconnected action, orphan
+management Presenter/widget, copied placeholder, TODO UI, or visible temporary
+top-level widget. Disabled management actions now carry an accessible reason.

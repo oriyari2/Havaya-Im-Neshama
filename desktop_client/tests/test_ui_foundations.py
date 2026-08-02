@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QPushButton, QTableWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QPushButton, QTableWidget, QWidget
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
@@ -29,6 +29,7 @@ from desktop_client.app.views.design_tokens import (
 )
 from desktop_client.app.views.login_view import LoginView
 from desktop_client.app.views.shell_view import ShellView
+from desktop_client.app.views.users_view import UsersView
 from desktop_client.app.views.ui_foundations import (
     ColumnKind, ColumnPolicy, FeedbackBanner, PageScaffold, StatePanel,
     configure_data_table, set_item_text,
@@ -92,6 +93,21 @@ class UiFoundationTests(unittest.TestCase):
             self.assertEqual(dialog.minimumSize().width(), 760); self.assertEqual(dialog.minimumSize().height(), 600); self.assertEqual(dialog.maximumWidth(), 860)
             self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.WrapAllRows)
             self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
+
+    def test_management_modules_share_exact_customer_foundation_values(self) -> None:
+        customer, instructor, manager = CustomersView(), InstructorsView(), UsersView()
+        modules = (customer, instructor, manager)
+        reference_header = customer.scaffold.header.layout()
+        reference_toolbar = customer.toolbar.layout()
+        for view in modules:
+            header = view.scaffold.header.layout(); toolbar = view.toolbar.layout()
+            self.assertEqual(header.contentsMargins(), reference_header.contentsMargins()); self.assertEqual(header.spacing(), reference_header.spacing())
+            self.assertEqual(view.scaffold.header.title.objectName(), "screenTitle"); self.assertEqual(view.scaffold.header.description.alignment(), customer.scaffold.header.description.alignment())
+            self.assertEqual(toolbar.contentsMargins(), reference_toolbar.contentsMargins()); self.assertEqual(toolbar.spacing(), reference_toolbar.spacing()); self.assertEqual(toolbar.direction(), reference_toolbar.direction())
+            self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button])
+            self.assertEqual(view.toolbar.parentWidget().objectName(), "filterPanel"); self.assertIsInstance(view.toolbar.parentWidget(), QFrame)
+            self.assertEqual(view.table.verticalHeader().defaultSectionSize(), customer.table.verticalHeader().defaultSectionSize()); self.assertEqual(view.table.horizontalHeader().minimumHeight(), customer.table.horizontalHeader().minimumHeight()); self.assertEqual(view.table.alternatingRowColors(), customer.table.alternatingRowColors())
+            self.assertEqual(view.footer.maximumWidth(), customer.footer.maximumWidth()); self.assertEqual(view.back_button.minimumHeight(), customer.back_button.minimumHeight())
 
     def test_table_policy_sets_accessibility_density_and_elision(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "בדיקה", (

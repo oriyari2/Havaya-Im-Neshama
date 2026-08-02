@@ -795,3 +795,8 @@ construction cannot expose `ShellView` as a temporary top-level window. The
 backend/Desktop capability matrix and prioritized UX findings are documented
 in `docs/piv/25-2-role-specific-management-ui-standard.md`; recommendations
 remain unimplemented pending explicit future-task approval.
+
+Final QA removed duplicate backing text from Instructor/Manager status cells,
+verified active/inactive badges at multiple window sizes, made the Customer
+toolbar container the canonical `QFrame#filterPanel`, and recorded exhaustive
+endpoint-level Desktop exposure classifications in the Task 25.2 PIV.

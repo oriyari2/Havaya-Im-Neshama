@@ -30,7 +30,8 @@ class UsersView(StatefulWidget):
         return super().eventFilter(watched,event)
     def _select(self):
         rows=self.table.selectionModel().selectedRows()
-        if rows:self.user_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)));self.view_details_button.setEnabled(True)
+        if rows:self.user_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)));self.view_details_button.setEnabled(True);set_disabled_explanation(self.view_details_button,"")
+        else:self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מנהל תחילה")
     def _open(self):
         if self.workspace.detail_title.text():self.workspace.show_details()
     def show_users(self,rows,*,offset,count,filtered):
@@ -40,20 +41,21 @@ class UsersView(StatefulWidget):
             for ci,value in zip((0,1,3),values):
                 item=QTableWidgetItem(str(value));set_item_text(self.table,ri,ci,item,tooltip_direction=Qt.LayoutDirection.LeftToRight if ci in {1,3} else Qt.LayoutDirection.RightToLeft);item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
                 if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(user["id"]))
-            status_item=QTableWidgetItem("פעיל" if user["is_active"] else "לא פעיל");status_item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);self.table.setItem(ri,2,status_item)
             status=ActiveBadge();status.set_active(bool(user["is_active"]));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,2,status)
         self.footer.set_page(offset=offset,count=len(rows));self.workspace.results_label.setText(f"מנהלים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מנהלים")
     def show_details(self,user,*,current_user_id):
         self._clear_forms();name=user.get("display_name") or "מנהל";email=QLabel(str(user["email"]));configure_mixed_direction(email);self.workspace.add_property_row(self.account_details,"שם",QLabel(name));self.workspace.add_property_row(self.account_details,"דוא״ל התחברות",email)
         self.workspace.add_property_row(self.system_details,"מצב חשבון",QLabel("פעיל" if user["is_active"] else "לא פעיל"));self.workspace.add_property_row(self.system_details,"נוצר",QLabel(str(user["created_at"])));self.workspace.add_property_row(self.system_details,"עודכן",QLabel(str(user["updated_at"])))
         self.workspace.show_detail_identity(name,bool(user["is_active"]));self.edit_button.setEnabled(True);self.reset_button.setEnabled(True);self.activate_button.setEnabled(not user["is_active"]);self.deactivate_button.setEnabled(bool(user["is_active"] and str(user["id"])!=current_user_id))
+        set_disabled_explanation(self.edit_button,"");set_disabled_explanation(self.reset_button,"");set_disabled_explanation(self.activate_button,"המנהל כבר פעיל" if user["is_active"] else "הפעלת חשבון המנהל")
         set_disabled_explanation(self.deactivate_button,"לא ניתן למחוק את החשבון המחובר" if str(user["id"])==current_user_id else "המנהל כבר לא פעיל" if not user["is_active"] else "מחיקה לוגית באמצעות השבתת המנהל")
     def _clear_forms(self):
         for form in (self.account_details,self.system_details):
             while form.rowCount():form.removeRow(0)
     def clear_details(self):
         if hasattr(self,"account_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.set_actions_enabled(False);self.workspace.show_list()
-        self.view_details_button.setEnabled(False)
+        self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מנהל תחילה")
+        for button in (self.edit_button,self.reset_button,self.activate_button,self.deactivate_button):set_disabled_explanation(button,"יש לבחור מנהל תחילה")
     def reset_to_default(self):
         dialog=getattr(self,"_dialog",None)
         if dialog is not None and dialog.isVisible():dialog.reject()
