@@ -15,6 +15,8 @@ class ActivitiesPresenterTests(TestCase):
             view,service,p=self.build(role); p.load(); self.assertIs(service.list_activities.call_args.args[0]["is_active"],active); view.set_manager_actions.assert_called_with(role=="manager")
     def test_filters_paging_and_reset(self):
         _,service,p=self.build(); p.apply_filters({"search":"Task","target_audience":"Audience","season":"Season","tag":"tag","is_active":False}); self.assertEqual(service.list_activities.call_args.args[0]["offset"],0); p.page(25,10); query=service.list_activities.call_args.args[0]; self.assertEqual((query["offset"],query["limit"],query["tag"]),(25,10,"tag"))
+    def test_repeated_navigation_resets_activity_state(self):
+        view,service,p=self.build();p.selected_id="a1";p.selected_activity=ITEM;p.reset_to_default();self.assertIsNone(p.selected_id);self.assertIsNone(p.selected_activity);view.reset_to_default.assert_called_once()
     def test_non_manager_cannot_override_active_or_mutate(self):
         view,service,p=self.build("customer"); p.apply_filters({"is_active":False}); self.assertIs(service.list_activities.call_args.args[0]["is_active"],True); p.begin_create(); p.deactivate(); service.create_activity.assert_not_called(); view.open_activity_form.assert_not_called()
     def test_detail_create_edit_and_duplicate_guard(self):

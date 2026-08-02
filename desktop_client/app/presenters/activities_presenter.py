@@ -98,7 +98,16 @@ class ActivitiesPresenter:
     def apply_filters(self, values: dict[str, object]) -> None:
         allowed = {"search", "target_audience", "season", "tag"}
         if self.role == "manager": allowed.add("is_active")
-        self.filters.update({k: v for k, v in values.items() if k in allowed}); self.filters["offset"] = 0; self.load()
+        self.filters.update({k: v for k, v in values.items() if k in allowed}); self.filters["offset"] = 0
+        if values.get("_clear_selection"):
+            self.selected_id = None; self.selected_activity = None; self._clear_media_selection()
+        self.load()
+
+    def reset_to_default(self) -> None:
+        limit = self.filters["limit"]
+        self.filters = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if self.role == "manager" else True, "limit": limit, "offset": 0}
+        self.selected_id = None; self.selected_activity = None; self._last_list_render = None; self._clear_media_selection()
+        self.view.reset_to_default()
 
     def page(self, offset: int, limit: int) -> None:
         self.filters.update(offset=max(0, offset), limit=limit); self.load()

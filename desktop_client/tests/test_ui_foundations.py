@@ -251,11 +251,10 @@ class UiFoundationTests(unittest.TestCase):
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
         self.app.setStyleSheet(APP_STYLE)
-        excluded = (DashboardView(), ActivitiesView("manager"), InstructorsView(), InstructorProfileView(), BookingsView("manager"), OpenEventsView(), KnowledgeManagementView(), AIChatView())
+        excluded = (DashboardView(), InstructorProfileView(), BookingsView("manager"), OpenEventsView(), KnowledgeManagementView(), AIChatView())
         for view in excluded:
             view.show(); self.app.processEvents(); self.assertTrue(view.isVisible()); view.close()
-        activity = excluded[1]
-        self.assertIsNone(activity.table.property("task20Table")); self.assertEqual(activity.upload_image_button.minimumHeight(), 0)
+        activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()
         pilot = CustomersView(); pilot.show(); self.app.processEvents(); self.assertTrue(pilot.table.property("task20Table")); self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32); pilot.close()
 
     def test_main_window_enforces_supported_minimum(self) -> None:

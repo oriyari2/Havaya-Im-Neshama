@@ -125,3 +125,15 @@ the single-window Login-to-Shell lifecycle. All three role-management toolbars
 now follow the approved Customer order inside identical framed containers, with
 immediate whitelisted sorting and explicit RTL cell alignment. The backend/UI
 coverage audit and intentional omissions are recorded in the Task 25.2 PIV.
+
+## Task 25.3 - Activities management flow and layout redesign
+
+Activities now follows the approved shared RTL list-to-details management
+flow. The permanent detail/image split pane is replaced by a semantic table
+with per-row Details actions, progressive inline filters, shared pagination,
+a dedicated Details page, property cards, context-sensitive logical lifecycle
+actions, and a Details-only image gallery. Activity forms reuse the shared
+management dialog and validation foundation. Booking creation remains only in
+Bookings, and Open Events is unchanged. The capability audit and intentional
+omissions are recorded in
+`docs/piv/25-3-activities-management-flow-redesign.md`.

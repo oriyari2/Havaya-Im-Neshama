@@ -821,3 +821,15 @@ Task 25.2 also centralizes management-dialog validation: primary actions remain
 available during editing, all relevant fields validate on click, field-level
 Hebrew errors and invalid styling clear on correction, the first invalid field
 receives focus, and one temporary shared red banner summarizes the failure.
+
+### Task 25.3 - Activities management flow and layout redesign
+
+Task 25.3 advances the Activity catalog and image-management requirements with
+a unified RTL list-to-details Desktop flow. Existing Activity CRUD, role-aware
+visibility, search, audience/season/status filtering, logical lifecycle, and
+Gateway-backed image operations are exposed through the shared management
+foundation. Details owns metadata, lifecycle controls, and an aspect-ratio-safe
+gallery; Activity forms reuse shared click-time validation. Booking commands
+and Open Event queries remain in their existing modules and were not duplicated
+or redesigned. The verified capability matrix is in
+`docs/piv/25-3-activities-management-flow-redesign.md`.

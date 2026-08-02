@@ -232,7 +232,6 @@ class MainWindow(QMainWindow):
         bookings_view.page_requested.connect(bookings_presenter.page)
         if session.role in {"manager", "customer"}:
             bookings_view.create_requested.connect(bookings_presenter.begin_create)
-            activities_view.booking_requested.connect(bookings_presenter.begin_create)
         if session.role == "manager":
             bookings_view.edit_requested.connect(bookings_presenter.begin_edit)
             bookings_view.confirm_requested.connect(bookings_presenter.confirm)
@@ -274,7 +273,7 @@ class MainWindow(QMainWindow):
         presenter = self._presenters.get(key)
         if presenter is not None:
             reset = getattr(presenter, "reset_to_default", None)
-            if reset is not None and key in {"customers", "instructors", "users"}:
+            if reset is not None and key in {"customers", "instructors", "users", "activities"}:
                 reset()
             presenter.load()
 
