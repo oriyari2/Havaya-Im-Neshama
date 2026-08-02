@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from time import perf_counter
 from uuid import UUID
 
 from psycopg.rows import dict_row
@@ -32,6 +33,8 @@ class KnowledgeSearchResultData:
 class KnowledgeSearchData:
     query: str
     results: list[KnowledgeSearchResultData]
+    embedding_ms: float = 0.0
+    retrieval_ms: float = 0.0
 
 
 class KnowledgeRetrievalService:
@@ -46,13 +49,16 @@ class KnowledgeRetrievalService:
         embedding_model = getattr(self.embedding_client, "model", None) or get_ollama_embedding_model()
         try:
             embedding_input = format_query_embedding_input(model=embedding_model, query=normalized_query)
+            embedding_started = perf_counter()
             embedding = self.embedding_client.embed(embedding_input)
+            embedding_ms = (perf_counter() - embedding_started) * 1000
         except EmbeddingClientError as exc:
             raise KnowledgeRetrievalError("Embedding service is unavailable") from exc
         if not embedding:
             raise KnowledgeRetrievalError("Embedding service returned an empty vector")
 
         embedding_dimensions = len(embedding)
+        retrieval_started = perf_counter()
         with get_connection() as conn:
             with conn.cursor(row_factory=dict_row) as cur:
                 rows = knowledge_retrieval_repository.search_knowledge_chunks(
@@ -64,6 +70,7 @@ class KnowledgeRetrievalService:
                     limit=limit,
                     max_cosine_distance=self.max_cosine_distance,
                 )
+        retrieval_ms = (perf_counter() - retrieval_started) * 1000
 
         results = [
             KnowledgeSearchResultData(
@@ -79,4 +86,4 @@ class KnowledgeRetrievalService:
             for row in rows
             if float(row["distance"]) <= self.max_cosine_distance
         ]
-        return KnowledgeSearchData(query=normalized_query, results=results)
+        return KnowledgeSearchData(query=normalized_query, results=results, embedding_ms=embedding_ms, retrieval_ms=retrieval_ms)

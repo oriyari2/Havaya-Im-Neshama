@@ -49,6 +49,9 @@ class AIChatView(StatefulWidget):
     def clear_input(self) -> None:
         self.prompt_input.clear()
 
+    def clear_error(self) -> None:
+        self.state_label.hide()
+
     def set_loading(self, loading: bool) -> None:
         self.prompt_input.setEnabled(not loading)
         self.submit_button.setDisabled(loading)

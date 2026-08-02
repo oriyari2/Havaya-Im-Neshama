@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import secrets
 from enum import StrEnum
 from typing import Any, Callable
@@ -21,6 +22,7 @@ class ApiErrorKind(StrEnum):
     CONFLICT = "conflict"
     SERVER = "server"
     CONNECTION = "connection"
+    TIMEOUT = "timeout"
     UNKNOWN = "unknown"
 
 
@@ -35,7 +37,7 @@ class ApiError(RuntimeError):
         super().__init__(message)
         self.status_code = status_code
         self.kind = kind or self.kind_for_status(status_code)
-        self.retriable = self.kind in {ApiErrorKind.SERVER, ApiErrorKind.CONNECTION}
+        self.retriable = self.kind in {ApiErrorKind.SERVER, ApiErrorKind.CONNECTION, ApiErrorKind.TIMEOUT}
 
     @staticmethod
     def kind_for_status(status_code: int | None) -> ApiErrorKind:
@@ -49,6 +51,15 @@ class ApiError(RuntimeError):
             409: ApiErrorKind.CONFLICT,
             422: ApiErrorKind.VALIDATION,
         }.get(status_code, ApiErrorKind.SERVER if status_code >= 500 else ApiErrorKind.UNKNOWN)
+
+
+def _is_timeout_error(exc: BaseException) -> bool:
+    if isinstance(exc, TimeoutError | socket.timeout):
+        return True
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, BaseException):
+        return _is_timeout_error(reason)
+    return isinstance(reason, str) and "timed out" in reason.lower()
 
 
 class _HttpsOnlyRedirectHandler(HTTPRedirectHandler):
@@ -66,6 +77,7 @@ class ApiClient:
     def __init__(self, base_url: str | None = None, timeout: float = 120.0, performance_cache: SessionPerformanceCache | None = None) -> None:
         self.base_url = (base_url or os.getenv("API_BASE_URL", "http://127.0.0.1:8000")).rstrip("/")
         self.timeout = timeout
+        self.ai_timeout = float(os.getenv("API_AI_TIMEOUT_SECONDS", "480"))
         self.access_token: str | None = None
         self._unauthorized_handler: Callable[[], None] | None = None
         self.performance_cache = performance_cache or SessionPerformanceCache()
@@ -101,6 +113,9 @@ class ApiClient:
         if path != "/auth/login":
             self.performance_cache.invalidate_for_mutation(path, payload)
         return result
+
+    def post_ai(self, path: str, payload: dict[str, object]) -> Any:
+        return self._request("POST", path, payload, timeout=self.ai_timeout, ai_request=True)
 
     def patch(self, path: str, payload: dict[str, object]) -> Any:
         result = self._request("PATCH", path, payload)
@@ -168,33 +183,74 @@ class ApiClient:
             raise ApiError("Image preview exceeds the allowed size", kind=ApiErrorKind.VALIDATION)
         return data
 
-    def _request(self, method: str, path: str, payload: dict[str, object] | None = None) -> Any:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        payload: dict[str, object] | None = None,
+        *,
+        timeout: float | None = None,
+        ai_request: bool = False,
+    ) -> Any:
         headers = {"Accept": "application/json"}
         data = None
         if payload is not None:
             headers["Content-Type"] = "application/json"
             data = json.dumps(payload).encode("utf-8")
-        return self._send(method, f"{self.base_url}{path}", data=data, headers=headers, authenticated=True)
+        return self._send(
+            method,
+            f"{self.base_url}{path}",
+            data=data,
+            headers=headers,
+            authenticated=True,
+            timeout=timeout,
+            ai_request=ai_request,
+        )
 
-    def _send(self, method: str, url: str, *, data: bytes | None, headers: dict[str, str], authenticated: bool) -> Any:
+    def _send(
+        self,
+        method: str,
+        url: str,
+        *,
+        data: bytes | None,
+        headers: dict[str, str],
+        authenticated: bool,
+        timeout: float | None = None,
+        ai_request: bool = False,
+    ) -> Any:
         request_token = self.access_token if authenticated else None
         if request_token:
             headers = {**headers, "Authorization": f"Bearer {request_token}"}
         request = Request(url, data=data, headers=headers, method=method)
         try:
-            with urlopen(request, timeout=self.timeout) as response:
+            with urlopen(request, timeout=timeout or self.timeout) as response:
                 body = response.read().decode("utf-8")
                 return json.loads(body) if body else None
         except HTTPError as exc:
-            message = self._error_message(exc.read().decode("utf-8", errors="replace"))
-            if request_token is not None and self.access_token == request_token:
+            raw_body = exc.read().decode("utf-8", errors="replace")
+            message = (
+                self._ai_error_message(exc.code)
+                if ai_request and exc.code != 401
+                else self._error_message(raw_body)
+            )
+            if exc.code == 401 and request_token is not None and self.access_token == request_token:
                 self.access_token = None
                 if self._unauthorized_handler is not None:
                     self._unauthorized_handler()
             raise ApiError(message, status_code=exc.code) from exc
-        except (URLError, TimeoutError, OSError) as exc:
+        except (TimeoutError, socket.timeout) as exc:
             raise ApiError(
-                "לא ניתן להתחבר לשרת. ודאו שה־API פועל.",
+                "בקשת ה-AI ארכה יותר מדי זמן. נסו שוב בעוד רגע." if ai_request else "הבקשה לשרת ארכה יותר מדי זמן.",
+                kind=ApiErrorKind.TIMEOUT,
+            ) from exc
+        except (URLError, OSError) as exc:
+            if _is_timeout_error(exc):
+                raise ApiError(
+                    "בקשת ה-AI ארכה יותר מדי זמן. נסו שוב בעוד רגע." if ai_request else "הבקשה לשרת ארכה יותר מדי זמן.",
+                    kind=ApiErrorKind.TIMEOUT,
+                ) from exc
+            raise ApiError(
+                "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע." if ai_request else "לא ניתן להתחבר לשרת. ודאו שה־API פועל.",
                 kind=ApiErrorKind.CONNECTION,
             ) from exc
 
@@ -211,3 +267,9 @@ class ApiClient:
         except (json.JSONDecodeError, AttributeError):
             pass
         return "הבקשה לשרת נכשלה."
+
+    @staticmethod
+    def _ai_error_message(status_code: int) -> str:
+        if status_code in {400, 422}:
+            return "לא ניתן לשלוח את בקשת ה-AI כפי שהיא."
+        return "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע."

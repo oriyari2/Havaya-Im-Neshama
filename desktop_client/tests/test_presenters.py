@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
+import io
 
 from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError
+from desktop_client.app.api.client import ApiClient
 from desktop_client.app.api.client import ApiErrorKind
 from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, FormValidationError, validate_create_booking
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
+from desktop_client.app.services.ai_chat_service import AIChatService
 
 
 BOOKING = {
@@ -41,6 +46,7 @@ class _View:
         self.cancellation_confirmed = True
         self.command_status = ""
         self.request_states = []
+        self.cleared_errors = 0
 
     def set_loading(self, loading: bool) -> None:
         self.loading.append(loading)
@@ -50,6 +56,10 @@ class _View:
 
     def show_error(self, message: str) -> None:
         self.error = message
+
+    def clear_error(self) -> None:
+        self.error = ""
+        self.cleared_errors += 1
 
     def show_bookings(self, rows, **page) -> None:
         self.rows = rows
@@ -212,6 +222,23 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("Task17 Equipment", view.messages[-1][1])
         self.assertIn("demo://equipment", view.messages[-1][1])
 
+    def test_ai_chat_presenter_displays_rag_fallback_sources(self) -> None:
+        view = _View()
+
+        class AIService:
+            def consult(self, prompt):
+                return {
+                    "answer": "Fallback answer from approved content.",
+                    "answer_basis": "rag_fallback",
+                    "sources": [{"source_title": "Task17 Equipment", "source_uri": "demo://equipment"}],
+                }
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message("hello")
+
+        self.assertIn("Fallback answer from approved content.", view.messages[-1][1])
+        self.assertIn("Task17 Equipment", view.messages[-1][1])
+
     def test_ai_chat_presenter_handles_empty_prompt_and_errors(self) -> None:
         view = _View()
 
@@ -224,6 +251,49 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("שאלה", view.error)
         presenter.send_message("שלום")
         self.assertEqual(view.error, "offline")
+        self.assertEqual(view.loading, [True, False])
+
+    def test_ai_chat_presenter_clears_stale_error_after_success(self) -> None:
+        view = _View()
+
+        class AIService:
+            def __init__(self):
+                self.fail = True
+
+            def consult(self, prompt):
+                if self.fail:
+                    self.fail = False
+                    raise RuntimeError("offline")
+                return {"answer": "ok", "answer_basis": "rag", "sources": []}
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message("hello")
+        self.assertEqual(view.error, "offline")
+        presenter.send_message("hello again")
+        self.assertEqual(view.error, "")
+        self.assertEqual(view.cleared_errors, 1)
+
+    def test_ai_consult_503_shows_error_without_expiring_session_or_login_navigation(self) -> None:
+        view = _View()
+        client = ApiClient("http://example.test")
+        client.set_access_token("current-token")
+        login_navigation = []
+        client.set_unauthorized_handler(lambda: login_navigation.append("login"))
+        presenter = AIChatPresenter(view, AIChatService(client))
+        error = HTTPError(
+            "http://example.test/api/ai/consult",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(b'{"detail":"AI service is unavailable"}'),
+        )
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+            presenter.send_message("hello")
+
+        self.assertEqual(view.error, "AI service is unavailable")
+        self.assertEqual(client.access_token, "current-token")
+        self.assertEqual(login_navigation, [])
         self.assertEqual(view.loading, [True, False])
 
     def test_login_presenter_validates_and_reports_loading(self) -> None:

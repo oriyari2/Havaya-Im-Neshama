@@ -1,13 +1,20 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 
-from backend.app.application.services.ai_service import AIConsultationError, AIConsultationService, get_llm_client
+from backend.app.application.services.ai_runtime import ai_readiness
+from backend.app.application.services.ai_service import (
+    AIConsultationError,
+    AIConsultationService,
+    get_llm_client,
+)
 from backend.app.application.services.knowledge_retrieval_service import (
     KnowledgeRetrievalError,
     KnowledgeRetrievalService,
 )
-from backend.app.core.auth import get_current_user
+from backend.app.core.auth import get_current_user, require_roles
 from backend.app.core.environment import get_rag_retrieval_top_k
 from backend.app.routers.knowledge import get_knowledge_retrieval_service
 from backend.app.schemas.ai import AIConsultRequest, AIConsultResponse
@@ -15,6 +22,8 @@ from rag import LLMClient
 
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
+logger = logging.getLogger(__name__)
+RequireManager = Depends(require_roles("manager"))
 
 
 def get_ai_service(
@@ -39,6 +48,7 @@ def consult_ai(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except KnowledgeRetrievalError as exc:
+        logger.warning("AI consultation failed stage=embedding failure_type=%s", _knowledge_failure_type(exc))
         raise HTTPException(status_code=503, detail="Embedding service is unavailable. Verify Ollama is running.") from exc
     except AIConsultationError as exc:
         raise HTTPException(status_code=503, detail="AI service is unavailable. Verify Ollama is running.") from exc
@@ -51,3 +61,24 @@ def consult_ai(
             for source in result.sources
         ],
     )
+
+
+@router.get("/readiness")
+def readiness(_current_user: dict = RequireManager) -> dict:
+    return ai_readiness()
+
+
+def _knowledge_failure_type(exc: KnowledgeRetrievalError) -> str:
+    cause = exc.__cause__
+    if cause is None:
+        return "unknown"
+    name = type(cause).__name__.lower()
+    if "timeout" in name:
+        return "timeout"
+    if "connection" in name or "connect" in name:
+        return "connection error"
+    if "http" in name or "status" in name:
+        return "Ollama HTTP error"
+    if "malformed" in name or "json" in name or "response" in name:
+        return "malformed response"
+    return "unknown"

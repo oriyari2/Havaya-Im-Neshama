@@ -10,6 +10,7 @@ class AIChatView(Protocol):
     def show_error(self, message: str) -> None: ...
     def append_message(self, sender: str, message: str) -> None: ...
     def clear_input(self) -> None: ...
+    def clear_error(self) -> None: ...
 
 
 class AIChatPresenter:
@@ -45,6 +46,8 @@ class AIChatPresenter:
         def success(response):
             if not self._operations.is_current(context):
                 return
+            if hasattr(self.view, "clear_error"):
+                self.view.clear_error()
             answer = self._format_answer(response)
             self.view.append_message("היועץ", answer or "לא התקבלה תשובה מהשירות.")
 
@@ -65,7 +68,7 @@ class AIChatPresenter:
         if not isinstance(response, dict):
             return str(response or "")
         answer = str(response.get("answer", ""))
-        if response.get("answer_basis") != "rag":
+        if response.get("answer_basis") not in {"rag", "rag_fallback"}:
             return answer
         sources = response.get("sources")
         if not isinstance(sources, list) or not sources:

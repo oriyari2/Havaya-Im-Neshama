@@ -1,6 +1,10 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from backend.app.application.services.ai_runtime import warm_generation_model
 from backend.app.core.environment import load_backend_env
+from backend.app.db.connection import close_connection_pool, open_connection_pool
 from backend.app.routers.activity_images import router as activity_images_router
 from backend.app.routers.activities import router as activities_router
 from backend.app.routers.ai import router as ai_router
@@ -14,9 +18,21 @@ from backend.app.routers.users import router as users_router
 
 load_backend_env()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    open_connection_pool()
+    warm_generation_model()
+    try:
+        yield
+    finally:
+        close_connection_pool()
+
+
 app = FastAPI(
     title="Havaya Im Neshama API",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 app.include_router(system_router)
