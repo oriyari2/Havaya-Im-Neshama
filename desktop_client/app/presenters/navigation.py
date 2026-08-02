@@ -9,14 +9,12 @@ NAVIGATION_BY_ROLE = {
         ("users", "מנהלים"),
         ("bookings", "הזמנות"),
         ("activities", "פעילויות"),
-        ("open_events", "אירועים פתוחים"),
         ("knowledge", "ניהול ידע"),
     ),
     "instructor": (
         ("dashboard", "לוח בקרה"),
         ("activities", "פעילויות"),
         ("bookings", "האירועים שלי"),
-        ("open_events", "אירועים פתוחים"),
         ("my_profile", "הפרופיל שלי"),
     ),
     "customer": (

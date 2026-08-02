@@ -129,6 +129,9 @@ class BookingsPresenter:
         return True
 
     def load(self, filters=None):
+        if filters and filters.get("queue") == "unassigned":
+            self.load_queue("unassigned")
+            return
         if not self._normalize_filters(filters):
             return
         context = self._operations.replace("list")
@@ -150,29 +153,36 @@ class BookingsPresenter:
                     self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
                 )
             limit, offset = int(snapshot.get("limit", 25)), max(0, int(snapshot.get("offset", 0)))
+            api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "from_date", "to_date", "limit", "offset"}}
             if self.role == "customer":
                 scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "limit", "offset"}}
                 payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset)
             else:
-                scoped = dict(snapshot)
+                scoped = dict(api_snapshot)
                 if self.role == "instructor":
                     scoped.setdefault("from_date", datetime.now(UTC).isoformat())
                 payload = self.service.list_bookings(scoped)
-            return payload, options, limit, offset
+            summary = self.service.dashboard() if self.role == "manager" else None
+            return payload, options, limit, offset, summary
 
         def success(result):
             if not self._operations.is_current(context):
                 return
-            payload, options, limit, offset = result
+            payload, options, limit, offset, summary = result
             if options is not None:
                 self.view.show_filter_options(*options)
                 self._filter_options_loaded = True
-            ids = {str(item["id"]) for item in payload["items"]}
+            items = payload["items"]
+            query = str(snapshot.get("search") or "").strip().casefold()
+            if query:
+                items = [item for item in items if query in " ".join(str(item.get(key) or "") for key in ("id", "customer_name", "activity_name", "city", "venue")).casefold()]
+            if summary is not None: self.view.show_summary(summary)
+            ids = {str(item["id"]) for item in items}
             if self.selected_id not in ids:
                 self.selected_id = self.current_booking = None
-            signature = (snapshot, payload["items"], self.selected_id)
+            signature = (snapshot, items, self.selected_id)
             if signature != self._last_list_render:
-                self.view.show_bookings([booking_row(item) for item in payload["items"]], offset=offset, count=len(payload["items"]), limit=limit, selected_id=self.selected_id)
+                self.view.show_bookings([booking_row(item) for item in items], offset=offset, count=len(items), limit=limit, selected_id=self.selected_id)
                 self._last_list_render = signature
 
         def failure(_exc):
@@ -197,6 +207,18 @@ class BookingsPresenter:
 
     def page(self, offset, limit):
         self.load({**self.filters, "offset": max(0, offset), "limit": limit})
+
+    def reset_to_default(self):
+        self.filters={"limit":25,"offset":0};self.selected_id=self.current_booking=None;self._last_list_render=None;self.view.reset_to_default()
+
+    def load_queue(self, queue):
+        if queue == "pending": self.load({"status":"NEW","from_date":datetime.now(UTC).isoformat(),"limit":25,"offset":0}); return
+        if queue == "approved": self.load({"status":"CONFIRMED","from_date":datetime.now(UTC).isoformat(),"limit":25,"offset":0}); return
+        if queue in {"unassigned","attention"}:
+            context=self._operations.replace("list");self.view.set_loading(True)
+            def success(items):
+                if self._operations.is_current(context):self.filters={"queue":"unassigned","limit":25,"offset":0};self.view.show_bookings([booking_row(item) for item in items],offset=0,count=len(items),limit=25,selected_id=None)
+            self._operations.executor.submit(context,self.service.open_events,success,lambda _exc:self.view.show_error("לא ניתן לטעון הזמנות הממתינות לשיבוץ."),lambda:self.view.set_loading(False))
 
     def select_booking(self, booking_id):
         self.selected_id = booking_id
@@ -251,7 +273,7 @@ class BookingsPresenter:
 
         def load_options():
             customers, activities = self.service.booking_form_options(include_customers=self.role == "manager")
-            instructors = self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 200, "offset": 0})["items"] if self.role == "manager" and self.instructor_service else []
+            instructors = self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 50, "offset": 0})["items"] if self.role == "manager" and self.instructor_service else []
             return customers, activities, instructors
 
         self._operations.executor.submit(context, load_options, success, failure, finished)

@@ -14,7 +14,6 @@ from desktop_client.app.models.session import Session
 from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.booking_dialogs import BookingFormDialog
 from desktop_client.app.views.dashboard_view import DashboardView
-from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.shell_view import ShellView
 
 
@@ -33,23 +32,23 @@ class ViewTests(unittest.TestCase):
     def test_manager_has_related_filters_and_customer_has_status_only(self) -> None:
         customer = BookingsView("customer")
         customer.show()
-        self.assertTrue(customer.filter_panel.isVisible())
+        self.assertFalse(customer.filter_panel.isVisible())
         self.assertFalse(customer.customer_filter.isVisible())
         manager = BookingsView("manager")
         manager.show()
-        self.assertTrue(manager.filter_panel.isVisible())
+        manager.filter_button.click(); self.assertTrue(manager.filter_panel.isVisible())
         manager.close()
 
     def test_booking_command_controls_are_manager_only(self) -> None:
         manager = BookingsView("manager")
         manager.show()
-        self.assertTrue(manager.command_panel.isVisible())
+        self.assertFalse(manager.command_panel.isHidden())
         self.assertTrue(manager.create_button.isEnabled())
         self.assertFalse(manager.cancel_button.isEnabled())
         manager.set_command_availability("NEW")
         self.assertTrue(manager.edit_button.isEnabled())
         self.assertTrue(manager.confirm_button.isEnabled())
-        self.assertTrue(manager.confirm_button.isHidden())
+        self.assertFalse(manager.confirm_button.isHidden())
         self.assertTrue(manager.cancel_button.isEnabled())
         manager.set_command_availability("CANCELLED")
         self.assertFalse(manager.edit_button.isEnabled())
@@ -57,7 +56,7 @@ class ViewTests(unittest.TestCase):
         self.assertFalse(manager.cancel_button.isEnabled())
         customer = BookingsView("customer")
         customer.show()
-        self.assertTrue(customer.command_panel.isVisible())
+        self.assertTrue(customer.command_panel.isHidden())
         self.assertTrue(customer.create_button.isVisible())
         self.assertFalse(customer.edit_button.isVisible())
         instructor = BookingsView("instructor")
@@ -71,8 +70,8 @@ class ViewTests(unittest.TestCase):
         manager = BookingsView("manager")
         customer = BookingsView("customer")
         instructor = BookingsView("instructor")
-        self.assertEqual(manager.assignment_group.title(), "שיבוץ מדריך להזמנה")
-        self.assertEqual(manager.assign_button.text(), "שיבוץ מדריך לפעילות שנבחרה")
+        self.assertEqual(manager.assignment_group.objectName(), "detailPanel")
+        self.assertEqual(manager.assign_button.text(), "שיבוץ מדריך")
         self.assertIn("בחרו פעילות", manager.assignment_hint.text())
         self.assertFalse(manager.assign_button.isEnabled())
         manager.set_command_availability("NEW")
@@ -80,11 +79,11 @@ class ViewTests(unittest.TestCase):
         unassigned = {"activity_name": "פעילות", "assignment_required": True, "assignments": []}
         manager.show_assignments([unassigned])
         manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
-        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ מדריך ואישור הזמנה")
+        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ ואישור")
         assigned = {**unassigned, "assignments": [{"instructor_name": "מדריך", "instructor_city": None}]}
         manager.show_assignments([assigned])
         manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
-        self.assertEqual(manager.assign_and_confirm_button.text(), "אישור הזמנה")
+        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ ואישור")
         manager.set_command_availability("CONFIRMED")
         self.assertTrue(manager.assign_and_confirm_button.isHidden())
         self.assertFalse(manager.assignment_group.isHidden())
@@ -128,13 +127,10 @@ class ViewTests(unittest.TestCase):
     def test_empty_states_are_visible(self) -> None:
         bookings = BookingsView("customer")
         bookings.show_bookings([])
-        self.assertTrue(bookings.state_label.isVisibleTo(bookings))
+        self.assertIs(bookings.workspace.table_region.currentWidget(), bookings.workspace.empty_state)
         dashboard = DashboardView()
         dashboard.show_sections("קרובים", [], "", [])
         self.assertIn("אין נתונים", dashboard.state_label.text())
-        events = OpenEventsView()
-        events.show_events([])
-        self.assertIn("אין כרגע", events.state_label.text())
 
     def test_shell_renders_only_configured_navigation(self) -> None:
         shell = ShellView("user@example.com")
@@ -194,8 +190,8 @@ class ViewTests(unittest.TestCase):
                 return {"id": "instructor-id", "full_name": "Instructor", "is_active": True, "created_at": "", "updated_at": ""}
 
         expected_pages = {
-            "manager": {"dashboard", "customers", "instructors", "users", "bookings", "activities", "open_events", "knowledge", "ai_chat"},
-            "instructor": {"dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"},
+            "manager": {"dashboard", "customers", "instructors", "users", "bookings", "activities", "knowledge", "ai_chat"},
+            "instructor": {"dashboard", "activities", "bookings", "my_profile", "ai_chat"},
             "customer": {"dashboard", "activities", "my_bookings", "my_profile", "ai_chat"},
         }
         for role, pages in expected_pages.items():

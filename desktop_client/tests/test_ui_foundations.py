@@ -23,7 +23,6 @@ from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.dashboard_view import DashboardView
 from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
 from desktop_client.app.views.knowledge_view import KnowledgeManagementView
-from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.design_tokens import (
     COLOR_BACKGROUND, COLOR_FOCUS, CONTROL_HEIGHT, DIALOG_WIDTH_DEFAULT,
     DURATION_STANDARD, ELEVATION_LOW, FONT_SIZE_BODY, ICON_SIZE, RADIUS_MEDIUM,
@@ -253,7 +252,7 @@ class UiFoundationTests(unittest.TestCase):
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
         self.app.setStyleSheet(APP_STYLE)
-        excluded = (DashboardView(), InstructorProfileView(), BookingsView("manager"), OpenEventsView(), KnowledgeManagementView(), AIChatView())
+        excluded = (DashboardView(), InstructorProfileView(), BookingsView("manager"), KnowledgeManagementView(), AIChatView())
         for view in excluded:
             view.show(); self.app.processEvents(); self.assertTrue(view.isVisible()); view.close()
         activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()

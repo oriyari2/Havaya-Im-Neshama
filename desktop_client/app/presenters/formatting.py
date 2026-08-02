@@ -39,6 +39,7 @@ def booking_row(item: dict[str, Any]) -> dict[str, str]:
         "id": str(item["id"]),
         "event_at": format_datetime(item.get("event_at")),
         "status": STATUS_LABELS.get(item.get("status", ""), item.get("status", "—")),
+        "status_code": str(item.get("status") or ""),
         "city": item.get("city") or "—",
         "venue": item.get("venue") or "—",
         "participants": str(item.get("participant_count", "—")),

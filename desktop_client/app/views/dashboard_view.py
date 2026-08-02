@@ -53,8 +53,8 @@ class DashboardView(StatefulWidget):
 
         shortcuts = QHBoxLayout()
         targets = {
-            "manager": (("create", "יצירת הזמנה"), ("customers", "לקוחות"), ("instructors", "מדריכים"), ("activities", "פעילויות"), ("bookings", "הזמנות"), ("open_events", "אירועים פתוחים")),
-            "instructor": (("bookings", "האירועים שלי"), ("open_events", "אירועים פתוחים"), ("activities", "פעילויות"), ("my_profile", "הפרופיל שלי")),
+            "manager": (("create", "יצירת הזמנה"), ("customers", "לקוחות"), ("instructors", "מדריכים"), ("activities", "פעילויות"), ("bookings", "הזמנות")),
+            "instructor": (("bookings", "האירועים שלי"), ("activities", "פעילויות"), ("my_profile", "הפרופיל שלי")),
             "customer": (("my_bookings", "ההזמנות שלי"), ("activities", "פעילויות"), ("my_profile", "הפרופיל שלי")),
         }
         for key, label in targets.get(role, ()):

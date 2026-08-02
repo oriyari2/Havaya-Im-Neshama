@@ -10,7 +10,6 @@ from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, 
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
-from desktop_client.app.presenters.open_events_presenter import OpenEventsPresenter
 
 
 BOOKING = {
@@ -173,9 +172,9 @@ class _Service:
 
 class PresenterTests(unittest.TestCase):
     def test_role_navigation_contains_only_permitted_booking_modules(self) -> None:
-        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "users", "bookings", "activities", "open_events", "knowledge", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "users", "bookings", "activities", "knowledge", "ai_chat"])
         self.assertEqual(dict(navigation_for_role("manager"))["users"], "מנהלים")
-        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "open_events", "my_profile", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "my_profile", "ai_chat"])
         self.assertEqual([key for key, _ in navigation_for_role("customer")], ["dashboard", "activities", "my_bookings", "my_profile", "ai_chat"])
         self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["dashboard", "activities", "my_bookings", "ai_chat"])
         self.assertEqual(navigation_for_role("unknown"), ())
@@ -285,7 +284,7 @@ class PresenterTests(unittest.TestCase):
         presenter.drill_down("confirmed_count")
         presenter.drill_down("unassigned_count")
         self.assertEqual(calls[0], ("bookings", {"status": "CONFIRMED"}))
-        self.assertEqual(calls[1], ("open_events", None))
+        self.assertEqual(calls[1], ("bookings", {"queue": "unassigned"}))
         customer_calls = []
         DashboardPresenter(_View(), _Service(), "customer", lambda key, filters=None: customer_calls.append((key, filters))).drill_down("pending_count")
         self.assertEqual(customer_calls, [("my_bookings", {"status": "NEW"})])
@@ -308,13 +307,6 @@ class PresenterTests(unittest.TestCase):
         BookingsPresenter(instructor_view, instructor_service, "instructor").select_booking("booking-1")
         self.assertNotIn(("history", "booking-1"), instructor_service.calls)
         self.assertEqual(instructor_view.history, [])
-
-    def test_presenters_surface_service_errors_and_finish_loading(self) -> None:
-        view, service = _View(), _Service()
-        service.fail = True
-        OpenEventsPresenter(view, service).load()
-        self.assertEqual(view.error, "network error")
-        self.assertEqual(view.loading, [True, False])
 
     def test_create_validation_and_success_refresh(self) -> None:
         with self.assertRaises(FormValidationError):
@@ -396,8 +388,9 @@ class PresenterTests(unittest.TestCase):
         presenter = BookingsPresenter(view, service, "manager")
         presenter.load({"status": "CONFIRMED", "limit": 25, "offset": 0})
         presenter.page(-25, 25)
-        self.assertEqual(service.calls[-1][1]["status"], "CONFIRMED")
-        self.assertEqual(service.calls[-1][1]["offset"], 0)
+        last_list = next(call for call in reversed(service.calls) if call[0] == "list")
+        self.assertEqual(last_list[1]["status"], "CONFIRMED")
+        self.assertEqual(last_list[1]["offset"], 0)
         self.assertEqual(view.page["count"], 1)
 
     def test_customer_status_drilldown_uses_role_scoped_list(self) -> None:

@@ -65,6 +65,9 @@ QToolButton#managementRowOpenAction:pressed {{ background: {COLOR_SURFACE_ALT}; 
 QLabel[feedback="success"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
 QLabel[feedback="warning"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
 QLabel[feedback="error"], #errorLabel {{ color: {COLOR_ERROR}; background: {COLOR_ERROR_BACKGROUND}; }}
+QLabel[bookingState="NEW"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
+QLabel[bookingState="CONFIRMED"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
+QLabel[bookingState="COMPLETED"], QLabel[bookingState="CANCELLED"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; }}
 QLabel#fieldError {{ color: {COLOR_ERROR}; font-size: {FONT_SIZE_SUPPORTING}px; }}
 QLineEdit[invalid="true"], QPlainTextEdit[invalid="true"] {{ border: 2px solid {COLOR_ERROR}; }}
 QTableWidget[task20Table="true"] {{ background: {COLOR_SURFACE}; alternate-background-color: {COLOR_SURFACE_ALT}; gridline-color: {COLOR_BORDER}; }}

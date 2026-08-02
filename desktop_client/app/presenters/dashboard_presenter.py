@@ -40,7 +40,7 @@ class DashboardPresenter:
         if target in status_filters:
             self.navigate("my_bookings" if self.role == "customer" else "bookings", {"status": status_filters[target]})
         elif target == "unassigned_count":
-            self.navigate("open_events", None)
+            self.navigate("bookings", {"queue": "unassigned"})
         elif target in {"upcoming_count", "assigned_count"}:
             destination = "my_bookings" if self.role == "customer" else "bookings"
             self.navigate(destination, {"from_date": datetime.now(UTC).isoformat()})

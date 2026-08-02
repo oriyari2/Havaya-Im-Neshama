@@ -18,7 +18,6 @@ from desktop_client.app.presenters.instructors_presenter import InstructorProfil
 from desktop_client.app.presenters.knowledge_presenter import KnowledgeManagementPresenter
 from desktop_client.app.presenters.customers_presenter import CustomerProfilePresenter, CustomersPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
-from desktop_client.app.presenters.open_events_presenter import OpenEventsPresenter
 from desktop_client.app.presenters.users_presenter import UsersPresenter
 from desktop_client.app.services.auth_service import AuthService
 from desktop_client.app.services.booking_service import BookingService
@@ -38,7 +37,6 @@ from desktop_client.app.views.customers_view import CustomersView
 from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
 from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.login_view import LoginView
-from desktop_client.app.views.open_events_view import OpenEventsView
 from desktop_client.app.views.shell_view import ShellView
 from desktop_client.app.views.users_view import UsersView
 from desktop_client.app.views.design_tokens import build_neutral_stylesheet
@@ -230,6 +228,7 @@ class MainWindow(QMainWindow):
         bookings_view.filters_requested.connect(bookings_presenter.load)
         bookings_view.booking_selected.connect(bookings_presenter.select_booking)
         bookings_view.page_requested.connect(bookings_presenter.page)
+        bookings_view.queue_requested.connect(bookings_presenter.load_queue)
         if session.role in {"manager", "customer"}:
             bookings_view.create_requested.connect(bookings_presenter.begin_create)
         if session.role == "manager":
@@ -245,15 +244,6 @@ class MainWindow(QMainWindow):
             assignments_presenter=BookingAssignmentsPresenter(bookings_view,self.assignment_service,self.instructor_service,refresh_booking=bookings_presenter.select_booking,refresh_related=self._refresh_booking_related,confirm_after_assignment=bookings_presenter.confirm_after_assignment,executor=self.operation_executor)
             bookings_presenter.assign_after_creation=assignments_presenter.assign_after_creation
             bookings_view.booking_selected.connect(assignments_presenter.select_booking);bookings_view.assignment_add_requested.connect(assignments_presenter.begin_assign);bookings_view.assignment_add_and_confirm_requested.connect(assignments_presenter.begin_assign_and_confirm);bookings_view.assignment_remove_requested.connect(assignments_presenter.remove);self._presenters["booking_assignments"]=assignments_presenter
-
-        if session.role in {"manager", "instructor"}:
-            open_view = OpenEventsView()
-            open_presenter = OpenEventsPresenter(open_view, self.booking_service, self.operation_executor)
-            open_view.event_selected.connect(open_presenter.select)
-            open_view.filter_requested.connect(open_presenter.apply_filter)
-            open_view.retry_requested.connect(open_presenter.retry)
-            self.shell.add_page("open_events", open_view)
-            self._presenters["open_events"] = open_presenter
 
         ai_chat_view = AIChatView()
         ai_chat_presenter = AIChatPresenter(ai_chat_view, self.ai_chat_service, self.operation_executor)
@@ -273,7 +263,7 @@ class MainWindow(QMainWindow):
         presenter = self._presenters.get(key)
         if presenter is not None:
             reset = getattr(presenter, "reset_to_default", None)
-            if reset is not None and key in {"customers", "instructors", "users", "activities"}:
+            if reset is not None and key in {"customers", "instructors", "users", "activities", "bookings", "my_bookings"}:
                 reset()
             presenter.load()
 
@@ -287,7 +277,7 @@ class MainWindow(QMainWindow):
         presenter.load(filters) if filters is not None else presenter.load()
 
     def _refresh_booking_related(self)->None:
-        for key in ("dashboard","open_events"):
+        for key in ("dashboard", "bookings", "my_bookings"):
             presenter=self._presenters.get(key)
             if presenter is not None:presenter.load()
 

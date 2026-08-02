@@ -137,3 +137,13 @@ management dialog and validation foundation. Booking creation remains only in
 Bookings, and Open Events is unchanged. The capability audit and intentional
 omissions are recorded in
 `docs/piv/25-3-activities-management-flow-redesign.md`.
+
+## Task 25.4 - Unified Booking operations workspace
+
+Bookings and the derived Open Events projection now share one RTL operations
+workspace. Summary queues, progressive filters, semantic Booking table,
+dedicated Details/history/assignment content, status-aware actions, and shared
+ID-backed entity selectors replace the split list/detail and duplicate Open
+Events page. CQRS, Event Sourcing, role scoping, optimistic concurrency and the
+existing assignment commands remain unchanged. See
+`docs/piv/25-4-unified-booking-operations-workspace.md`.

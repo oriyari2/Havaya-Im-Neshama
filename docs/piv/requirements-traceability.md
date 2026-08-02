@@ -833,3 +833,15 @@ gallery; Activity forms reuse shared click-time validation. Booking commands
 and Open Event queries remain in their existing modules and were not duplicated
 or redesigned. The verified capability matrix is in
 `docs/piv/25-3-activities-management-flow-redesign.md`.
+
+### Task 25.4 - Unified Booking operations workspace
+
+Task 25.4 advances Booking management, role-scoped reads, CQRS/Event Sourcing
+operations, assignment management and Open Events usability through one shared
+RTL workspace. Open Events is verified as a derived unassigned-Booking queue,
+not a separate entity. Create uses reusable searchable selectors that submit
+real Customer/Activity/Instructor IDs and reject arbitrary text. Manager-only
+history and commands, customer ownership, instructor assignment scope, status
+actions, filters, pagination and immutable event history remain enforced by
+the existing backend contracts. See
+`docs/piv/25-4-unified-booking-operations-workspace.md`.
