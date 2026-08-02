@@ -852,3 +852,15 @@ RTL Booking form alignment. Existing Booking/assignment APIs, CQRS commands,
 Event Sourcing, role scoping and authorization remain unchanged.
 Booking list ordering now additionally supports the whitelisted alphabetical
 Customer-name order end to end, including filtering and pagination.
+
+### Task 25.5 - Branded Desktop Visual System
+
+Phase 1 implements the shared branded Desktop foundation only. The existing
+global token/QSS infrastructure now carries the approved warm off-white,
+teal/sky/leaf/orange/coral palette, typography hierarchy, shared controls,
+tables, status badges, navigation states, statistic-card hooks, and AI
+message/source hooks. The shared post-login shell uses the real
+`design_reference/logo.png` while preserving existing navigation items, role
+visibility, signals, logged-in email, and logout behavior. No screen-specific
+Dashboard, Customers, Bookings, AI Advisor, or Login redesign was implemented;
+those Task 25.5 phases remain pending.

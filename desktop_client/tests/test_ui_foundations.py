@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QPushButton, QTableWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QLabel, QPushButton, QTableWidget, QWidget
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
@@ -25,9 +25,10 @@ from desktop_client.app.views.instructors_view import InstructorProfileView, Ins
 from desktop_client.app.views.filter_popup import FloatingFilterPopup
 from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.design_tokens import (
-    COLOR_BACKGROUND, COLOR_FOCUS, CONTROL_HEIGHT, DIALOG_WIDTH_DEFAULT,
-    DURATION_STANDARD, ELEVATION_LOW, FONT_SIZE_BODY, ICON_SIZE, RADIUS_MEDIUM,
-    SPACE_4, TABLE_ROW_HEIGHT,
+    COLOR_AI_ASSISTANT_BACKGROUND, COLOR_AI_SOURCE_BACKGROUND, COLOR_AI_USER_BACKGROUND,
+    COLOR_BACKGROUND, COLOR_BRAND, COLOR_BRAND_SOFT, COLOR_FOCUS, CONTROL_HEIGHT,
+    DIALOG_WIDTH_DEFAULT, DURATION_STANDARD, ELEVATION_LOW, FONT_SIZE_BODY,
+    ICON_SIZE, RADIUS_MEDIUM, SPACE_4, TABLE_ROW_HEIGHT, build_branded_stylesheet,
 )
 from desktop_client.app.views.login_view import LoginView
 from desktop_client.app.views.shell_view import ShellView
@@ -87,11 +88,11 @@ class UiFoundationTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_tokens_and_neutral_theme_are_centralized(self) -> None:
+    def test_tokens_and_branded_theme_are_centralized(self) -> None:
         self.assertEqual((SPACE_4, CONTROL_HEIGHT, ICON_SIZE, DURATION_STANDARD, DIALOG_WIDTH_DEFAULT, TABLE_ROW_HEIGHT), (16, 40, 20, 200, 520, 40))
-        self.assertEqual((COLOR_BACKGROUND, COLOR_FOCUS, FONT_SIZE_BODY, RADIUS_MEDIUM, ELEVATION_LOW), ("#F5F6F8", "#1F6FEB", 14, 8, (0, 1, 3, 12)))
+        self.assertEqual((COLOR_BACKGROUND, COLOR_FOCUS, COLOR_BRAND, FONT_SIZE_BODY, RADIUS_MEDIUM, ELEVATION_LOW), ("#F7F5EF", "#157A8A", "#157A8A", 14, 8, (0, 1, 3, 12)))
 
-    def test_neutral_text_and_semantic_colors_meet_contrast_target(self) -> None:
+    def test_branded_text_and_semantic_colors_meet_contrast_target(self) -> None:
         def luminance(value: str) -> float:
             channels = [int(value[index:index + 2], 16) / 255 for index in (1, 3, 5)]
             linear = [channel / 12.92 if channel <= 0.04045 else ((channel + 0.055) / 1.055) ** 2.4 for channel in channels]
@@ -99,8 +100,23 @@ class UiFoundationTests(unittest.TestCase):
         def contrast(first: str, second: str) -> float:
             high, low = sorted((luminance(first), luminance(second)), reverse=True)
             return (high + 0.05) / (low + 0.05)
-        pairs = (("#1F2933", "#F5F6F8"), ("#5F6B76", "#FFFFFF"), ("#FFFFFF", "#1F6FEB"), ("#176B45", "#E7F5ED"), ("#7A4D00", "#FFF4D6"), ("#A61B1B", "#FDECEC"))
+        pairs = (("#24313A", "#F7F5EF"), ("#65727A", "#FFFFFF"), ("#FFFFFF", "#157A8A"), ("#276B43", "#EAF6EC"), ("#82520E", "#FFF2D9"), ("#A8443F", "#FCEDEC"))
         self.assertTrue(all(contrast(foreground, background) >= 4.5 for foreground, background in pairs))
+
+    def test_branded_stylesheet_exposes_shared_component_roles(self) -> None:
+        style = build_branded_stylesheet()
+        for expected in (
+            COLOR_BRAND_SOFT,
+            COLOR_AI_USER_BACKGROUND,
+            COLOR_AI_ASSISTANT_BACKGROUND,
+            COLOR_AI_SOURCE_BACKGROUND,
+            'QPushButton[buttonRole="managementPrimary"]',
+            'QFrame[aiMessage="assistant"]',
+            'QFrame[aiSource="true"]',
+            'QTableWidget[task20Table="true"] QHeaderView::section',
+            '#sidebar QPushButton:checked',
+        ):
+            self.assertIn(expected, style)
 
     def test_request_state_and_identity_are_plain_and_deterministic(self) -> None:
         phases = {phase for phase in RequestPhase}
@@ -242,6 +258,27 @@ class UiFoundationTests(unittest.TestCase):
         self.assertEqual(shell.layoutDirection(), Qt.LayoutDirection.RightToLeft)
         self.assertEqual(shell.navigation_buttons["customers"].accessibleDescription(), "העמוד הנוכחי")
         self.assertTrue(shell.logout_button.accessibleName())
+
+    def test_shell_uses_real_logo_without_changing_navigation_signals(self) -> None:
+        shell = ShellView("manager@example.com")
+        emitted = []
+        shell.navigation_requested.connect(emitted.append)
+        shell.configure_navigation((("dashboard", "לוח בקרה"), ("customers", "לקוחות")))
+        self.assertEqual(shell.logo_path.name, "logo-sidebar.png")
+        self.assertIn("desktop_client", shell.logo_path.parts)
+        self.assertIn("assets", shell.logo_path.parts)
+        self.assertIn("branding", shell.logo_path.parts)
+        self.assertTrue(shell.logo_path.exists())
+        self.assertFalse(shell.logo_label.pixmap().isNull())
+        self.assertEqual(shell.logo_label.size(), shell.logo_label.pixmap().size())
+        brand_labels = [
+            label for label in shell.findChildren(QLabel)
+            if label is not shell.logo_label and label.text() == "חוויה עם נשמה"
+        ]
+        self.assertEqual(brand_labels, [])
+        shell.navigation_buttons["customers"].click()
+        self.assertEqual(emitted, ["customers"])
+        shell.close()
 
     def test_customers_accessibility_disabled_help_and_tooltips(self) -> None:
         view = CustomersView(); self.assertEqual(view.table.accessibleName(), "רשימת לקוחות"); self.assertTrue(view.edit_button.accessibleDescription())
