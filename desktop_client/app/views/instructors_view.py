@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, Qt, Signal
+from PySide6.QtCore import QEvent, QItemSelectionModel, Qt, Signal
 from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel, QTableWidgetItem, QVBoxLayout
 
 from desktop_client.app.models.request_state import RequestPhase, RequestState
@@ -13,15 +13,15 @@ from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, co
 
 
 class InstructorsView(StatefulWidget):
-    filters_requested=Signal(dict);page_requested=Signal(int,int);instructor_selected=Signal(str);retry_requested=Signal();create_requested=Signal();edit_requested=Signal();delete_requested=Signal();change_password_requested=Signal()
+    filters_requested=Signal(dict);page_requested=Signal(int,int);instructor_selected=Signal(str);retry_requested=Signal();create_requested=Signal();edit_requested=Signal();deactivate_requested=Signal();reactivate_requested=Signal();change_password_requested=Signal()
     def __init__(self):
         super().__init__();root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
         self.workspace=ManagementWorkspace(title="מדריכים",subtitle="ניהול מדריכים ופרטי התקשרות",create_text="מדריך חדש",plural="מדריכים",detail_subtitle="מידע מלא ופעולות עבור המדריך שנבחר",search_placeholder="חיפוש לפי שם, דוא״ל, טלפון או עיר",sort_options=(("full_name","מיון לפי: שם"),("city","מיון לפי: עיר"),("phone","מיון לפי: טלפון"),("email","מיון לפי: דוא״ל"),("is_active","מיון לפי: מצב"),("created_at","מיון לפי: תאריך יצירה"),("updated_at","מיון לפי: תאריך עדכון")),headers=("שם מדריך","עיר","טלפון","דוא״ל","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,200),ColumnPolicy(ColumnKind.SECONDARY_TEXT,150,230),ColumnPolicy(ColumnKind.TECHNICAL,140),ColumnPolicy(ColumnKind.TECHNICAL,210),ColumnPolicy(ColumnKind.COMPACT,110)))
-        root.addWidget(self.workspace);self.scaffold=self.workspace.scaffold;self.toolbar=self.workspace.toolbar;self.table=self.workspace.table;self.footer=self.workspace.footer;self.create_button=self.workspace.create_button;self.pages=self.workspace.pages;self.list_page=self.workspace.list_page;self.details_page=self.workspace.details_page;self.back_button=self.workspace.back_button;self.view_details_button=self.workspace.view_details_button
-        self.edit_button=self.workspace.add_action("עריכת מדריך");self.change_password_button=self.workspace.add_action("שינוי סיסמה");self.delete_button=self.workspace.add_action("מחיקת מדריך",destructive=True)
+        root.addWidget(self.workspace);self.scaffold=self.workspace.scaffold;self.toolbar=self.workspace.toolbar;self.table=self.workspace.table;self.footer=self.workspace.footer;self.create_button=self.workspace.create_button;self.pages=self.workspace.pages;self.list_page=self.workspace.list_page;self.details_page=self.workspace.details_page;self.back_button=self.workspace.back_button;self._selected_id=None;self._pending_open_id=None
+        self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button=self.workspace.add_lifecycle_actions(edit="עריכת מדריך",password="שינוי סיסמה",deactivate="השבתת מדריך",reactivate="הפעלת מדריך מחדש")
         self.profile_details=self.workspace.add_card("פרטי מדריך");self.contact_details=self.workspace.add_card("פרטי קשר");self.system_details=self.workspace.add_card("מידע מערכת")
-        self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.change_password_button.clicked.connect(self.change_password_requested);self.delete_button.clicked.connect(self.delete_requested)
-        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "full_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda _r,_c:self._open());self.table.installEventFilter(self);self.view_details_button.clicked.connect(self._open);self.workspace.empty_action_button.clicked.connect(self._empty_action);self._empty_filtered=False;self.clear_details()
+        self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.change_password_button.clicked.connect(self.change_password_requested);self.deactivate_button.clicked.connect(self.deactivate_requested);self.reactivate_button.clicked.connect(self.reactivate_requested)
+        self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "full_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda row,_column:self._request_open(self._row_id(row)));self.table.installEventFilter(self);self.workspace.empty_action_button.clicked.connect(self._empty_action);self._empty_filtered=False;self.clear_details()
     def _sort_changed(self,_index):self.filters_requested.emit({"search":self.toolbar.search_input.text().strip() or None,"order_by":str(self.toolbar.sort_combo.currentData() or "full_name")})
     def _reset_toolbar(self):
         self.toolbar.search_input.clear();self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(False);self.filters_requested.emit({"search":None,"city":None,"is_active":None,"order_by":"full_name"})
@@ -31,17 +31,25 @@ class InstructorsView(StatefulWidget):
         return super().eventFilter(watched,event)
     def _select(self):
         rows=self.table.selectionModel().selectedRows()
-        if rows:self.instructor_selected.emit(str(self.table.item(rows[0].row(),0).data(Qt.ItemDataRole.UserRole)));self.view_details_button.setEnabled(True);set_disabled_explanation(self.view_details_button,"")
-        else:self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מדריך תחילה")
+        if rows:
+            instructor_id=self._row_id(rows[0].row());changed=instructor_id!=self._selected_id;self._selected_id=instructor_id
+            if changed:self._clear_forms();self.workspace.detail_title.clear();self.workspace.show_list();self.instructor_selected.emit(instructor_id)
+        else:self._selected_id=None
     def _open(self):
-        if self.workspace.detail_title.text():self.workspace.show_details()
+        if self._selected_id:self._pending_open_id=self._selected_id
+        if self._selected_id and self.workspace.detail_title.text():self._pending_open_id=None;self.workspace.show_details()
+    def _row_id(self,row):return str(self.table.item(row,1).data(Qt.ItemDataRole.UserRole))
+    def _request_open(self,instructor_id):
+        self._pending_open_id=instructor_id;self.select_instructor(instructor_id)
+        if self.workspace.detail_title.text() and self._selected_id==instructor_id:self._pending_open_id=None;self.workspace.show_details()
     def show_instructors(self,rows,*,offset,count,filtered):
         self.table.setRowCount(len(rows))
         for ri,row in enumerate(rows):
-            for ci,key in enumerate(("full_name","city","phone","email")):
+            self.workspace.set_row_open_action(ri,str(row["id"]),self._request_open)
+            for ci,key in enumerate(("full_name","city","phone","email"),start=1):
                 item=QTableWidgetItem(str(row.get(key) or "—"));set_item_text(self.table,ri,ci,item,tooltip_direction=Qt.LayoutDirection.LeftToRight if key in {"phone","email"} else Qt.LayoutDirection.RightToLeft);item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
-                if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
-            status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,4,status)
+                if ci==1:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
+            status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,5,status)
         self.footer.set_page(offset=offset,count=count);self.workspace.results_label.setText(f"מדריכים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מדריכים")
     def show_details(self,details,item):
         self._clear_forms()
@@ -49,15 +57,17 @@ class InstructorsView(StatefulWidget):
             content=QLabel(value);content.setWordWrap(True);content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse);content.setToolTip(value)
             if any(x in label for x in ("דוא","טלפון")):configure_mixed_direction(content)
             target=self.system_details if label in {"מצב","נוצר","עודכן"} else self.contact_details if label in {"טלפון","דוא״ל"} else self.profile_details;self.workspace.add_property_row(target,label,content)
-        self.workspace.show_detail_identity(str(item.get("full_name") or "פרטי מדריך"),bool(item.get("is_active")));self.workspace.set_actions_enabled(True)
-        for button in (self.edit_button,self.change_password_button,self.delete_button):set_disabled_explanation(button,"")
+        active=bool(item.get("is_active"));self.workspace.show_detail_identity(str(item.get("full_name") or "פרטי מדריך"),active);self.workspace.set_actions_enabled(True);self.workspace.show_lifecycle(active,self.deactivate_button,self.reactivate_button)
+        for button in (self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button):set_disabled_explanation(button,"")
+        if self._pending_open_id==str(item.get("id")):self._pending_open_id=None;self.workspace.show_details()
     def _clear_forms(self):
         for form in (self.profile_details,self.contact_details,self.system_details):
             while form.rowCount():form.removeRow(0)
     def clear_details(self):
         if hasattr(self,"profile_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.set_actions_enabled(False);self.workspace.show_list()
-        self.view_details_button.setEnabled(False);set_disabled_explanation(self.view_details_button,"יש לבחור מדריך תחילה")
-        for button in (self.edit_button,self.change_password_button,self.delete_button):set_disabled_explanation(button,"יש לבחור מדריך תחילה")
+        self._selected_id=None;self._pending_open_id=None
+        self.deactivate_button.hide();self.reactivate_button.hide()
+        for button in (self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button):set_disabled_explanation(button,"יש לבחור מדריך תחילה")
     def reset_to_default(self):
         dialog=getattr(self,"_dialog",None)
         if dialog is not None and dialog.isVisible():dialog.reject()
@@ -66,10 +76,13 @@ class InstructorsView(StatefulWidget):
     def show_success(self,message):self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS,message,"instructors"))
     def select_instructor(self,instructor_id):
         for row in range(self.table.rowCount()):
-            if str(self.table.item(row,0).data(Qt.ItemDataRole.UserRole))==instructor_id:self.table.selectRow(row);break
+            if str(self.table.item(row,1).data(Qt.ItemDataRole.UserRole))==instructor_id:
+                changed=self._selected_id!=instructor_id;blocked=self.table.blockSignals(True);index=self.table.model().index(row,1);self.table.selectionModel().setCurrentIndex(index,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows);self.table.blockSignals(blocked);self._selected_id=instructor_id
+                if changed:self._clear_forms();self.workspace.detail_title.clear();self.workspace.show_list();self.instructor_selected.emit(instructor_id)
+                break
     def open_form(self,initial,submit):self._dialog=InstructorDialog(initial,self);self._dialog.submitted.connect(submit);self._dialog.open()
     def open_change_password(self,submit):self._dialog=ChangePasswordDialog(self);self._dialog.submitted.connect(submit);self._dialog.open()
-    def confirm_deletion(self,name):return confirm_action(self,"אישור מחיקה",f"למחוק לצמיתות את המדריך {name}? לא ניתן לבטל פעולה זו.")
+    def confirm_deactivation(self,name):return confirm_action(self,"אישור השבתת מדריך",f"להשבית את המדריך {name}? חשבון ההתחברות יושבת עד להפעלה מחדש.")
     def set_loading(self,value):
         self.create_button.setEnabled(not value);self.toolbar.search_button.setEnabled(not value);self.toolbar.refresh_button.setEnabled(not value);self.toolbar.sort_combo.setEnabled(not value)
         if value and not self.table.rowCount():self.workspace.show_loading("טוען מדריכים…")

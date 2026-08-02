@@ -3,12 +3,12 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QBoxLayout, QFormLayout, QFrame, QHBoxLayout, QLabel, QPushButton,
-    QScrollArea, QSizePolicy, QStackedWidget, QTableWidget, QVBoxLayout, QWidget,
+    QScrollArea, QSizePolicy, QStackedWidget, QStyle, QTableWidget, QToolButton, QVBoxLayout, QWidget,
 )
 
 from desktop_client.app.views.design_tokens import CONTROL_HEIGHT, SPACE_2, SPACE_3, SPACE_4, SPACE_6
-from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, SearchToolbar, configure_reference_toolbar
-from desktop_client.app.views.ui_foundations import ColumnPolicy, PageScaffold, configure_data_table
+from desktop_client.app.views.management_common import ActiveBadge, PaginationFooter, SearchToolbar, apply_management_primary, configure_reference_toolbar
+from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, PageScaffold, configure_data_table
 
 
 class ManagementWorkspace(QWidget):
@@ -30,14 +30,16 @@ class ManagementWorkspace(QWidget):
         for label in (self.scaffold.header.title, self.scaffold.header.description):
             label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); identity_layout.addWidget(label)
         title_row.insertWidget(0, identity); self.header_identity = identity
-        self.create_button = QPushButton(create_text); self.create_button.setProperty("primary", True); self.scaffold.header.add_action(self.create_button)
+        self.create_button = QPushButton(create_text); apply_management_primary(self.create_button); self.scaffold.header.add_action(self.create_button)
         self.pages = QStackedWidget(); self.list_page = QWidget(); self.details_page = QWidget(); self.pages.addWidget(self.list_page); self.pages.addWidget(self.details_page); self.scaffold.main_content.addWidget(self.pages, 1)
 
         listing = QVBoxLayout(self.list_page); listing.setContentsMargins(0, 0, 0, 0); listing.setSpacing(SPACE_2)
         toolbar_panel = QFrame(); toolbar_panel.setObjectName("filterPanel"); toolbar_layout = QVBoxLayout(toolbar_panel); toolbar_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3); toolbar_layout.setSpacing(SPACE_3)
         self.toolbar = SearchToolbar(placeholder=search_placeholder, sort_options=sort_options); configure_reference_toolbar(self.toolbar); self.toolbar.refresh_button.setText("איפוס"); toolbar_layout.addWidget(self.toolbar); listing.addWidget(toolbar_panel)
-        heading = QHBoxLayout(); heading.setDirection(QBoxLayout.Direction.RightToLeft); self.results_label = QLabel(f"רשימת {plural}"); self.results_label.setObjectName("sectionTitle"); heading.addWidget(self.results_label); heading.addStretch(); self.view_details_button = QPushButton("הצגת פרטים"); heading.addWidget(self.view_details_button); listing.addLayout(heading)
-        self.table = QTableWidget(0, len(headers)); self.table.setHorizontalHeaderLabels(list(headers)); self.table.verticalHeader().hide(); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", policies); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        heading = QHBoxLayout(); heading.setDirection(QBoxLayout.Direction.RightToLeft); self.results_label = QLabel(f"רשימת {plural}"); self.results_label.setObjectName("sectionTitle"); heading.addWidget(self.results_label); heading.addStretch(); listing.addLayout(heading)
+        table_headers = ("פתיחה", *headers)
+        table_policies = (ColumnPolicy(ColumnKind.ACTION, 52, 52), *policies)
+        self.table = QTableWidget(0, len(table_headers)); self.table.setHorizontalHeaderLabels(list(table_headers)); self.table.verticalHeader().hide(); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", table_policies); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.table_region = QStackedWidget(); self.table_region.addWidget(self.table)
         self.empty_state = QWidget(); empty = QVBoxLayout(self.empty_state); empty.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6); empty.setSpacing(SPACE_3); empty.addStretch(); self.empty_title = QLabel(); self.empty_title.setObjectName("sectionTitle"); self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description = QLabel(); self.empty_description.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description.setWordWrap(True); self.empty_action_button = QPushButton(); self.empty_action_button.setProperty("primary", True); self.empty_action_button.setMinimumWidth(160); empty.addWidget(self.empty_title); empty.addWidget(self.empty_description); empty.addWidget(self.empty_action_button, alignment=Qt.AlignmentFlag.AlignHCenter); empty.addStretch(); self.table_region.addWidget(self.empty_state); listing.addWidget(self.table_region, 1)
         self.empty_label = self.empty_description
@@ -64,8 +66,34 @@ class ManagementWorkspace(QWidget):
         self.details_scroll = QScrollArea(); self.details_scroll.setWidgetResizable(True); self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame); self.details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); self.details_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.details_scroll.setWidget(self.details_widget); detail.addWidget(self.details_scroll, 1)
         self.back_button.clicked.connect(self.show_list); self.pages.setCurrentWidget(self.list_page)
 
+    def set_row_open_action(self, row: int, entity_id: str, callback) -> QToolButton:
+        button = QToolButton()
+        button.setObjectName("managementRowOpenAction")
+        button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowLeft))
+        button.setToolTip("פתיחת פרטים")
+        button.setAccessibleName("פתיחת פרטים")
+        button.setFixedSize(36, 32)
+        button.clicked.connect(lambda _checked=False, value=entity_id: callback(value))
+        host = QWidget(); layout = QHBoxLayout(host); layout.setContentsMargins(8, 4, 8, 4); layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.table.setCellWidget(row, 0, host)
+        return button
+
     def add_action(self, text: str, *, destructive: bool = False) -> QPushButton:
         button = QPushButton(text); button.setMinimumSize(148, CONTROL_HEIGHT); button.setMaximumWidth(148); button.setProperty("destructive", destructive); self.actions.insertWidget(0, button); return button
+
+    def add_lifecycle_actions(self, *, edit: str, password: str, deactivate: str, reactivate: str):
+        edit_button = self.add_action(edit)
+        password_button = self.add_action(password)
+        deactivate_button = self.add_action(deactivate, destructive=True)
+        reactivate_button = self.add_action(reactivate)
+        deactivate_button.hide()
+        reactivate_button.hide()
+        return edit_button, password_button, deactivate_button, reactivate_button
+
+    @staticmethod
+    def show_lifecycle(active: bool, deactivate_button: QPushButton, reactivate_button: QPushButton) -> None:
+        deactivate_button.setVisible(active)
+        reactivate_button.setVisible(not active)
 
     def set_actions_enabled(self, enabled: bool) -> None:
         for index in range(self.actions.count()):

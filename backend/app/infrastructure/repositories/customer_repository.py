@@ -49,9 +49,7 @@ def list_customers(
     clauses: list[str] = []
     params: list[object] = []
 
-    if is_active is None:
-        clauses.append("is_active = true")
-    else:
+    if is_active is not None:
         clauses.append("is_active = %s")
         params.append(is_active)
 
@@ -121,6 +119,14 @@ def customer_delete_dependencies(cur, customer_id: UUID) -> dict:
 def delete_customer(cur, customer_id: UUID) -> bool:
     cur.execute("DELETE FROM customers WHERE id = %s RETURNING id;", (customer_id,))
     return cur.fetchone() is not None
+
+
+def set_customer_active(cur, customer_id: UUID, is_active: bool) -> dict | None:
+    cur.execute(
+        f"UPDATE customers SET is_active = %s, updated_at = now() WHERE id = %s RETURNING {CUSTOMER_COLUMNS};",
+        (is_active, customer_id),
+    )
+    return cur.fetchone()
 
 
 def create_customer(cur, data: dict) -> dict:

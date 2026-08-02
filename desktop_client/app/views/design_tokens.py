@@ -54,10 +54,19 @@ QFrame#pageHeader, QFrame#filterPanel, QFrame#detailPanel, QFrame#loginPanel {{ 
 #pageScaffold QPushButton:focus, #pageScaffold QLineEdit:focus, #pageScaffold QComboBox:focus, #pageScaffold QTableWidget:focus, #loginPanel QPushButton:focus, #loginPanel QLineEdit:focus, #sidebar QPushButton:focus, QDialog#task20Dialog QPushButton:focus, QDialog#task20Dialog QLineEdit:focus, QDialog#task20Dialog QPlainTextEdit:focus {{ border: 2px solid {COLOR_FOCUS}; }}
 #pageScaffold QPushButton:disabled, #loginPanel QPushButton:disabled, #sidebar QPushButton:disabled, QDialog#task20Dialog QPushButton:disabled {{ color: {COLOR_DISABLED_TEXT}; background: {COLOR_DISABLED_BACKGROUND}; }}
 QPushButton[primary="true"], #loginPanel QPushButton[primary="true"], #pageScaffold QPushButton#customerCreateButton, #pageScaffold QPushButton#customerSearchButton, #pageScaffold QPushButton#customerEmptyActionButton, QDialog#task20Dialog QPushButton#customerDialogPrimary {{ background: {COLOR_FOCUS}; color: white; font-weight: {FONT_WEIGHT_LABEL}; }}
+QPushButton[buttonRole="managementPrimary"] {{ min-height: {CONTROL_HEIGHT_COMPACT}px; padding: 0 {SPACE_3}px; background: {COLOR_FOCUS}; color: white; border: 1px solid {COLOR_FOCUS}; border-radius: {RADIUS_SMALL}px; font-weight: {FONT_WEIGHT_LABEL}; }}
+QPushButton[buttonRole="managementPrimary"]:hover {{ background: #1B63D1; border-color: #1B63D1; }}
+QPushButton[buttonRole="managementPrimary"]:pressed {{ background: #174EA6; border-color: #174EA6; }}
+QPushButton[buttonRole="managementPrimary"]:disabled {{ background: {COLOR_DISABLED_BACKGROUND}; color: {COLOR_DISABLED_TEXT}; border-color: {COLOR_BORDER}; }}
 QPushButton[destructive="true"] {{ color: {COLOR_ERROR}; border-color: {COLOR_ERROR}; }}
+QToolButton#managementRowOpenAction {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SMALL}px; padding: {SPACE_1}px; }}
+QToolButton#managementRowOpenAction:hover {{ background: {COLOR_SELECTED}; border-color: {COLOR_FOCUS}; }}
+QToolButton#managementRowOpenAction:pressed {{ background: {COLOR_SURFACE_ALT}; }}
 QLabel[feedback="success"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
 QLabel[feedback="warning"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
 QLabel[feedback="error"], #errorLabel {{ color: {COLOR_ERROR}; background: {COLOR_ERROR_BACKGROUND}; }}
+QLabel#fieldError {{ color: {COLOR_ERROR}; font-size: {FONT_SIZE_SUPPORTING}px; }}
+QLineEdit[invalid="true"], QPlainTextEdit[invalid="true"] {{ border: 2px solid {COLOR_ERROR}; }}
 QTableWidget[task20Table="true"] {{ background: {COLOR_SURFACE}; alternate-background-color: {COLOR_SURFACE_ALT}; gridline-color: {COLOR_BORDER}; }}
 QTableWidget[task20Table="true"]::item {{ padding: {TABLE_CELL_PADDING_Y}px {TABLE_CELL_PADDING_X}px; }}
 QTableWidget[task20Table="true"]::item:selected {{ background: {COLOR_SELECTED}; color: {COLOR_TEXT}; }}

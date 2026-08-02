@@ -104,6 +104,25 @@ def get_user_id_for_profile(cur, *, role: str, profile_id: UUID) -> UUID | None:
     return row["id"] if row else None
 
 
+def lock_user_for_profile(cur, *, role: str, profile_id: UUID) -> dict | None:
+    profile_column = {"customer": "customer_id", "instructor": "instructor_id"}[role]
+    cur.execute(
+        f"SELECT {USER_COLUMNS} FROM users WHERE role = %s AND {profile_column} = %s FOR UPDATE;",
+        (role, profile_id),
+    )
+    return cur.fetchone()
+
+
+def lock_user(cur, user_id: UUID) -> dict | None:
+    cur.execute(f"SELECT {USER_COLUMNS} FROM users WHERE id = %s FOR UPDATE;", (user_id,))
+    return cur.fetchone()
+
+
+def lock_active_managers(cur) -> list[dict]:
+    cur.execute("SELECT id FROM users WHERE role = 'manager' AND is_active = true ORDER BY id FOR UPDATE;")
+    return list(cur.fetchall())
+
+
 def create_user(cur, *, email: str, password_hash: str, role: str, display_name: str | None, customer_id: UUID | None, instructor_id: UUID | None) -> dict:
     cur.execute(
         f"""

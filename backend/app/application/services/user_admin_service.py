@@ -153,24 +153,59 @@ def set_active(user_id: UUID, active: bool, current_user: dict) -> dict:
     with get_connection() as conn:
         try:
             with conn.cursor(row_factory=dict_row) as cur:
-                existing = repo.get_user_by_id(cur, user_id)
+                candidate = repo.get_user_by_id(cur, user_id)
+                if candidate is None:
+                    raise UserNotFoundError
+                active_managers = repo.lock_active_managers(cur) if not active and candidate["role"] == "manager" else None
+                existing = repo.lock_user(cur, user_id)
                 if existing is None:
                     raise UserNotFoundError
                 if bool(existing["is_active"]) == active:
                     raise UserConflictError("User already has the requested status")
-                if active:
-                    if existing["role"] == "customer":
-                        profile = repo.get_customer_profile(cur, existing["customer_id"])
-                        if not profile or not profile["is_active"]:
-                            raise UserConflictError("Linked Customer profile is inactive")
-                    elif existing["role"] == "instructor":
-                        profile = repo.get_instructor_profile(cur, existing["instructor_id"])
-                        if not profile or not profile["is_active"]:
-                            raise UserConflictError("Linked Instructor profile is inactive")
-                repo.set_user_active(cur, user_id, active)
+                if not active and existing["role"] == "manager":
+                    if len(active_managers or ()) <= 1:
+                        raise UserConflictError("The last active manager cannot be deactivated")
+                if existing["role"] == "customer":
+                    profile = customer_repository.lock_customer(cur, existing["customer_id"])
+                    if not profile or customer_repository.set_customer_active(cur, existing["customer_id"], active) is None:
+                        raise UserConflictError("Linked Customer profile was not found")
+                elif existing["role"] == "instructor":
+                    profile = instructor_repository.lock_instructor(cur, existing["instructor_id"])
+                    if not profile or instructor_repository.set_instructor_active(cur, existing["instructor_id"], active) is None:
+                        raise UserConflictError("Linked Instructor profile was not found")
+                if not repo.set_user_active(cur, user_id, active):
+                    raise UserNotFoundError
                 result = repo.get_safe_user(cur, user_id)
             conn.commit()
             return result
+        except Exception:
+            conn.rollback()
+            raise
+
+
+def set_profile_active(role: str, profile_id: UUID, active: bool) -> dict:
+    """Atomically synchronize a Customer/Instructor profile and its login account."""
+    if role not in {"customer", "instructor"}:
+        raise ValueError("Unsupported account profile role")
+    profile_repo = customer_repository if role == "customer" else instructor_repository
+    lock_profile = profile_repo.lock_customer if role == "customer" else profile_repo.lock_instructor
+    set_profile = profile_repo.set_customer_active if role == "customer" else profile_repo.set_instructor_active
+    with get_connection() as conn:
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                user = repo.lock_user_for_profile(cur, role=role, profile_id=profile_id)
+                if user is None:
+                    raise UserConflictError("Linked login account was not found")
+                profile = lock_profile(cur, profile_id)
+                if profile is None:
+                    raise UserNotFoundError
+                if bool(profile["is_active"]) == active and bool(user["is_active"]) == active:
+                    raise UserConflictError("Profile already has the requested status")
+                updated = set_profile(cur, profile_id, active)
+                if updated is None or not repo.set_user_active(cur, user["id"], active):
+                    raise UserNotFoundError
+            conn.commit()
+            return updated
         except Exception:
             conn.rollback()
             raise

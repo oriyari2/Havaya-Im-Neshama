@@ -541,9 +541,9 @@ Implemented across Milestones 12A-12G:
 - final hardening: SQL removed from system routers, raw history made
   manager-only, customer directory made manager-only, and both terminal booking
   statuses made immutable for operational commands
-- post-closure product correction: customer/instructor desktop lifecycle
-  controls use protected physical Delete (204) with dependency conflicts (409);
-  activity soft-deactivation remains unchanged
+- superseded Task 12 lifecycle: protected physical-delete endpoints remain for
+  maintenance, while Task 25.2 removes them from Desktop and supplies atomic
+  profile/account deactivate-reactivate; activity behavior remains unchanged
 
 Evidence: `tasks/12-desktop-functional-management-coverage.md`,
 `docs/piv/12-desktop-functional-management-coverage.md`, and
@@ -705,8 +705,8 @@ Task 25.1 implementation evidence
   a progressive `סינון לפי` menu with type-specific editors, a bounded pager,
   semantic Customer/Contact/System detail groups, RTL confirmation/session
   dialogs, and consistent Create/Edit dialog layout without changing any
-  Customer workflow or Presenter contract. Delete returns to the preserved
-  list and corrects an emptied final page to the preceding valid page.
+  Customer workflow or Presenter contract. This earlier Delete workflow was
+  superseded by Task 25.2 logical lifecycle actions.
 - Final UX review adds a complete first-page filter/sort Reset, contextual
   first-use and filtered-empty states, lighter borderless grouping, RTL header
   alignment, clearer `לקוחות • N` counts, and no-scroll two-column Customer
@@ -808,3 +808,16 @@ rows, while `EntityFormDialog` owns Customer/Instructor/Manager create, edit,
 and password geometry. Entity modules contribute configuration and data only.
 Manager lifecycle behavior remains unchanged pending approval of the documented
 logical-deactivation recommendation.
+
+The lifecycle recommendation is now approved and implemented in Task 25.2.
+Customers, Instructors, and Managers expose logical deactivate/reactivate only;
+Customer and Instructor profile status is updated atomically with the linked
+User status, historical records are preserved, self-deactivation remains
+blocked, and the last active Manager cannot be deactivated. Physical Customer
+and Instructor deletion endpoints are retained only for legacy maintenance and
+are intentionally unreachable from Desktop management UI.
+
+Task 25.2 also centralizes management-dialog validation: primary actions remain
+available during editing, all relevant fields validate on click, field-level
+Hebrew errors and invalid styling clear on correction, the first invalid field
+receives focus, and one temporary shared red banner summarizes the failure.

@@ -3,7 +3,7 @@ os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 from unittest import TestCase
 from unittest.mock import patch
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication,QFormLayout,QLineEdit
+from PySide6.QtWidgets import QApplication,QFormLayout,QLineEdit,QToolButton
 from desktop_client.app.views.user_dialogs import CreateUserDialog,EditUserDialog,ResetPasswordDialog
 from desktop_client.app.views.users_view import UsersView
 
@@ -13,28 +13,46 @@ class UserViewTests(TestCase):
     @classmethod
     def setUpClass(cls):cls.app=QApplication.instance() or QApplication([])
     def test_manager_uses_shared_list_to_details_structure(self):
-        view=UsersView();self.assertEqual(view.scaffold.header.title.text(),"מנהלים");self.assertEqual(view.toolbar.refresh_button.text(),"איפוס");self.assertEqual([view.table.horizontalHeaderItem(i).text() for i in range(4)],["שם מנהל","דוא״ל","מצב","עודכן"]);self.assertIs(view.pages.currentWidget(),view.list_page)
-        view.show_users([USER],offset=0,count=1,filtered=False);view.table.selectRow(0);self.assertEqual(view.table.item(0,0).text(),"מנהלת");self.assertIn('dir="ltr"',view.table.item(0,1).toolTip());view.show_details(USER,current_user_id="other");self.assertIs(view.pages.currentWidget(),view.list_page);view._open();self.assertIs(view.pages.currentWidget(),view.details_page);self.assertTrue(view.scaffold.header.isHidden());self.assertEqual(view.workspace.detail_subtitle.text(),"מידע מלא ופעולות עבור המנהל שנבחר");view.back_button.click();self.assertIs(view.pages.currentWidget(),view.list_page);self.assertFalse(view.scaffold.header.isHidden())
+        view=UsersView();self.assertEqual(view.scaffold.header.title.text(),"מנהלים");self.assertEqual(view.toolbar.refresh_button.text(),"איפוס");self.assertEqual([view.table.horizontalHeaderItem(i).text() for i in range(5)],["פתיחה","שם מנהל","דוא״ל","מצב","עודכן"]);self.assertIs(view.pages.currentWidget(),view.list_page)
+        view.user_selected.connect(lambda _id:view.show_details(USER,current_user_id="other"));view.show_users([USER],offset=0,count=1,filtered=False);view.table.selectRow(0);self.assertEqual(view.table.item(0,1).text(),"מנהלת");self.assertIn('dir="ltr"',view.table.item(0,2).toolTip());self.assertIs(view.pages.currentWidget(),view.list_page);action=view.table.cellWidget(0,0).findChild(QToolButton);action.click();self.assertIs(view.pages.currentWidget(),view.details_page);view.back_button.click();view.table.cellDoubleClicked.emit(0,1);self.assertIs(view.pages.currentWidget(),view.details_page);self.assertTrue(view.scaffold.header.isHidden());self.assertEqual(view.workspace.detail_subtitle.text(),"מידע מלא ופעולות עבור המנהל שנבחר");view.back_button.click();self.assertIs(view.pages.currentWidget(),view.list_page);self.assertFalse(view.scaffold.header.isHidden())
     def test_manager_details_actions_and_safe_cards(self):
         view=UsersView();view.show_details(USER,current_user_id="other");self.assertTrue(view.edit_button.isEnabled());self.assertTrue(view.reset_button.isEnabled());self.assertTrue(view.deactivate_button.isEnabled());self.assertFalse(view.activate_button.isEnabled());self.assertEqual({b.width() for b in (view.edit_button,view.reset_button,view.activate_button,view.deactivate_button)},{148})
         rendered=" ".join(form.itemAt(row,QFormLayout.ItemRole.FieldRole).widget().text() for form in (view.account_details,view.login_details,view.system_details) for row in range(form.rowCount()));self.assertIn("מנהלת",rendered);self.assertIn(USER["email"],rendered);self.assertNotIn("password",rendered.lower());view.show_details(USER,current_user_id="u1");self.assertFalse(view.deactivate_button.isEnabled())
+    def test_manager_lifecycle_action_matches_active_state(self):
+        view=UsersView();view.show_details(USER,current_user_id="other");self.assertFalse(view.deactivate_button.isHidden());self.assertTrue(view.activate_button.isHidden())
+        view.show_details({**USER,"is_active":False},current_user_id="other");self.assertTrue(view.deactivate_button.isHidden());self.assertFalse(view.activate_button.isHidden())
     def test_manager_only_rows_and_logical_delete_copy(self):
         view=UsersView();view.show_users([USER,{**USER,"id":"u2","role":"customer"}],offset=0,count=2,filtered=False);self.assertEqual(view.table.rowCount(),1)
-        with patch("desktop_client.app.views.users_view.confirm_action",return_value=True) as confirm:self.assertTrue(view.confirm_deactivation(USER["email"]));self.assertIn("יושבת",confirm.call_args.args[2])
+        with patch("desktop_client.app.views.users_view.confirm_action",return_value=True) as confirm:self.assertTrue(view.confirm_deactivation(USER["email"]));self.assertIn("להשבית",confirm.call_args.args[2])
     def test_create_edit_and_password_dialogs(self):
         create=CreateUserDialog();create.email.setText("manager@example.com");create.password.setText("password1");create.confirmation.setText("password1");create.manager_name.setText("מנהלת");self.assertTrue(create.save_button.isEnabled());self.assertEqual(create.values()["role"],"manager")
         edit=EditUserDialog(USER);self.assertTrue(edit.email.isReadOnly());self.assertEqual(edit.values(),{"email":"manager@example.com","manager_name":"מנהלת"})
         reset=ResetPasswordDialog(USER);self.assertEqual(reset.password.echoMode(),QLineEdit.EchoMode.Password);self.assertEqual(set(reset.values()),{"password","password_confirmation"})
+    def test_manager_create_dialog_renders_labels_to_the_right_of_aligned_fields(self):
+        dialog=CreateUserDialog();dialog.show();self.app.processEvents()
+        self.assertTrue(dialog.heading_label.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(dialog.heading_description.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(dialog.required_hint.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in dialog.section_labels))
+        field_positions=[]
+        for field in dialog.fields.values():
+            form=next(form for form in dialog.section_forms.values() if form.labelForField(field) is not None);label=form.labelForField(field)
+            label_left=label.mapTo(dialog,label.rect().topLeft()).x();field_right=field.mapTo(dialog,field.rect().topRight()).x()
+            self.assertGreater(label_left,field_right)
+            field_positions.append(field.mapTo(dialog,field.rect().topLeft()).x())
+        self.assertLessEqual(max(field_positions)-min(field_positions),1)
+        role=dialog.fields["role"];role_form=next(form for form in dialog.section_forms.values() if form.labelForField(role) is not None);role_label=role_form.labelForField(role);self.assertGreater(role_label.mapTo(dialog,role_label.rect().topLeft()).x(),role.mapTo(dialog,role.rect().topRight()).x())
+        dialog.close()
     def test_table_resizes_without_squeezing_semantic_minimums(self):
-        view=UsersView();view.resize(1024,640);view.show();self.app.processEvents();policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,210);self.assertGreater(view.table.columnWidth(0),view.table.columnWidth(2));view.close()
+        view=UsersView();view.resize(1024,640);view.show();self.app.processEvents();policies=view.table._task20_column_sizer.policies;self.assertEqual(policies[0].minimum_width,52);self.assertEqual(policies[1].minimum_width,210);self.assertGreater(view.table.columnWidth(1),view.table.columnWidth(3));view.close()
     def test_status_badges_never_duplicate_wrap_clip_or_change_row_height(self):
         view=UsersView();view.show_users([USER,{**USER,"id":"u2","is_active":False}],offset=0,count=2,filtered=False)
         for width in (1024,1400):
             view.resize(width,700);view.show();self.app.processEvents()
             for row,text in ((0,"פעיל"),(1,"לא פעיל")):
-                badge=view.table.cellWidget(row,2);self.assertIsNone(view.table.item(row,2));self.assertEqual(badge.text(),text);self.assertFalse(badge.wordWrap());self.assertEqual(view.table.rowHeight(row),40);self.assertLessEqual(badge.sizeHint().height(),view.table.rowHeight(row))
+                badge=view.table.cellWidget(row,3);self.assertIsNone(view.table.item(row,3));self.assertEqual(badge.text(),text);self.assertFalse(badge.wordWrap());self.assertEqual(view.table.rowHeight(row),40);self.assertLessEqual(badge.sizeHint().height(),view.table.rowHeight(row))
         view.close()
     def test_reference_toolbar_order_sort_and_explicit_rtl_cells(self):
         view=UsersView();layout=view.toolbar.layout();self.assertEqual([layout.itemAt(i).widget() for i in range(layout.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button]);emitted=[];view.filters_requested.connect(emitted.append);view.toolbar.sort_combo.setCurrentIndex(1);self.assertEqual(emitted[-1]["order_by"],"email");view.show_users([USER],offset=0,count=1,filtered=False)
-        for column in (0,1,3):self.assertTrue(view.table.item(0,column).textAlignment() & Qt.AlignmentFlag.AlignRight)
-        self.assertIsNone(view.table.item(0,2));self.assertTrue(view.table.cellWidget(0,2).alignment() & Qt.AlignmentFlag.AlignRight)
+        for column in (1,2,4):self.assertTrue(view.table.item(0,column).textAlignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertIsNone(view.table.item(0,3));self.assertTrue(view.table.cellWidget(0,3).alignment() & Qt.AlignmentFlag.AlignRight)

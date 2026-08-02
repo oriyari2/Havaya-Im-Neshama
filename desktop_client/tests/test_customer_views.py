@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QBoxLayout, QFormLayout
+from PySide6.QtWidgets import QApplication, QBoxLayout, QFormLayout, QToolButton
 
 from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
@@ -38,13 +38,14 @@ class CustomerViewTests(TestCase):
     def test_view_has_single_contact_details_and_no_multi_contact_controls(self):
         view = CustomersView()
         self.assertFalse(view.edit_button.isEnabled())
-        self.assertFalse(view.delete_button.isEnabled())
+        self.assertFalse(view.deactivate_button.isVisible())
+        self.assertFalse(view.reactivate_button.isVisible())
         self.assertFalse(view.change_password_button.isEnabled())
         self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
         self.assertIs(view.scaffold.header.title.parentWidget(), view.header_identity)
         self.assertIs(view.scaffold.header.description.parentWidget(), view.header_identity)
         self.assertFalse(view.scaffold.header.description.wordWrap())
-        self.assertEqual({button.minimumWidth() for button in (view.edit_button, view.change_password_button, view.delete_button)}, {148})
+        self.assertEqual({button.minimumWidth() for button in (view.edit_button, view.change_password_button, view.deactivate_button, view.reactivate_button)}, {148})
         for obsolete in (
             "contacts",
             "add_contact",
@@ -75,6 +76,14 @@ class CustomerViewTests(TestCase):
         self.assertIn("איש קשר", profile_rendered)
         self.assertIn("050-1", profile_rendered)
 
+    def test_customer_lifecycle_action_matches_active_state(self):
+        view = CustomersView()
+        for active, deactivate_visible, reactivate_visible in ((True, True, False), (False, False, True)):
+            customer = {"id": "c1", "name": "לקוח", "is_active": active, "contacts": []}
+            view.show_details(customer_details(customer), customer)
+            self.assertEqual(not view.deactivate_button.isHidden(), deactivate_visible)
+            self.assertEqual(not view.reactivate_button.isHidden(), reactivate_visible)
+            self.assertFalse(hasattr(view, "delete_button"))
     def test_dialog_exposes_single_contact_name_and_phone(self):
         dialog = CustomerDialog({"name": "Task 21 Customer", "contact_name": "Person", "contact_phone": "050"})
         values = dialog.values()
@@ -88,7 +97,8 @@ class CustomerViewTests(TestCase):
         dialog.show_error("bad")
         self.assertFalse(dialog.error_label.isHidden())
         dialog.set_submitting(True)
-        self.assertFalse(dialog.buttons.isEnabled())
+        self.assertFalse(dialog.save_button.isEnabled())
+        self.assertTrue(dialog.cancel_button.isEnabled())
         self.assertGreaterEqual(dialog.minimumWidth(), 760)
         self.assertEqual(dialog.save_button.text(), "שמירת שינויים")
         self.assertEqual(dialog.save_button.minimumWidth(), dialog.cancel_button.minimumWidth())
@@ -115,7 +125,10 @@ class CustomerViewTests(TestCase):
         self.assertGreater(self._center_x(dialog.save_button, dialog), self._center_x(dialog.cancel_button, dialog))
         name_label = dialog.form.labelForField(dialog.fields["name"])
         self.assertGreater(self._center_x(name_label, dialog), dialog.width() // 2)
-        self.assertLess(name_label.geometry().bottom(), dialog.fields["name"].geometry().top())
+        self.assertGreater(
+            name_label.mapTo(dialog, name_label.rect().topLeft()).x(),
+            dialog.fields["name"].mapTo(dialog, dialog.fields["name"].rect().topRight()).x(),
+        )
         dialog.close()
 
     def test_edit_dialog_does_not_expose_account_creation_secrets(self):
@@ -142,6 +155,8 @@ class CustomerViewTests(TestCase):
         view.show_customers([
             {"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}
         ], offset=0, count=1, filtered=False)
+        customer = {"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}
+        view.customer_selected.connect(lambda _id: view.show_details(customer_details(customer), customer))
         view.toolbar.search_input.setText("לקוח")
         view.select_customer("c1")
         self.assertEqual(selected, ["c1"])
@@ -156,7 +171,13 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.toolbar.search_input.text(), "לקוח")
         self.assertEqual(view.table.currentRow(), 0)
 
-        view.table.cellDoubleClicked.emit(0, 0)
+        view.table.cellDoubleClicked.emit(0, 1)
+        self.assertIs(view.pages.currentWidget(), view.details_page)
+        view.back_button.click()
+        action = view.table.cellWidget(0, 0).findChild(QToolButton)
+        self.assertEqual(action.objectName(), "managementRowOpenAction")
+        self.assertFalse(action.icon().isNull())
+        action.click()
         self.assertIs(view.pages.currentWidget(), view.details_page)
 
     def test_details_header_and_actions_keep_rtl_regions(self):
@@ -247,14 +268,15 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.sort_by.currentData(), "name")
         self.assertLessEqual(view.footer.width(), 440)
         self.assertGreater(view.table.height(), 350)
-        self.assertGreater(view.table.columnWidth(0), view.table.columnWidth(1))
+        self.assertEqual(view.table.columnWidth(0), 52)
+        self.assertGreater(view.table.columnWidth(1), view.table.columnWidth(2))
         self.assertGreater(self._center_x(view.scaffold.header.title, view), self._center_x(view.create_button, view))
-        self.assertEqual([view.table.horizontalHeader().visualIndex(column) for column in range(4)], [0, 1, 2, 3])
-        for column in range(3):
+        self.assertEqual([view.table.horizontalHeader().visualIndex(column) for column in range(5)], [0, 1, 2, 3, 4])
+        for column in range(1, 4):
             alignment = view.table.item(0, column).textAlignment()
             self.assertTrue(alignment & Qt.AlignmentFlag.AlignRight)
             self.assertTrue(alignment & Qt.AlignmentFlag.AlignAbsolute)
-        status = view.table.cellWidget(0, 3)
+        status = view.table.cellWidget(0, 4)
         self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignRight)
         self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignAbsolute)
         self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
@@ -269,20 +291,21 @@ class CustomerViewTests(TestCase):
                 "city": "ירושלים", "phone": "050", "email": "a@example.com", "is_active": False,
             }], offset=0, count=1, filtered=False)
             self.app.processEvents()
-            widths = [view.table.columnWidth(column) for column in range(4)]
-            self.assertEqual(view.table.columnCount(), 4)
-            self.assertGreater(widths[0], max(widths[1:]))
-            self.assertGreaterEqual(widths[1], 140)
-            self.assertLessEqual(widths[1], 220)
-            self.assertGreaterEqual(widths[2], 150)
-            self.assertLessEqual(widths[2], 240)
-            self.assertGreaterEqual(widths[3], 110)
+            widths = [view.table.columnWidth(column) for column in range(5)]
+            self.assertEqual(view.table.columnCount(), 5)
+            self.assertEqual(widths[0], 52)
+            self.assertGreater(widths[1], max(widths[2:]))
+            self.assertGreaterEqual(widths[2], 140)
+            self.assertLessEqual(widths[2], 220)
+            self.assertGreaterEqual(widths[3], 150)
+            self.assertLessEqual(widths[3], 240)
+            self.assertGreaterEqual(widths[4], 110)
             self.assertEqual(view.table.horizontalScrollBar().maximum(), 0)
             self.assertEqual(view.table.verticalScrollBar().maximum(), 0)
-            for column in range(4):
+            for column in range(1, 5):
                 required = view.table.fontMetrics().horizontalAdvance(view.table.horizontalHeaderItem(column).text()) + 24
                 self.assertGreaterEqual(widths[column], required)
-            self.assertIn(long_name, view.table.item(0, 0).toolTip())
+            self.assertIn(long_name, view.table.item(0, 1).toolTip())
             if width == 1024:
                 rows = [{
                     "id": f"c{index}", "name": f"לקוח {index}", "customer_type": "עסקי",
@@ -299,7 +322,7 @@ class CustomerViewTests(TestCase):
         view.show()
         self.app.processEvents()
         self.assertGreater(view.table.horizontalScrollBar().maximum(), 0)
-        self.assertEqual([view.table.columnWidth(column) for column in range(4)], [180, 140, 150, 110])
+        self.assertEqual([view.table.columnWidth(column) for column in range(5)], [52, 180, 140, 150, 110])
         view.close()
 
     def test_reset_clears_search_sort_and_selection_and_returns_to_first_page(self):
@@ -326,7 +349,7 @@ class CustomerViewTests(TestCase):
         self.assertIs(view.table_region.currentWidget(), view.empty_state)
         self.assertEqual(view.empty_title.text(), "אין עדיין לקוחות")
         self.assertTrue(view.footer.isHidden())
-        self.assertTrue(view.view_details_button.isHidden())
+        self.assertFalse(hasattr(view, "view_details_button"))
         view.empty_action_button.click()
         self.assertEqual(created, [True])
         view.toolbar.search_input.setText("missing")

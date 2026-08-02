@@ -22,8 +22,11 @@ class CustomerService:
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict:
         return self.api_client.put(f"/customers/{customer_id}", payload)
 
-    def delete_customer(self, customer_id: str) -> None:
-        self.api_client.delete(f"/customers/{customer_id}")
+    def activate(self, customer_id: str) -> dict:
+        return self.api_client.post(f"/customers/{customer_id}/activate", {})
+
+    def deactivate(self, customer_id: str) -> dict:
+        return self.api_client.post(f"/customers/{customer_id}/deactivate", {})
 
     def reset_password(self, customer_id: str, new_password: str) -> None:
         self.api_client.post(f"/customers/{customer_id}/reset-password", {"new_password": new_password})

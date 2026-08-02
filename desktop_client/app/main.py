@@ -165,7 +165,7 @@ class MainWindow(QMainWindow):
 
         if session.role == "manager":
             instructors_view=InstructorsView(); instructors_presenter=InstructorsPresenter(instructors_view,self.instructor_service,self.user_service,executor=self.operation_executor)
-            instructors_view.filters_requested.connect(instructors_presenter.apply_filters);instructors_view.page_requested.connect(instructors_presenter.page);instructors_view.instructor_selected.connect(instructors_presenter.select);instructors_view.retry_requested.connect(instructors_presenter.retry);instructors_view.create_requested.connect(instructors_presenter.begin_create);instructors_view.edit_requested.connect(instructors_presenter.begin_edit);instructors_view.delete_requested.connect(instructors_presenter.delete);instructors_view.change_password_requested.connect(instructors_presenter.begin_change_password)
+            instructors_view.filters_requested.connect(instructors_presenter.apply_filters);instructors_view.page_requested.connect(instructors_presenter.page);instructors_view.instructor_selected.connect(instructors_presenter.select);instructors_view.retry_requested.connect(instructors_presenter.retry);instructors_view.create_requested.connect(instructors_presenter.begin_create);instructors_view.edit_requested.connect(instructors_presenter.begin_edit);instructors_view.deactivate_requested.connect(instructors_presenter.deactivate);instructors_view.reactivate_requested.connect(instructors_presenter.activate);instructors_view.change_password_requested.connect(instructors_presenter.begin_change_password)
             self.shell.add_page("instructors",instructors_view);self._presenters["instructors"]=instructors_presenter
         elif session.role == "instructor" and session.instructor_id:
             instructor_profile=InstructorProfileView();instructor_profile_presenter=InstructorProfilePresenter(instructor_profile,self.instructor_service,executor=self.operation_executor);instructor_profile.retry_requested.connect(instructor_profile_presenter.retry);self.shell.add_page("my_profile",instructor_profile);self._presenters["my_profile"]=instructor_profile_presenter
@@ -193,7 +193,8 @@ class MainWindow(QMainWindow):
             customers_view.retry_requested.connect(customers_presenter.retry)
             customers_view.create_requested.connect(customers_presenter.begin_create)
             customers_view.edit_requested.connect(customers_presenter.begin_edit)
-            customers_view.delete_requested.connect(customers_presenter.delete)
+            customers_view.deactivate_requested.connect(customers_presenter.deactivate)
+            customers_view.reactivate_requested.connect(customers_presenter.activate)
             customers_view.change_password_requested.connect(customers_presenter.begin_change_password)
             self.shell.add_page("customers", customers_view)
             self._presenters["customers"] = customers_presenter

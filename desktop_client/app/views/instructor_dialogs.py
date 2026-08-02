@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from desktop_client.app.views.customer_dialogs import DialogField, DialogSection, EntityFormDialog
+from desktop_client.app.presenters.dialog_validation import instructor_errors
 
 
 INSTRUCTOR_SECTIONS = (
@@ -24,6 +25,7 @@ class InstructorDialog(EntityFormDialog):
             description="פרטי המדריך וחשבון ההתחברות",
             sections=INSTRUCTOR_SECTIONS,
             initial=initial,
+            validator=instructor_errors,
             parent=parent,
         )
         self.password = self.fields.get("password")

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
@@ -12,6 +13,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +27,9 @@ from desktop_client.app.views.design_tokens import (
     SPACE_3,
 )
 from desktop_client.app.views.ui_foundations import configure_mixed_direction
+from desktop_client.app.models.request_state import RequestPhase, RequestState
+from desktop_client.app.views.ui_foundations import FeedbackBanner
+from desktop_client.app.presenters.dialog_validation import customer_errors
 
 
 @dataclass(frozen=True)
@@ -90,7 +95,7 @@ class _BaseFormDialog(QDialog):
         self.scroll.setWidget(self.body)
         self.root.addWidget(self.scroll)
 
-        self.error_label = QLabel()
+        self.error_label = FeedbackBanner()
         self.error_label.setObjectName("errorLabel")
         self.error_label.setAccessibleName("שגיאת אימות")
         self.error_label.setWordWrap(True)
@@ -113,6 +118,11 @@ class _BaseFormDialog(QDialog):
         self.root.addWidget(self.buttons)
         self.fields: dict[str, QWidget] = {}
         self.section_forms: dict[str, QFormLayout] = {}
+        self.section_labels: list[QLabel] = []
+        self.field_labels: list[QLabel] = []
+        self.field_errors: dict[str, QLabel] = {}
+        self._validator: Callable[[dict], dict[str, str]] | None = None
+        self._validation_attempted = False
         self.form: QFormLayout | None = None
 
     @staticmethod
@@ -120,17 +130,19 @@ class _BaseFormDialog(QDialog):
         form.setContentsMargins(0, 0, 0, 0)
         form.setVerticalSpacing(DIALOG_ROW_GAP)
         form.setHorizontalSpacing(SPACE_3)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
         form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
         form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapAllRows)
+        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
 
     @staticmethod
     def _section_label(title: str) -> QLabel:
         label = QLabel(title)
         label.setObjectName("sectionTitle")
         label.setAccessibleName(title)
-        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
         return label
 
     def _build_sections(self, sections: tuple[DialogSection, ...], initial: dict, editing: bool) -> None:
@@ -139,17 +151,12 @@ class _BaseFormDialog(QDialog):
             visible_specs = tuple(field for field in section.fields if not (editing and field.create_only))
             if not visible_specs:
                 continue
-            self.body_layout.addWidget(self._section_label(section.title))
-            if len(visible_specs) == 1 and visible_specs[0].kind == "plain":
-                spec = visible_specs[0]
-                widget = QPlainTextEdit(str(initial.get(spec.key) or ""))
-                widget.setMinimumHeight(112)
-                widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-                widget.setAccessibleName(spec.label(editing))
-                self.fields[spec.key] = widget
-                ordered_fields.append(widget)
-                self.body_layout.addWidget(widget)
-                continue
+            section_label = self._section_label(section.title)
+            self.section_labels.append(section_label)
+            self.body_layout.addWidget(
+                section_label,
+                alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
+            )
             form = QFormLayout()
             self._configure_form(form)
             self.section_forms[section.title] = form
@@ -162,7 +169,8 @@ class _BaseFormDialog(QDialog):
                     widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
                 elif spec.kind == "static":
                     widget = QLabel(spec.static_value or str(initial.get(spec.key) or ""))
-                    widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                    widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+                    widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
                 else:
                     widget = QLineEdit(str(initial.get(spec.key) or ""))
                     widget.setMinimumWidth(240)
@@ -176,8 +184,35 @@ class _BaseFormDialog(QDialog):
                     configure_mixed_direction(widget)
                 self.fields[spec.key] = widget
                 form.addRow(spec.label(editing), widget)
+                label_widget = form.labelForField(widget)
+                if isinstance(label_widget, QLabel):
+                    label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+                    label_widget.setAlignment(
+                        Qt.AlignmentFlag.AlignRight
+                        | Qt.AlignmentFlag.AlignVCenter
+                        | Qt.AlignmentFlag.AlignAbsolute
+                    )
+                    self.field_labels.append(label_widget)
+                field_error = QLabel()
+                field_error.setObjectName("fieldError")
+                field_error.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+                field_error.setWordWrap(True)
+                field_error.hide()
+                form.addRow("", field_error)
+                error_label = form.labelForField(field_error)
+                if error_label is not None:
+                    error_label.hide()
+                self.field_errors[spec.key] = field_error
+                if isinstance(widget, QLineEdit):
+                    widget.textChanged.connect(lambda _text, key=spec.key: self._field_changed(key))
+                elif isinstance(widget, QPlainTextEdit):
+                    widget.textChanged.connect(lambda key=spec.key: self._field_changed(key))
                 ordered_fields.append(widget)
             self.body_layout.addLayout(form)
+        if self.field_labels:
+            label_width = max(label.sizeHint().width() for label in self.field_labels)
+            for label in self.field_labels:
+                label.setFixedWidth(label_width)
         self._tab_order = ordered_fields
 
     def _finalize_layout(self) -> None:
@@ -193,8 +228,46 @@ class _BaseFormDialog(QDialog):
             self._tab_order[0].setFocus()
 
     def _submit(self) -> None:
-        if self.buttons.isEnabled():
-            self.submitted.emit(self.values(), self)
+        if not self.save_button.isEnabled():
+            return
+        errors = self.validation_errors()
+        if errors:
+            self._validation_attempted = True
+            self._apply_validation_errors(errors)
+            self.error_label.render_temporary(RequestState(
+                RequestPhase.VALIDATION_ERROR,
+                "לא ניתן לשמור. יש לתקן את השדות המסומנים.",
+                "dialog-validation",
+            ))
+            first = next((self.fields[key] for key in self.fields if key in errors), None)
+            if first is not None:
+                first.setFocus()
+            return
+        self.clear_validation_errors()
+        self.submitted.emit(self.values(), self)
+
+    def validation_errors(self) -> dict[str, str]:
+        return self._validator(self.values()) if self._validator is not None else {}
+
+    def _field_changed(self, _key: str) -> None:
+        if self._validation_attempted:
+            self._apply_validation_errors(self.validation_errors())
+
+    def _apply_validation_errors(self, errors: dict[str, str]) -> None:
+        for key, widget in self.fields.items():
+            message = errors.get(key, "")
+            widget.setProperty("invalid", bool(message))
+            widget.style().unpolish(widget)
+            widget.style().polish(widget)
+            error = self.field_errors.get(key)
+            if error is not None:
+                error.setText(message)
+                error.setAccessibleDescription(message)
+                error.setVisible(bool(message))
+
+    def clear_validation_errors(self) -> None:
+        self._validation_attempted = False
+        self._apply_validation_errors({})
 
     def values(self) -> dict:
         values = {}
@@ -206,17 +279,16 @@ class _BaseFormDialog(QDialog):
         return values
 
     def set_submitting(self, value: bool) -> None:
-        self.buttons.setEnabled(not value)
+        self.save_button.setEnabled(not value)
 
     def show_error(self, message: str) -> None:
-        self.error_label.setText(message)
-        self.error_label.setAccessibleDescription(message)
-        self.error_label.show()
-        target = self.fields.get("email") or next(iter(self.fields.values()))
-        target.setAccessibleDescription(message)
-        target.setFocus()
+        self.error_label.render_temporary(RequestState(RequestPhase.VALIDATION_ERROR, message, "dialog-backend"))
+        target = self.fields.get("email") or next(iter(self.fields.values()), None)
+        if target is not None:
+            target.setFocus()
 
     def close_success(self) -> None:
+        self.clear_validation_errors()
         self.accept()
 
     def done(self, result: int) -> None:
@@ -226,10 +298,11 @@ class _BaseFormDialog(QDialog):
 
 
 class EntityFormDialog(_BaseFormDialog):
-    def __init__(self, *, title: str, description: str, sections: tuple[DialogSection, ...], initial: dict | None, parent=None) -> None:
+    def __init__(self, *, title: str, description: str, sections: tuple[DialogSection, ...], initial: dict | None, validator: Callable[[dict, bool], dict[str, str]] | None = None, parent=None) -> None:
         self.editing = initial is not None
         super().__init__(title, description, parent)
         self._build_sections(sections, initial or {}, self.editing)
+        self._validator = (lambda values: validator(values, self.editing)) if validator is not None else None
         self._finalize_layout()
 
     def show_error(self, message: str) -> None:
@@ -267,6 +340,7 @@ class CustomerDialog(EntityFormDialog):
             description="פרטי הלקוח ופרטי איש הקשר",
             sections=CUSTOMER_SECTIONS,
             initial=initial,
+            validator=customer_errors,
             parent=parent,
         )
         self.password = self.fields.get("password")

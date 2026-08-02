@@ -53,7 +53,7 @@ Stop and wait for explicit approval before continuing to another screen.
 
 Backend/Desktop coverage was audited as follows:
 
-- Customer and Instructor create, read, edit, guarded delete, linked-account
+- Customer and Instructor create, read, edit, logical lifecycle, linked-account
   creation, password change, business fields, status display, and audit metadata
   are represented in Desktop.
 - Manager create, read, name edit, activation/deactivation, password change,
@@ -61,8 +61,8 @@ Backend/Desktop coverage was audited as follows:
 - Multi-contact CRUD remains intentionally outside these management screens:
   the approved MVP presents and edits one current primary contact through the
   Customer workflow instead of exposing the internal contact collection.
-- Raw Customer/Instructor `is_active` mutation is intentionally not exposed as
-  a standalone UI action because it would bypass linked-account state. Manager
+- Raw Customer/Instructor `is_active` mutation is not exposed through Edit;
+  the dedicated lifecycle action synchronizes profile and account. Manager
   activation/deactivation uses the canonical account workflow.
 - Instructor assignment relationships remain in Booking Management, where the
   CQRS workflow owns assignment changes; duplicating them in Instructor Details
@@ -114,7 +114,7 @@ The audit records findings only. It does not authorize the recommendations.
 | Backend capability | Desktop implementation | Missing from Desktop | Reason if omitted | Recommendation |
 |---|---|---|---|---|
 | List/query: search, city, type, active, name/created sort, paging | Search, name/created sort and paging are exposed | City, type and active filters | Approved compact toolbar deliberately avoids advanced filters | Consider a future optional filter drawer only if operators demonstrate need |
-| Customer create/read/update/delete | Full manager list, Details, create, edit and guarded delete | Direct `is_active` edit | Profile status must remain synchronized with its login account | Add only through a future canonical account/profile activation use case |
+| Customer create/read/update/lifecycle | Full manager list, Details, create, edit, deactivate and reactivate | Physical delete | Normal operations preserve history | Keep physical delete maintenance-only |
 | Customer account creation and password reset | Create provisions login; password is write-only; reset action is exposed | Existing password and hash | Security requirement forbids read/display | Keep omitted permanently |
 | Customer fields: name, type, city, address, phone, email, notes, status, audit timestamps | Displayed and editable where supported; status and timestamps are read-only | None for the approved single-customer workflow | — | No action |
 | Contact list/create/update/soft-delete, active/primary flags, role title, email, notes and timestamps | One current primary contact name/phone is integrated into Customer create/edit/details | Multi-contact management and extended contact metadata | MVP intentionally standardizes one current primary contact; separate CRUD would expand product scope | Reassess as a separately approved contact-management task |
@@ -126,7 +126,7 @@ The audit records findings only. It does not authorize the recommendations.
 | Backend capability | Desktop implementation | Missing from Desktop | Reason if omitted | Recommendation |
 |---|---|---|---|---|
 | List/query: search, city, active, seven whitelisted sort fields, paging | Search, all useful sorts and paging are exposed | City and active filters | Compact Customer-standard toolbar permits one search and one sort control | Consider a future optional filter drawer after usage validation |
-| Instructor create/read/update/delete | Full manager workflow with protected-delete feedback | Direct status mutation | No canonical linked-account status endpoint exists on Instructor API | Do not expose until account/profile synchronization is explicit |
+| Instructor create/read/update/lifecycle | Full manager workflow with atomic deactivate/reactivate | Physical delete | Normal operations preserve history | Keep physical delete maintenance-only |
 | Instructor login creation and password reset | Create provisions login; reset is write-only and shared | Existing password and hash | Security requirement | Keep omitted permanently |
 | Fields: name, phone, email, city, notes, status and audit timestamps | All represented; login email is read-only on edit | None | — | No action |
 | `/instructors/me` | Separate instructor self-profile screen | Self-edit | Endpoint is read-only and role-specific | Keep read-only unless PRD adds self-service profile editing |
@@ -203,16 +203,17 @@ The final endpoint-level classification is:
 | Customers | `GET /customers/{id}` | Details and customer self-profile | Implemented in Desktop |
 | Customers | `POST /customers` | Customer/account create dialog | Implemented in Desktop |
 | Customers | `PUT /customers/{id}` business/contact fields | Customer edit dialog | Implemented in Desktop |
-| Customers | `PUT /customers/{id}` direct `is_active` mutation | No standalone status editor | Intentionally hidden |
-| Customers | `DELETE /customers/{id}` | Guarded Delete action | Implemented in Desktop |
+| Customers | `POST /customers/{id}/activate|deactivate` | Mutually exclusive lifecycle action | Implemented in Desktop |
+| Customers | `DELETE /customers/{id}` | No Desktop client method or action | Intentionally hidden maintenance endpoint |
 | Customers | `POST /customers/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
 | Customers | Contact list/create/update/soft-delete endpoints and extended contact metadata | One current primary contact is embedded in Customer workflow | Backend only |
 | Instructors | `GET /instructors`: search, all whitelisted sorts, paging | Search, seven sorts, pagination | Implemented in Desktop |
 | Instructors | `GET /instructors`: city/active filters | No advanced-filter controls | Intentionally hidden |
 | Instructors | `GET /instructors/{id}` | Manager Details | Implemented in Desktop |
 | Instructors | `GET /instructors/me` | Instructor self-profile | Implemented in Desktop |
-| Instructors | `POST`, `PUT`, `DELETE /instructors` | Create, edit and guarded delete | Implemented in Desktop |
-| Instructors | Direct `is_active` update accepted by schema/service | No standalone status editor | Intentionally hidden |
+| Instructors | `POST`, `PUT /instructors` | Create and edit | Implemented in Desktop |
+| Instructors | `POST /instructors/{id}/activate|deactivate` | Mutually exclusive lifecycle action | Implemented in Desktop |
+| Instructors | `DELETE /instructors/{id}` | No Desktop client method or action | Intentionally hidden maintenance endpoint |
 | Instructors | `POST /instructors/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
 | Managers | `GET /users` with fixed manager role, search, sorts and paging | Manager list/search/sort/pagination | Implemented in Desktop |
 | Managers | Generic user role and active filters | Role is fixed; active filter has no control | Intentionally hidden |
@@ -220,7 +221,7 @@ The final endpoint-level classification is:
 | Managers | Generic `/users` creation of customer/instructor identities | Dedicated domain workflows are used instead | Backend only |
 | Managers | `GET /users/{id}` and `PUT /users/{id}` manager name | Details and edit dialog | Implemented in Desktop |
 | Managers | Application-service email update workflow | No router contract or Desktop action; login identity remains immutable | Backend only |
-| Managers | Activate/deactivate endpoints with self-deactivation guard | Activate and logical Delete/deactivate actions | Implemented in Desktop |
+| Managers | Activate/deactivate endpoints with self/last-manager guards | Deactivate or Reactivate action | Implemented in Desktop |
 | Managers | `POST /users/{id}/reset-password` | Shared write-only password dialog | Implemented in Desktop |
 
 No audited capability is marked Deprecated. Internal repository primitives are
@@ -263,3 +264,37 @@ case that synchronizes profile and account state for all three entity types,
 with physical purge reserved for a separately authorized retention workflow.
 That recommendation requires product approval and was deliberately not
 implemented in Task 25.2.
+
+## Approved lifecycle unification
+
+The product subsequently approved the recommended logical lifecycle. The
+normal Desktop UI now exposes Edit, write-only Password Change, and exactly one
+status action: Deactivate for an active Customer/Instructor/Manager or
+Reactivate for an inactive one. Customer and Instructor physical-delete API
+endpoints remain available only as protected legacy/maintenance endpoints and
+are not connected to any Desktop View or navigation path.
+
+Customer and Instructor activation/deactivation runs in one database
+transaction. It locks the domain profile and linked User, updates both
+`is_active` values, commits both changes together, and rolls back both on any
+failure. No booking, assignment, event, contact, account, or audit record is
+deleted. Manager lifecycle remains account-based, continues to reject
+self-deactivation, and now locks the active-manager set and rejects deactivation
+of the last active Manager.
+
+The three Details Views use `ManagementWorkspace.add_lifecycle_actions()` and
+`show_lifecycle()` for the same labels, dimensions, mutually exclusive
+visibility, and active/inactive behavior. Manager Customer listing no longer
+implicitly excludes inactive Customers, ensuring every deactivated Customer
+remains reachable for reactivation. Login email remains immutable in Desktop,
+and password values remain write-only.
+
+## Shared dialog validation feedback
+
+Customer, Instructor, Manager, and password dialogs validate on primary action
+instead of disabling that action while fields are incomplete. The shared
+dialog builder shows every issue beside its field, applies the common invalid
+style, focuses the first invalid field, and clears each issue when corrected.
+A non-modal shared red banner summarizes the failure and fades after about
+three seconds. Submit is disabled only during an in-flight request; safe Hebrew
+messages keep backend validation/conflict failures inside the open dialog.

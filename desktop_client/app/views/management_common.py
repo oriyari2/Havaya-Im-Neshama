@@ -16,6 +16,16 @@ from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.ui_foundations import StatePanel
 
 
+MANAGEMENT_PRIMARY_ROLE = "managementPrimary"
+
+
+def apply_management_primary(button: QPushButton) -> None:
+    """Apply the single primary-action role used by management modules."""
+    button.setProperty("buttonRole", MANAGEMENT_PRIMARY_ROLE)
+    button.style().unpolish(button)
+    button.style().polish(button)
+
+
 class SearchToolbar(QWidget):
     search_requested = Signal(str, str)
     refresh_requested = Signal()
@@ -58,9 +68,7 @@ def configure_reference_toolbar(toolbar: SearchToolbar) -> None:
     layout.setSpacing(8)
     toolbar.search_input.setMinimumWidth(300)
     toolbar.sort_combo.setMinimumWidth(190)
-    toolbar.search_button.setProperty("primary", True)
-    toolbar.search_button.style().unpolish(toolbar.search_button)
-    toolbar.search_button.style().polish(toolbar.search_button)
+    apply_management_primary(toolbar.search_button)
     for control in (toolbar.search_input, toolbar.sort_combo, toolbar.search_button, toolbar.refresh_button):
         layout.removeWidget(control)
     layout.addWidget(toolbar.search_input, 1)

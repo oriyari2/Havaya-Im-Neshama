@@ -48,3 +48,15 @@ def delete(instructor_id:UUID,_user:dict=Manager):
 def reset_password(instructor_id:UUID,payload:PasswordResetRequest,_user:dict=Manager):
     try:user_admin_service.reset_profile_password("instructor",instructor_id,payload);return Response(status_code=204)
     except user_admin_service.UserNotFoundError as exc:raise HTTPException(404,"Instructor account not found") from exc
+
+@router.post("/instructors/{instructor_id}/activate",response_model=InstructorResponse)
+def activate(instructor_id:UUID,_user:dict=Manager):
+    try:return user_admin_service.set_profile_active("instructor",instructor_id,True)
+    except user_admin_service.UserNotFoundError as exc:raise HTTPException(404,"Instructor account not found") from exc
+    except user_admin_service.UserConflictError as exc:raise HTTPException(409,str(exc)) from exc
+
+@router.post("/instructors/{instructor_id}/deactivate",response_model=InstructorResponse)
+def deactivate(instructor_id:UUID,_user:dict=Manager):
+    try:return user_admin_service.set_profile_active("instructor",instructor_id,False)
+    except user_admin_service.UserNotFoundError as exc:raise HTTPException(404,"Instructor account not found") from exc
+    except user_admin_service.UserConflictError as exc:raise HTTPException(409,str(exc)) from exc

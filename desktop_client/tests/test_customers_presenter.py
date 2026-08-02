@@ -18,20 +18,13 @@ class CustomersPresenterTests(TestCase):
     def test_select_and_customer_mutations(self):
         self.presenter.select("c1"); self.view.show_details.assert_called(); self.presenter.begin_edit(); self.view.open_customer_form.assert_called()
         form=Mock(); self.service.update_customer.return_value=CUSTOMER; self.presenter.submit_edit({"name":"Task","email":"ok@example.com","contact_name":"Updated","contact_phone":"051"},form); form.close_success.assert_called_once(); self.assertEqual(self.service.update_customer.call_args.args[1]["contact_name"], "Updated")
-        self.view.confirm_customer_deletion.return_value=True; self.presenter.delete(); self.service.delete_customer.assert_called_once_with("c1"); self.view.clear_details.assert_called(); self.assertIsNone(self.presenter.selected_id)
     def test_change_password_is_write_only_and_uses_customer_account_endpoint(self):
         self.presenter.select("c1"); self.presenter.begin_change_password(); self.view.open_change_password.assert_called_once()
         form=Mock(); self.presenter.submit_change_password({"password":"newpass123","password_confirmation":"newpass123"},form); self.service.reset_password.assert_called_once_with("c1","newpass123"); form.close_success.assert_called_once()
         form=Mock(); self.presenter.submit_change_password({"password":"newpass123","password_confirmation":"different"},form); form.show_error.assert_called(); self.assertEqual(self.service.reset_password.call_count,1)
-    def test_delete_conflict_preserves_selection_and_duplicate_guard(self):
-        self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("customer has bookings",status_code=409,kind=ApiErrorKind.CONFLICT)
-        self.presenter.delete(); self.assertEqual(self.presenter.selected_id,"c1"); self.view.show_error.assert_called_with("לא ניתן למחוק את הלקוח כל עוד קיימות רשומות תלויות."); self.service.delete_customer.reset_mock(); self.presenter._submitting=True; self.presenter.delete(); self.service.delete_customer.assert_not_called()
-    def test_delete_connection_failure_preserves_selection(self):
-        self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("offline",kind=ApiErrorKind.CONNECTION)
-        self.presenter.delete(); self.assertEqual(self.presenter.selected_id,"c1"); self.view.show_error.assert_called()
-    def test_delete_cancellation_and_stale_404(self):
-        self.presenter.select("c1"); self.view.confirm_customer_deletion.return_value=False; self.presenter.delete(); self.service.delete_customer.assert_not_called()
-        self.view.confirm_customer_deletion.return_value=True; self.service.delete_customer.side_effect=ApiError("gone",status_code=404,kind=ApiErrorKind.NOT_FOUND); self.presenter.delete(); self.assertIsNone(self.presenter.selected_id); self.view.clear_details.assert_called()
+    def test_customer_lifecycle_uses_logical_deactivate_and_reactivate(self):
+        self.presenter.select("c1");self.view.confirm_deactivation.return_value=True;self.service.deactivate.return_value={**CUSTOMER,"is_active":False};self.presenter.deactivate();self.service.deactivate.assert_called_once_with("c1")
+        self.presenter.selected_customer={**CUSTOMER,"is_active":False};self.service.activate.return_value=CUSTOMER;self.presenter.activate();self.service.activate.assert_called_once_with("c1")
     def test_create_customer_uses_atomic_role_specific_account_workflow(self):
         form=Mock(); self.account_service.create_user.return_value={"id":"u1","customer_id":"c1"}; self.presenter.submit_create({"name":"New","email":"NEW@example.com","password":"password1","password_confirmation":"password1","city":"Haifa","contact_name":"Contact","contact_phone":"050"},form); payload=self.account_service.create_user.call_args.args[0]; self.assertEqual(payload["role"],"customer"); self.assertEqual(payload["email"],"new@example.com"); self.assertEqual(payload["customer_name"],"New"); self.assertEqual(payload["contact_name"],"Contact"); self.service.create_customer.assert_not_called(); form.close_success.assert_called_once()
 

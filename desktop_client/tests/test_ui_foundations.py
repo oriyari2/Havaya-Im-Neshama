@@ -11,6 +11,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QPushB
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
+from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
 from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog
@@ -91,7 +92,7 @@ class UiFoundationTests(unittest.TestCase):
         dialogs = (CustomerDialog(), InstructorDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
         for dialog in dialogs:
             self.assertEqual(dialog.minimumSize().width(), 760); self.assertLessEqual(dialog.minimumSize().height(), 680); self.assertEqual(dialog.maximumWidth(), 860)
-            self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.WrapAllRows)
+            self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.DontWrapRows)
             self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
 
     def test_management_modules_share_exact_customer_foundation_values(self) -> None:
@@ -108,6 +109,11 @@ class UiFoundationTests(unittest.TestCase):
             self.assertEqual(view.toolbar.parentWidget().objectName(), "filterPanel"); self.assertIsInstance(view.toolbar.parentWidget(), QFrame)
             self.assertEqual(view.table.verticalHeader().defaultSectionSize(), customer.table.verticalHeader().defaultSectionSize()); self.assertEqual(view.table.horizontalHeader().minimumHeight(), customer.table.horizontalHeader().minimumHeight()); self.assertEqual(view.table.alternatingRowColors(), customer.table.alternatingRowColors())
             self.assertEqual(view.footer.maximumWidth(), customer.footer.maximumWidth()); self.assertEqual(view.back_button.minimumHeight(), customer.back_button.minimumHeight())
+
+    def test_management_create_and_search_buttons_share_primary_style_role(self) -> None:
+        modules = (CustomersView(), InstructorsView(), UsersView())
+        buttons = [button for view in modules for button in (view.create_button, view.toolbar.search_button)]
+        self.assertEqual({button.property("buttonRole") for button in buttons}, {"managementPrimary"})
 
     def test_table_policy_sets_accessibility_density_and_elision(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "בדיקה", (
@@ -192,8 +198,8 @@ class UiFoundationTests(unittest.TestCase):
     def test_customers_accessibility_disabled_help_and_tooltips(self) -> None:
         view = CustomersView(); self.assertEqual(view.table.accessibleName(), "רשימת לקוחות"); self.assertTrue(view.edit_button.accessibleDescription())
         view.show_customers([{"id": "c1", "name": "שם ארוך", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
-        self.assertIn('dir="rtl"', view.table.item(0, 0).toolTip())
-        self.assertEqual(view.table.columnCount(), 4)
+        self.assertIn('dir="rtl"', view.table.item(0, 1).toolTip())
+        self.assertEqual(view.table.columnCount(), 5)
         self.assertNotIn("דוא״ל", [view.table.horizontalHeaderItem(column).text() for column in range(view.table.columnCount())])
 
     def test_customers_uses_one_feedback_mechanism_for_current_context(self) -> None:
@@ -213,7 +219,7 @@ class UiFoundationTests(unittest.TestCase):
         parent = QWidget(); opener = QPushButton("פתיחה", parent); parent.show(); opener.setFocus(); self.app.processEvents()
         dialog = CustomerDialog(parent=parent); submitted = []; dialog.submitted.connect(lambda values, form: submitted.append(values)); dialog.show(); self.app.processEvents()
         self.assertIs(dialog.form.labelForField(dialog.fields["name"]).buddy(), dialog.fields["name"]); self.assertIs(dialog.focusWidget(), dialog.fields["name"])
-        dialog.fields["name"].setText("לקוח"); dialog.fields["contact_name"].setText("איש קשר"); dialog.fields["contact_phone"].setText("050"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
+        dialog.fields["name"].setText("לקוח"); dialog.fields["email"].setText("customer@example.com"); dialog.fields["password"].setText("password1"); dialog.fields["password_confirmation"].setText("password1"); dialog.fields["contact_name"].setText("איש קשר"); dialog.fields["contact_phone"].setText("050"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
         submitted.clear(); dialog.notes.setFocus(); QTest.keyClick(dialog.notes, Qt.Key.Key_Return); self.assertEqual(submitted, [])
         self.assertGreaterEqual(dialog.width(), 760); self.assertLessEqual(dialog.width(), 860); self.assertTrue(dialog.scroll.widgetResizable())
         QTest.keyClick(dialog, Qt.Key.Key_Escape); self.app.processEvents(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected); self.assertIs(parent.focusWidget(), opener); parent.close()
@@ -234,11 +240,13 @@ class UiFoundationTests(unittest.TestCase):
             measurements.append(customer_widths)
             unused = customers.table.viewport().width() - 1 - sum(customer_widths)
             self.assertTrue(abs(unused) <= 1 or unused < 0)
-            self.assertGreater(customer_widths[0], customer_widths[3])
-        self.assertGreater(measurements[2][0], measurements[1][0])
-        self.assertEqual(measurements[2][3], measurements[1][3])
+            self.assertEqual(customer_widths[0], 52)
+            self.assertGreater(customer_widths[1], customer_widths[4])
+        self.assertGreater(measurements[2][1], measurements[1][1])
+        self.assertEqual(measurements[2][4], measurements[1][4])
         customers.show_customers([{"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
-        customers.select_customer("c1"); customers._open_selected_customer(); self.app.processEvents()
+        customer = {"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}
+        customers.show_details(customer_details(customer), customer); customers.select_customer("c1"); customers._open_selected_customer(); self.app.processEvents()
         self.assertIs(customers.pages.currentWidget(), customers.details_page); self.assertTrue(customers.back_button.isVisibleTo(customers)); shell.close()
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:

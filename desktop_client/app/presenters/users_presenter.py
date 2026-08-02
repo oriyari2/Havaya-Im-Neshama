@@ -4,6 +4,7 @@ import logging
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.account_validation import account_password, login_email
+from desktop_client.app.presenters.dialog_validation import safe_backend_conflict
 
 
 logger = logging.getLogger(__name__)
@@ -253,9 +254,10 @@ class UsersPresenter:
     @staticmethod
     def message(exc: Exception) -> str:
         if isinstance(exc, ApiError):
+            if exc.kind == ApiErrorKind.CONFLICT:
+                return safe_backend_conflict(exc, "לא ניתן לבצע את הפעולה במצב הנוכחי.")
             return {
                 ApiErrorKind.PERMISSION: "אין הרשאה לניהול מנהלים.",
-                ApiErrorKind.CONFLICT: "הדוא״ל כבר משויך לחשבון אחר, או שהפעולה אינה מותרת.",
                 ApiErrorKind.VALIDATION: "יש לתקן את פרטי המנהל ולנסות שוב.",
                 ApiErrorKind.NOT_FOUND: "המנהל שנבחר אינו קיים.",
                 ApiErrorKind.CONNECTION: "לא ניתן להתחבר לשרת. נסו שוב.",

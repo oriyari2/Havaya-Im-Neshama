@@ -163,10 +163,26 @@ class UserAdministrationTests(TestCase):
     @patch.object(service, "get_connection")
     def test_status_change_and_missing_user(self, get_connection) -> None:
         connection = MagicMock(); cursor = MagicMock(); get_connection.return_value.__enter__.return_value = connection; connection.cursor.return_value.__enter__.return_value = cursor
-        user_id = uuid4(); existing = {"id":user_id,"role":"manager","is_active":True,"customer_id":None,"instructor_id":None}; public = safe_user(id=user_id,is_active=False); cursor.fetchone.side_effect=[existing,{"id":user_id},public]
+        user_id = uuid4(); existing = {"id":user_id,"role":"manager","is_active":True,"customer_id":None,"instructor_id":None}; public = safe_user(id=user_id,is_active=False); cursor.fetchall.return_value=[{"id":user_id},{"id":uuid4()}];cursor.fetchone.side_effect=[existing,existing,{"id":user_id},public]
         self.assertFalse(service.set_active(user_id, False, {"id":uuid4(),"role":"manager"})["is_active"]); connection.commit.assert_called_once()
         cursor.fetchone.side_effect=[None]
         with self.assertRaises(service.UserNotFoundError): service.set_active(uuid4(), True, {"id":uuid4(),"role":"manager"})
+
+    @patch.object(service, "get_connection")
+    def test_last_active_manager_cannot_be_deactivated(self, get_connection) -> None:
+        connection=MagicMock();cursor=MagicMock();get_connection.return_value.__enter__.return_value=connection;connection.cursor.return_value.__enter__.return_value=cursor
+        user_id=uuid4();existing={"id":user_id,"role":"manager","is_active":True,"customer_id":None,"instructor_id":None};cursor.fetchone.side_effect=[existing,existing];cursor.fetchall.return_value=[{"id":user_id}]
+        with self.assertRaises(service.UserConflictError):service.set_active(user_id,False,{"id":uuid4(),"role":"manager"})
+        connection.rollback.assert_called_once()
+
+    @patch.object(service, "get_connection")
+    def test_profile_lifecycle_atomically_updates_profile_and_linked_user(self, get_connection) -> None:
+        connection=MagicMock();cursor=MagicMock();get_connection.return_value.__enter__.return_value=connection;connection.cursor.return_value.__enter__.return_value=cursor
+        profile_id,user_id=uuid4(),uuid4();profile={"id":profile_id,"is_active":True};user={"id":user_id,"is_active":True}
+        for role,repository,lock_name,set_name in (("customer",service.customer_repository,"lock_customer","set_customer_active"),("instructor",service.instructor_repository,"lock_instructor","set_instructor_active")):
+            connection.reset_mock()
+            with patch.object(repository,lock_name,return_value=profile) as lock_profile,patch.object(repository,set_name,return_value={**profile,"is_active":False}) as set_profile,patch.object(service.repo,"lock_user_for_profile",return_value=user),patch.object(service.repo,"set_user_active",return_value=True) as set_user:
+                result=service.set_profile_active(role,profile_id,False);self.assertFalse(result["is_active"]);lock_profile.assert_called_once_with(cursor,profile_id);set_profile.assert_called_once_with(cursor,profile_id,False);set_user.assert_called_once_with(cursor,user_id,False);connection.commit.assert_called_once()
 
     @patch.object(service, "get_connection")
     def test_reset_password_replaces_hash_and_old_password_fails(self, get_connection) -> None:

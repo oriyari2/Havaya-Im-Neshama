@@ -148,6 +148,30 @@ def reset_customer_password(
     return Response(status_code=204)
 
 
+@router.post("/customers/{customer_id}/activate", response_model=CustomerResponse)
+def activate_customer(customer_id: UUID, _current_user: dict = RequireManager) -> CustomerResponse:
+    try:
+        customer = user_admin_service.set_profile_active("customer", customer_id, True)
+        _, contacts = customer_service.get_customer(customer_id)
+        return _customer_response(customer, contacts)
+    except user_admin_service.UserNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Customer account not found") from exc
+    except user_admin_service.UserConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post("/customers/{customer_id}/deactivate", response_model=CustomerResponse)
+def deactivate_customer(customer_id: UUID, _current_user: dict = RequireManager) -> CustomerResponse:
+    try:
+        customer = user_admin_service.set_profile_active("customer", customer_id, False)
+        _, contacts = customer_service.get_customer(customer_id)
+        return _customer_response(customer, contacts)
+    except user_admin_service.UserNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Customer account not found") from exc
+    except user_admin_service.UserConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
 @router.get(
     "/customers/{customer_id}/contacts",
     response_model=list[CustomerContactResponse],

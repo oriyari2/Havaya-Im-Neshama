@@ -157,8 +157,14 @@ class FeedbackBanner(QLabel):
         self.setProperty("feedback", feedback); self.setText(state.message); self.setAccessibleDescription(state.message); self.style().unpolish(self); self.style().polish(self); self.show()
         if state.phase == RequestPhase.SUCCESS: self._dismiss_timer.start()
 
+    def render_temporary(self, state: RequestState, *, visible_ms: int = 2750) -> None:
+        self.render(state)
+        if not self.isHidden():
+            self._dismiss_timer.setInterval(visible_ms)
+            self._dismiss_timer.start()
+
     def _fade_success(self) -> None:
-        if self.property("feedback") != "success" or self.isHidden(): return
+        if self.isHidden(): return
         self._fade.setStartValue(1.0); self._fade.setEndValue(0.0); self._fade.start(QAbstractAnimation.DeletionPolicy.KeepWhenStopped)
 
 

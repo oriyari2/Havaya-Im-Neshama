@@ -24,6 +24,8 @@ def instructor_delete_dependencies(cur,instructor_id:UUID):
         (instructor_id,instructor_id,str(instructor_id)))
     return cur.fetchone()
 def delete_instructor(cur,instructor_id:UUID): cur.execute("DELETE FROM instructors WHERE id=%s RETURNING id;",(instructor_id,)); return cur.fetchone() is not None
+def set_instructor_active(cur,instructor_id:UUID,is_active:bool):
+    cur.execute(f"UPDATE instructors SET is_active=%s, updated_at=now() WHERE id=%s RETURNING {COLUMNS};",(is_active,instructor_id));return cur.fetchone()
 def get_by_email(cur,email:str,exclude_id:UUID|None=None):
     sql=f"SELECT {COLUMNS} FROM instructors WHERE lower(email)=lower(%s)"; params=[email]
     if exclude_id: sql+=" AND id<>%s"; params.append(exclude_id)

@@ -8,6 +8,7 @@ from desktop_client.app.models.request_state import RequestIdentity, RequestPhas
 from desktop_client.app.models.operation import NON_CANCELLABLE_OPERATION_KEYS, ImmediateOperationExecutor, OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.account_validation import account_password, login_email
 from desktop_client.app.presenters.customer_formatting import customer_details, customer_row
+from desktop_client.app.presenters.dialog_validation import safe_backend_conflict
 
 
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -30,7 +31,7 @@ class CustomersViewPort(Protocol):
     def clear_details(self) -> None: ...
     def select_customer(self, customer_id: str) -> None: ...
     def open_customer_form(self, initial: dict | None, submit: Callable) -> None: ...
-    def confirm_customer_deletion(self, name: str) -> bool: ...
+    def confirm_deactivation(self, name: str) -> bool: ...
     def open_change_password(self, submit: Callable) -> None: ...
 
 
@@ -39,7 +40,8 @@ class CustomerServicePort(Protocol):
     def customer(self, customer_id: str) -> dict: ...
     def create_customer(self, payload: dict[str, object]) -> dict: ...
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict: ...
-    def delete_customer(self, customer_id: str) -> None: ...
+    def activate(self, customer_id: str) -> dict: ...
+    def deactivate(self, customer_id: str) -> dict: ...
 
 
 def validate_customer(values: dict[str, object]) -> dict[str, object]:
@@ -366,45 +368,46 @@ class CustomersPresenter:
             next((contact for contact in contacts if contact.get("is_active")), None),
         )
 
-    def delete(self) -> None:
+    def activate(self) -> None:
+        self._set_active(True)
+
+    def deactivate(self) -> None:
         customer = self.selected_customer
-        if not customer or not self.view.confirm_customer_deletion(str(customer["name"])):
+        if not customer or not self.view.confirm_deactivation(str(customer["name"])):
             return
-        if self._submitting:
+        self._set_active(False)
+
+    def _set_active(self, active: bool) -> None:
+        customer = self.selected_customer
+        if not customer or self._submitting:
             return
         customer_id = str(customer["id"])
         self._submitting = True
         self.view.set_loading(True)
-        identity = self._begin_request("delete", customer_id)
+        identity = self._begin_request("lifecycle", customer_id)
 
-        def succeeded(_result: object) -> None:
+        def succeeded(result: dict) -> None:
             if not self._is_current(identity):
                 return
-            self.selected_id = self.selected_customer = None
-            self.view.clear_details()
-            self.view.show_success("הלקוח נמחק בהצלחה.")
+            self.selected_id = customer_id
+            self.selected_customer = result
+            self.view.show_success("הלקוח הופעל מחדש." if active else "הלקוח הושבת.")
             self.load()
+            self.select(customer_id)
+
         def failed(exc: Exception) -> None:
-            if not self._is_current(identity):
-                return
-            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
-                self.selected_id = self.selected_customer = None
-                self.view.clear_details()
-                self.load()
-            elif isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT:
-                self.view.show_error("לא ניתן למחוק את הלקוח כל עוד קיימות רשומות תלויות.")
-                self.select(customer_id)
-            else:
+            if self._is_current(identity):
                 self._show_error(exc)
 
         def finished() -> None:
             if not self._is_current(identity):
                 return
-            self._current_requests.pop("delete", None)
+            self._current_requests.pop("lifecycle", None)
             self._submitting = False
             self.view.set_loading(False)
 
-        self._executor.submit(identity, lambda: self.service.delete_customer(customer_id), succeeded, failed, finished)
+        operation = self.service.activate if active else self.service.deactivate
+        self._executor.submit(identity, lambda: operation(customer_id), succeeded, failed, finished)
 
     def _mutate(self, operation: Callable, message: str) -> None:
         if self._submitting:
@@ -438,7 +441,7 @@ class CustomersPresenter:
             if exc.kind == ApiErrorKind.PERMISSION:
                 return "אין הרשאה לצפות או לשנות לקוחות."
             if exc.kind == ApiErrorKind.CONFLICT:
-                return "הלקוח השתנה במקביל. הרשומה רועננה; נסו שוב."
+                return safe_backend_conflict(exc, "לא ניתן לבצע את הפעולה בגלל נתונים מקושרים או שינוי מקביל.")
             if exc.kind == ApiErrorKind.VALIDATION:
                 return "הנתונים שנשלחו אינם תקינים. בדקו את השדות ונסו שוב."
             if exc.kind == ApiErrorKind.NOT_FOUND:

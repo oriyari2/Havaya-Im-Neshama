@@ -7,6 +7,7 @@ from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
 from desktop_client.app.presenters.account_validation import account_password, login_email
 from desktop_client.app.presenters.instructor_formatting import instructor_details, instructor_row
+from desktop_client.app.presenters.dialog_validation import safe_backend_conflict
 
 
 logger = logging.getLogger(__name__)
@@ -266,42 +267,14 @@ class InstructorsPresenter:
         operation = lambda: self.service.update_instructor(instructor_id, payload) if instructor_id else self.service.create_instructor(payload)
         self._operations.executor.submit(context, operation, success, failure, finished)
 
-    def delete(self):
-        if not self.selected or not self.view.confirm_deletion(self.selected["full_name"]) or self.submitting:
+    def activate(self):
+        if self.selected_id:
+            self._mutate(lambda: self.service.activate(self.selected_id), "המדריך הופעל מחדש.")
+
+    def deactivate(self):
+        if not self.selected or not self.view.confirm_deactivation(self.selected["full_name"]):
             return
-        instructor_id = self.selected_id
-        context = self._operations.begin("delete")
-        if context is None:
-            return
-        self.submitting = True
-        self.view.set_loading(True)
-
-        def success(_result):
-            if self._operations.is_current(context):
-                self.selected_id = self.selected = None
-                self.view.clear_details()
-                self.view.show_success("המדריך נמחק בהצלחה.")
-                self.load()
-
-        def failure(exc):
-            if not self._operations.is_current(context):
-                return
-            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.NOT_FOUND:
-                self.selected_id = self.selected = None
-                self.view.clear_details()
-                self.load()
-            elif isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONFLICT:
-                self.view.show_error(str(exc))
-                self.select(instructor_id)
-            else:
-                self._error(exc)
-
-        def finished():
-            if self._operations.finish(context):
-                self.submitting = False
-                self.view.set_loading(False)
-
-        self._operations.executor.submit(context, lambda: self.service.delete_instructor(instructor_id), success, failure, finished)
+        self._mutate(lambda: self.service.deactivate(self.selected_id), "המדריך הושבת.")
 
     def _mutate(self, operation, message):
         if self.submitting:
@@ -339,7 +312,7 @@ class InstructorsPresenter:
             if exc.kind == ApiErrorKind.PERMISSION:
                 return "אין הרשאה לצפות במדריכים או לשנות אותם."
             if exc.kind == ApiErrorKind.CONFLICT:
-                return "כתובת הדוא״ל כבר משויכת למדריך אחר."
+                return safe_backend_conflict(exc, "לא ניתן לבצע את הפעולה בגלל נתונים מקושרים.")
             if exc.kind == ApiErrorKind.CONNECTION:
                 return "לא ניתן להתחבר לשרת. נסו שוב."
             if exc.kind == ApiErrorKind.SERVER:

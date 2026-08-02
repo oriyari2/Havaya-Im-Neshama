@@ -27,12 +27,14 @@ class CustomersView(StatefulWidget):
     retry_requested = Signal()
     create_requested = Signal()
     edit_requested = Signal()
-    delete_requested = Signal()
+    deactivate_requested = Signal()
+    reactivate_requested = Signal()
     change_password_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         self._selected_customer_id: str | None = None
+        self._pending_open_id: str | None = None
         self._empty_filtered = False
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -55,7 +57,7 @@ class CustomersView(StatefulWidget):
         root.addWidget(self.workspace)
         for name in (
             "scaffold", "toolbar", "table", "footer", "create_button", "pages",
-            "list_page", "details_page", "back_button", "view_details_button",
+            "list_page", "details_page", "back_button",
             "header_identity", "identity_container", "actions_container",
             "table_region", "empty_state", "empty_title", "empty_description",
             "empty_action_button", "details_scroll", "details_widget",
@@ -71,9 +73,9 @@ class CustomersView(StatefulWidget):
         self.scaffold.main_content.insertWidget(0, self.retry)
         self.scaffold.main_content.insertWidget(1, self.state_label)
 
-        self.edit_button = self.workspace.add_action("עריכת לקוח")
-        self.change_password_button = self.workspace.add_action("שינוי סיסמה")
-        self.delete_button = self.workspace.add_action("מחיקת לקוח", destructive=True)
+        self.edit_button, self.change_password_button, self.deactivate_button, self.reactivate_button = self.workspace.add_lifecycle_actions(
+            edit="עריכת לקוח", password="שינוי סיסמה", deactivate="השבתת לקוח", reactivate="הפעלת לקוח מחדש"
+        )
         self.customer_details = self.workspace.add_card("פרטי לקוח")
         self.contact_details = self.workspace.add_card("פרטי קשר")
         self.system_details = self.workspace.add_card("מידע מערכת")
@@ -86,15 +88,15 @@ class CustomersView(StatefulWidget):
         self.create_button.clicked.connect(self.create_requested)
         self.edit_button.clicked.connect(self.edit_requested)
         self.change_password_button.clicked.connect(self.change_password_requested)
-        self.delete_button.clicked.connect(self.delete_requested)
+        self.deactivate_button.clicked.connect(self.deactivate_requested)
+        self.reactivate_button.clicked.connect(self.reactivate_requested)
         self.toolbar.search_requested.connect(self._search)
         self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed)
         self.toolbar.refresh_requested.connect(self._reset_filters)
         self.footer.page_requested.connect(self.page_requested)
         self.table.itemSelectionChanged.connect(self._select)
-        self.table.cellDoubleClicked.connect(lambda _row, _column: self._open_selected_customer())
+        self.table.cellDoubleClicked.connect(lambda row, _column: self._request_open_customer(self._row_id(row)))
         self.table.installEventFilter(self)
-        self.view_details_button.clicked.connect(self._open_selected_customer)
         self.empty_action_button.clicked.connect(self._empty_action)
         self.clear_details()
 
@@ -131,14 +133,10 @@ class CustomersView(StatefulWidget):
         rows = self.table.selectionModel().selectedRows()
         if not rows:
             self._selected_customer_id = None
-            self.view_details_button.setEnabled(False)
-            set_disabled_explanation(self.view_details_button, "יש לבחור לקוח תחילה")
             return
-        customer_id = str(self.table.item(rows[0].row(), 0).data(Qt.ItemDataRole.UserRole))
+        customer_id = self._row_id(rows[0].row())
         changed = customer_id != self._selected_customer_id
         self._selected_customer_id = customer_id
-        self.view_details_button.setEnabled(True)
-        set_disabled_explanation(self.view_details_button, "")
         if changed:
             self._clear_forms()
             self.workspace.detail_title.clear()
@@ -147,6 +145,19 @@ class CustomersView(StatefulWidget):
 
     def _open_selected_customer(self) -> None:
         if self._selected_customer_id:
+            self._pending_open_id = self._selected_customer_id
+        if self._selected_customer_id and self.workspace.detail_title.text():
+            self._pending_open_id = None
+            self.workspace.show_details()
+
+    def _row_id(self, row: int) -> str:
+        return str(self.table.item(row, 1).data(Qt.ItemDataRole.UserRole))
+
+    def _request_open_customer(self, customer_id: str) -> None:
+        self._pending_open_id = customer_id
+        self.select_customer(customer_id)
+        if self.workspace.detail_title.text() and self._selected_customer_id == customer_id:
+            self._pending_open_id = None
             self.workspace.show_details()
 
     def set_loading(self, value: bool) -> None:
@@ -190,16 +201,17 @@ class CustomersView(StatefulWidget):
             return
         self.table.setRowCount(len(rows))
         for row_index, row in enumerate(rows):
-            for column, key in enumerate(("name", "customer_type", "city")):
+            self.workspace.set_row_open_action(row_index, str(row["id"]), self._request_open_customer)
+            for column, key in enumerate(("name", "customer_type", "city"), start=1):
                 item = QTableWidgetItem(str(row.get(key) or "—"))
                 item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
                 set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
-                if column == 0:
+                if column == 1:
                     item.setData(Qt.ItemDataRole.UserRole, str(row["id"]))
             badge = ActiveBadge()
             badge.set_active(bool(row.get("is_active")))
             self.workspace.configure_status_badge(badge)
-            self.table.setCellWidget(row_index, 3, badge)
+            self.table.setCellWidget(row_index, 4, badge)
         self.footer.set_page(offset=offset, count=count)
         self.workspace.results_label.setText(f"לקוחות • {len(rows)}")
         self._empty_filtered = filtered
@@ -209,7 +221,6 @@ class CustomersView(StatefulWidget):
             self.empty_description.setText("אפשר לאפס את החיפוש ולנסות שוב." if filtered else "צרו את הלקוח הראשון כדי להתחיל.")
             self.empty_action_button.setText("איפוס חיפוש ומסננים" if filtered else "לקוח חדש")
         self.footer.setVisible(bool(rows))
-        self.view_details_button.setVisible(bool(rows))
 
     def show_details(self, details, customer) -> None:
         self._selected_customer_id = str(customer.get("id")) if customer.get("id") is not None else self._selected_customer_id
@@ -227,8 +238,12 @@ class CustomersView(StatefulWidget):
             self.workspace.add_property_row(form, label, content)
         self.workspace.show_detail_identity(str(customer.get("name") or "פרטי לקוח"), bool(customer.get("is_active")))
         self.workspace.set_actions_enabled(True)
-        for button in (self.edit_button, self.change_password_button, self.delete_button):
+        self.workspace.show_lifecycle(bool(customer.get("is_active")), self.deactivate_button, self.reactivate_button)
+        for button in (self.edit_button, self.change_password_button, self.deactivate_button, self.reactivate_button):
             set_disabled_explanation(button, "")
+        if self._pending_open_id == str(customer.get("id")):
+            self._pending_open_id = None
+            self.workspace.show_details()
 
     def _clear_forms(self) -> None:
         for form in self.detail_forms.values():
@@ -239,13 +254,14 @@ class CustomersView(StatefulWidget):
         if hasattr(self, "detail_forms"):
             self._clear_forms()
         self._selected_customer_id = None
+        self._pending_open_id = None
         self.workspace.detail_title.clear()
         self.workspace.set_actions_enabled(False)
         self.workspace.show_list()
         self.table.clearSelection()
-        self.view_details_button.setEnabled(False)
-        set_disabled_explanation(self.view_details_button, "יש לבחור לקוח תחילה")
-        for button in (self.edit_button, self.change_password_button, self.delete_button):
+        self.deactivate_button.hide()
+        self.reactivate_button.hide()
+        for button in (self.edit_button, self.change_password_button, self.deactivate_button, self.reactivate_button):
             set_disabled_explanation(button, "יש לבחור לקוח תחילה")
 
     def reset_to_default(self) -> None:
@@ -261,7 +277,7 @@ class CustomersView(StatefulWidget):
 
     def select_customer(self, customer_id: str) -> None:
         for row in range(self.table.rowCount()):
-            if str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole)) == customer_id:
+            if str(self.table.item(row, 1).data(Qt.ItemDataRole.UserRole)) == customer_id:
                 blocked = self.table.blockSignals(True)
                 index = self.table.model().index(row, 0)
                 self.table.selectionModel().setCurrentIndex(
@@ -271,7 +287,6 @@ class CustomersView(StatefulWidget):
                 self.table.blockSignals(blocked)
                 changed = self._selected_customer_id != customer_id
                 self._selected_customer_id = customer_id
-                self.view_details_button.setEnabled(True)
                 if changed:
                     self.customer_selected.emit(customer_id)
                 break
@@ -286,5 +301,5 @@ class CustomersView(StatefulWidget):
         self._dialog.submitted.connect(submit)
         self._dialog.open()
 
-    def confirm_customer_deletion(self, name: str) -> bool:
-        return confirm_action(self, "אישור מחיקה", f"למחוק לצמיתות את הלקוח {name}? לא ניתן לבטל פעולה זו.")
+    def confirm_deactivation(self, name: str) -> bool:
+        return confirm_action(self, "אישור השבתת לקוח", f"להשבית את הלקוח {name}? חשבון ההתחברות יושבת עד להפעלה מחדש.")
