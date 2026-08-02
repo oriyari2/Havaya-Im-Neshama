@@ -82,8 +82,8 @@ class BookingQueryTests(unittest.TestCase):
         self.assertEqual(args[0], unittest.mock.ANY)
         self.assertEqual(kwargs["role"], "manager")
         self.assertEqual(kwargs["customer_filter_id"], customer_id)
-        self.assertEqual(kwargs["activity_id"], activity_id)
-        self.assertEqual(kwargs["instructor_filter_id"], instructor_id)
+        self.assertEqual(kwargs["activity_id"], [activity_id])
+        self.assertEqual(kwargs["instructor_filter_id"], [instructor_id])
         self.assertEqual(kwargs["status"], None)
         self.assertEqual(kwargs["from_date"], from_date)
         self.assertEqual(kwargs["to_date"], to_date)
@@ -106,6 +106,11 @@ class BookingQueryTests(unittest.TestCase):
             booking_projection_repository.list_bookings(cursor, role="manager", order_by="unsafe", limit=25, offset=0)
         with self.assertRaises(query_handlers.BookingValidationError):
             query_handlers.list_bookings({"role": "manager"}, None, 25, 0, order_by="unsafe")
+
+    def test_event_time_descending_sort_is_whitelisted_and_stable(self) -> None:
+        cursor = _CaptureCursor()
+        booking_projection_repository.list_bookings(cursor, role="manager", order_by="event_at_desc", limit=25, offset=0)
+        self.assertIn("ORDER BY b.event_at DESC, b.created_at DESC", cursor.executed_sql)
 
     def test_customer_rejects_customer_id_filter(self) -> None:
         current_user = {"role": "customer", "customer_id": uuid4()}
@@ -288,8 +293,9 @@ class BookingQueryTests(unittest.TestCase):
             role="manager",
             customer_filter_id=customer_id,
             instructor_filter_id=instructor_id,
-            activity_id=activity_id,
-            status=BookingStatus.CONFIRMED.value,
+            activity_id=[activity_id],
+            status=[BookingStatus.NEW.value, BookingStatus.CONFIRMED.value],
+            assignment_state=["assigned", "unassigned"],
             from_date=from_date,
             to_date=to_date,
             limit=25,
@@ -301,8 +307,11 @@ class BookingQueryTests(unittest.TestCase):
         self.assertIn("ba.booking_id = b.id", cursor.executed_sql)
         self.assertEqual(
             cursor.params,
-            [customer_id, instructor_id, activity_id, BookingStatus.CONFIRMED.value, from_date, to_date, 25, 5],
+            [customer_id, [instructor_id], [activity_id], [BookingStatus.NEW.value, BookingStatus.CONFIRMED.value], from_date, to_date, 25, 5],
         )
+        self.assertIn("b.status = ANY(%s)", cursor.executed_sql)
+        self.assertIn("bi.instructor_id = ANY(%s)", cursor.executed_sql)
+        self.assertIn(" OR ", cursor.executed_sql)
 
     def test_instructor_detail_query_uses_booking_alias(self) -> None:
         cursor = _CaptureCursor()

@@ -47,10 +47,10 @@ class ActivityViewTests(TestCase):
         view.toolbar.search_input.setText("טבע"); view.toolbar.search_button.click(); self.assertEqual(emitted[-1]["search"], "טבע")
         self.assertEqual([view.toolbar.sort_combo.itemData(i) for i in range(view.toolbar.sort_combo.count())], ["name", "duration_minutes"])
         view.toolbar.sort_combo.setCurrentIndex(1); self.assertEqual(view.toolbar.sort_combo.currentData(), "duration_minutes"); self.assertEqual(emitted[-1]["order_by"], "duration_minutes")
-        self.assertFalse(view.filter_panel.isHidden()); self.assertFalse(hasattr(view, "filter_button")); view.season.setEditText("קיץ"); view.active.setCurrentIndex(1); view.apply_filters_button.click()
-        self.assertEqual(emitted[-1]["season"], "קיץ"); self.assertTrue(emitted[-1]["is_active"]); self.assertIn("קיץ", view.filter_summary.text())
+        toolbar = view.toolbar.layout(); self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())], [view.toolbar.search_input, view.toolbar.search_button, view.toolbar.sort_combo, view.toolbar.refresh_button]); self.assertTrue(view.filter_button.isHidden()); self.assertTrue(view.filter_popup.isHidden()); view.season.setEditText("קיץ"); view.active.setCurrentIndex(1); view._apply_filters()
+        self.assertEqual(emitted[-1]["season"], "קיץ"); self.assertTrue(emitted[-1]["is_active"])
         view.show_activities([ROW] * 25, offset=0, count=25, filtered=True); view.footer.next_button.click(); self.assertEqual(pages[-1], (25, 25))
-        view.toolbar.refresh_button.click(); self.assertEqual(emitted[-1]["search"], None); self.assertEqual(emitted[-1]["season"], None); self.assertTrue(view.filter_summary.isHidden())
+        view.toolbar.refresh_button.click(); self.assertEqual(emitted[-1]["search"], None); self.assertEqual(emitted[-1]["season"], None)
 
     def test_per_row_action_double_click_enter_and_back_restore_list_state(self):
         view = ActivitiesView("manager"); selected = []

@@ -32,13 +32,13 @@ class ViewTests(unittest.TestCase):
     def test_booking_filters_open_as_anchored_popover(self) -> None:
         customer = BookingsView("customer")
         customer.show()
-        self.assertFalse(customer.filter_popover.isVisible())
+        self.assertFalse(customer.filter_popup.isVisible())
         self.assertFalse(customer.customer_filter.isVisible())
         manager = BookingsView("manager")
         manager.show()
-        manager.filter_button.click(); self.assertTrue(manager.filter_popover.isVisible())
-        self.assertIs(manager.filter_popover.parentWidget(), manager.list_page)
-        self.assertNotIn(manager.filter_popover, QApplication.topLevelWidgets())
+        manager.filter_button.click(); self.assertTrue(manager.filter_popup.isVisible())
+        self.assertIs(manager.filter_popup.parentWidget(), manager.list_page)
+        self.assertNotIn(manager.filter_popup, QApplication.topLevelWidgets())
         manager.close()
 
     def test_booking_command_controls_are_manager_only(self) -> None:

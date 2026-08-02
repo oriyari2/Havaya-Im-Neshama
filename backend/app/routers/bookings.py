@@ -100,13 +100,14 @@ def create_booking(payload: BookingCreate, current_user: dict = RequireBookingCr
     description="Returns full booking fields to managers/customers and an operational, commercial-field-safe view to instructors.",
 )
 def list_bookings(
-    status: str | None = None,
+    status: Annotated[list[str] | None, Query()] = None,
     customer_id: UUID | None = None,
-    activity_id: UUID | None = None,
-    instructor_id: UUID | None = None,
+    activity_id: Annotated[list[UUID] | None, Query()] = None,
+    instructor_id: Annotated[list[UUID] | None, Query()] = None,
+    assignment_state: Annotated[list[Literal["assigned", "unassigned"]] | None, Query()] = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
-    order_by: Literal["event_at", "customer_name"] = "event_at",
+    order_by: Literal["event_at", "event_at_desc", "customer_name"] = "event_at",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),
@@ -120,6 +121,7 @@ def list_bookings(
             customer_id=customer_id,
             activity_id=activity_id,
             instructor_id=instructor_id,
+            assignment_state=assignment_state,
             from_date=from_date,
             to_date=to_date,
             order_by=order_by,
@@ -166,7 +168,7 @@ def get_open_event_detail(booking_id:UUID,current_user:dict=Depends(get_current_
     description="Returns a compact list containing only the signed-in customer's bookings.",
 )
 def get_my_bookings(
-    order_by: Literal["event_at", "customer_name"] = "event_at",
+    order_by: Literal["event_at", "event_at_desc", "customer_name"] = "event_at",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),

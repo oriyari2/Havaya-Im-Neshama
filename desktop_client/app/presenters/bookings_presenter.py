@@ -106,9 +106,9 @@ class BookingsPresenter:
     def _normalize_filters(self, filters):
         if filters is None:
             return True
-        cleaned = {key: value for key, value in filters.items() if value not in (None, "")}
-        for key in ("status", "customer_id", "activity_id", "instructor_id", "from_date", "to_date"):
-            if key in filters and filters[key] in (None, ""):
+        cleaned = {key: value for key, value in filters.items() if value not in (None, "", [])}
+        for key in ("status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date"):
+            if key in filters and filters[key] in (None, "", []):
                 self.filters.pop(key, None)
         for key, suffix in (("from_date", "T00:00:00+00:00"), ("to_date", "T23:59:59.999999+00:00")):
             if isinstance(cleaned.get(key), str) and len(cleaned[key]) == 10:
@@ -153,9 +153,9 @@ class BookingsPresenter:
                     self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
                 )
             limit, offset = int(snapshot.get("limit", 25)), max(0, int(snapshot.get("offset", 0)))
-            api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "from_date", "to_date", "order_by", "limit", "offset"}}
+            api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
             if self.role == "customer":
-                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "order_by", "limit", "offset"}}
+                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
                 payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset, order_by=str(snapshot.get("order_by") or "event_at"))
             else:
                 scoped = dict(api_snapshot)

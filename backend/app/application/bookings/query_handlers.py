@@ -7,6 +7,7 @@ from psycopg.rows import dict_row
 
 from backend.app.db.connection import get_connection
 from backend.app.domain.bookings.aggregate import BookingAggregate
+from backend.app.domain.bookings.status import BookingStatus
 from backend.app.infrastructure.repositories import booking_event_repository as events_repo
 from backend.app.infrastructure.repositories import booking_projection_repository as projection_repo
 
@@ -67,13 +68,14 @@ def _resolve_visibility_scope(
 
 def list_bookings(
     current_user: dict,
-    status: str | None,
+    status: str | list[str] | None,
     limit: int,
     offset: int,
     *,
     customer_id: UUID | None = None,
-    activity_id: UUID | None = None,
-    instructor_id: UUID | None = None,
+    activity_id: UUID | list[UUID] | None = None,
+    instructor_id: UUID | list[UUID] | None = None,
+    assignment_state: str | list[str] | None = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
     order_by: str = "event_at",
@@ -86,8 +88,17 @@ def list_bookings(
 
     if from_date is not None and to_date is not None and from_date > to_date:
         raise BookingValidationError("from_date must be before or equal to to_date")
-    if order_by not in {"event_at", "customer_name"}:
+    if order_by not in {"event_at", "event_at_desc", "customer_name"}:
         raise BookingValidationError("unsupported booking order")
+    statuses = [status] if isinstance(status, str) else list(status or [])
+    valid_statuses = {item.value for item in BookingStatus}
+    if any(item not in valid_statuses for item in statuses):
+        raise BookingValidationError("unsupported booking status")
+    activity_ids = [activity_id] if isinstance(activity_id, UUID) else list(activity_id or [])
+    instructor_ids = [instructor_id] if isinstance(instructor_id, UUID) else list(instructor_id or [])
+    assignment_states = [assignment_state] if isinstance(assignment_state, str) else list(assignment_state or [])
+    if any(item not in {"assigned", "unassigned"} for item in assignment_states):
+        raise BookingValidationError("unsupported assignment state")
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -95,7 +106,7 @@ def list_bookings(
                 "role": role,
                 "customer_id": scope_customer_id,
                 "instructor_id": scope_instructor_id,
-                "status": status,
+                "status": statuses or None,
                 "limit": limit,
                 "offset": offset,
                 "order_by": order_by,
@@ -103,10 +114,12 @@ def list_bookings(
             if role == "manager":
                 if customer_id is not None:
                     kwargs["customer_filter_id"] = customer_id
-                if instructor_id is not None:
-                    kwargs["instructor_filter_id"] = instructor_id
-            if activity_id is not None:
-                kwargs["activity_id"] = activity_id
+                if instructor_ids:
+                    kwargs["instructor_filter_id"] = instructor_ids
+            if activity_ids:
+                kwargs["activity_id"] = activity_ids
+            if assignment_states:
+                kwargs["assignment_state"] = assignment_states
             if from_date is not None:
                 kwargs["from_date"] = from_date
             if to_date is not None:

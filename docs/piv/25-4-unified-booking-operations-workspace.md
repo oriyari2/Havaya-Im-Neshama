@@ -142,7 +142,9 @@ introduced. Create/Edit labels, headings and Hebrew fields now enforce RTL
 alignment explicitly.
 
 The Booking sort menu also offers `שם לקוח`. The Desktop sends the whitelisted
-`customer_name` value through the existing list service; the projection orders
+`customer_name` value through the existing list service; event-time sorting
+supports explicit nearest-first (`event_at`) and farthest-first
+(`event_at_desc`) choices. The projection orders
 by `customers.name ASC` before `LIMIT/OFFSET`, with event time and creation time
 as stable tie-breakers. Reset restores the default event-time order.
 

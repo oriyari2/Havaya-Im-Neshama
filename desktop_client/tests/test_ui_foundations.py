@@ -22,6 +22,7 @@ from desktop_client.app.views.ai_chat_view import AIChatView
 from desktop_client.app.views.bookings_view import BookingsView
 from desktop_client.app.views.dashboard_view import DashboardView
 from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
+from desktop_client.app.views.filter_popup import FloatingFilterPopup
 from desktop_client.app.views.knowledge_view import KnowledgeManagementView
 from desktop_client.app.views.design_tokens import (
     COLOR_BACKGROUND, COLOR_FOCUS, CONTROL_HEIGHT, DIALOG_WIDTH_DEFAULT,
@@ -38,13 +39,45 @@ from desktop_client.app.views.ui_foundations import (
 
 
 class UiFoundationTests(unittest.TestCase):
+    def test_activities_and_bookings_reuse_shared_floating_filter_popup(self) -> None:
+        activities = ActivitiesView("manager"); bookings = BookingsView("manager")
+        self.assertIsInstance(activities.filter_popup, FloatingFilterPopup)
+        self.assertIsInstance(bookings.filter_popup, FloatingFilterPopup)
+        self.assertIs(type(activities.filter_popup), type(bookings.filter_popup))
+        self.assertTrue(all(section.content_host.isHidden() for section in activities.filter_popup.sections))
+        self.assertTrue(all(section.content_host.isHidden() for section in bookings.filter_popup.sections))
+
+    def test_filter_popup_rtl_expand_scroll_and_lifecycle(self) -> None:
+        view = BookingsView("manager")
+        view.show_filter_options([], [{"id": str(index), "name": f"פעילות {index}"} for index in range(40)], [])
+        view.resize(1024, 640); view.show(); self.app.processEvents()
+        view.filter_button.click(); self.app.processEvents()
+        popup = view.filter_popup; self.assertTrue(popup.isVisible()); self.assertEqual(popup.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        first = popup.sections[0]; QTest.mouseClick(first.header, Qt.MouseButton.LeftButton); self.app.processEvents()
+        self.assertTrue(popup.isVisible()); self.assertFalse(first.content_host.isHidden()); self.assertEqual(first.arrow.text(), "▼"); self.assertFalse(first.arrow.geometry().intersects(first.title.geometry())); self.assertGreater(first.arrow.geometry().x(), first.title.geometry().x())
+        QTest.mouseClick(first.header, Qt.MouseButton.LeftButton); self.app.processEvents(); self.assertTrue(popup.isVisible()); self.assertTrue(first.content_host.isHidden()); self.assertEqual(first.arrow.text(), "◀")
+        activity = popup.sections[-1]; popup.scroll.ensureWidgetVisible(activity.header); self.app.processEvents(); QTest.mouseClick(activity.header, Qt.MouseButton.LeftButton); self.app.processEvents()
+        self.assertTrue(popup.isVisible()); self.assertGreater(popup.scroll.verticalScrollBar().maximum(), 0); self.assertTrue(popup.apply_button.isVisibleTo(popup)); self.assertTrue(popup.clear_button.isVisibleTo(popup))
+        QTest.keyClick(popup, Qt.Key.Key_Escape); self.app.processEvents(); self.assertTrue(popup.isHidden())
+        view.filter_button.click(); self.app.processEvents(); self.assertTrue(popup.isVisible()); view.filter_button.click(); self.app.processEvents(); self.assertTrue(popup.isHidden())
+        view.filter_button.click(); self.app.processEvents(); self.assertTrue(popup.isVisible()); QTest.mouseClick(view.table.viewport(), Qt.MouseButton.LeftButton); self.app.processEvents(); self.assertTrue(popup.isHidden()); view.close()
+
+    def test_internal_category_click_never_closes_shared_popup_in_either_module(self) -> None:
+        for view in (ActivitiesView("manager"), BookingsView("manager")):
+            view.show(); self.app.processEvents(); view.filter_button.click(); self.app.processEvents(); popup = view.filter_popup
+            for section in popup.sections:
+                popup.scroll.ensureWidgetVisible(section.header); self.app.processEvents()
+                QTest.mouseClick(section.header, Qt.MouseButton.LeftButton); self.app.processEvents(); self.assertTrue(popup.isVisible()); self.assertFalse(section.content_host.isHidden())
+                QTest.mouseClick(section.header, Qt.MouseButton.LeftButton); self.app.processEvents(); self.assertTrue(popup.isVisible()); self.assertTrue(section.content_host.isHidden())
+            view.close()
+
     def test_management_sort_menus_follow_final_operational_policy(self) -> None:
         views = (
             (CustomersView(), ["name", "created_at"]),
             (InstructorsView(), ["full_name", "created_at", "is_active"]),
             (UsersView(), ["display_name", "created_at", "is_active"]),
             (ActivitiesView("manager"), ["name", "duration_minutes"]),
-            (BookingsView("manager"), ["event_at", "customer_name"]),
+            (BookingsView("manager"), ["event_at", "event_at_desc", "customer_name"]),
         )
         for view, expected in views:
             combo = view.toolbar.sort_combo
@@ -118,6 +151,8 @@ class UiFoundationTests(unittest.TestCase):
             self.assertEqual(view.scaffold.header.title.objectName(), "screenTitle"); self.assertEqual(view.scaffold.header.description.alignment(), customer.scaffold.header.description.alignment())
             self.assertEqual(toolbar.contentsMargins(), reference_toolbar.contentsMargins()); self.assertEqual(toolbar.spacing(), reference_toolbar.spacing()); self.assertEqual(toolbar.direction(), reference_toolbar.direction())
             expected = [view.toolbar.search_input, view.toolbar.search_button, view.toolbar.sort_combo, view.toolbar.refresh_button]
+            if hasattr(view, "filter_button") and not view.filter_button.isHidden():
+                expected.insert(3, view.filter_button)
             self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())], expected)
             self.assertEqual(view.toolbar.parentWidget().objectName(), "filterPanel"); self.assertIsInstance(view.toolbar.parentWidget(), QFrame)
             self.assertEqual(view.table.verticalHeader().defaultSectionSize(), customer.table.verticalHeader().defaultSectionSize()); self.assertEqual(view.table.horizontalHeader().minimumHeight(), customer.table.horizontalHeader().minimumHeight()); self.assertEqual(view.table.alternatingRowColors(), customer.table.alternatingRowColors())

@@ -159,9 +159,10 @@ def list_bookings(
     customer_id: UUID | None = None,
     instructor_id: UUID | None = None,
     customer_filter_id: UUID | None = None,
-    instructor_filter_id: UUID | None = None,
-    activity_id: UUID | None = None,
-    status: str | None = None,
+    instructor_filter_id: UUID | list[UUID] | None = None,
+    activity_id: UUID | list[UUID] | None = None,
+    status: str | list[str] | None = None,
+    assignment_state: str | list[str] | None = None,
     from_date: object | None = None,
     to_date: object | None = None,
     order_by: str = "event_at",
@@ -182,14 +183,26 @@ def list_bookings(
         filters.append("AND b.customer_id = %s")
         params.append(customer_filter_id)
     if instructor_filter_id is not None:
-        filters.append("AND EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.instructor_id = %s AND bi.active = true)")
-        params.append(instructor_filter_id)
+        instructor_ids = instructor_filter_id if isinstance(instructor_filter_id, list) else [instructor_filter_id]
+        filters.append("AND EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.instructor_id = ANY(%s) AND bi.active = true)")
+        params.append(instructor_ids)
     if activity_id is not None:
-        filters.append("AND b.activity_id = %s")
-        params.append(activity_id)
+        activity_ids = activity_id if isinstance(activity_id, list) else [activity_id]
+        filters.append("AND b.activity_id = ANY(%s)")
+        params.append(activity_ids)
     if status is not None:
-        filters.append("AND b.status = %s")
-        params.append(status)
+        statuses = status if isinstance(status, list) else [status]
+        filters.append("AND b.status = ANY(%s)")
+        params.append(statuses)
+    if assignment_state is not None:
+        states = assignment_state if isinstance(assignment_state, list) else [assignment_state]
+        assignment_clauses = []
+        if "assigned" in states:
+            assignment_clauses.append("EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true)")
+        if "unassigned" in states:
+            assignment_clauses.append("(b.requires_instructor = true AND NOT EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true))")
+        if assignment_clauses:
+            filters.append("AND (" + " OR ".join(assignment_clauses) + ")")
     if from_date is not None:
         filters.append("AND b.event_at >= %s")
         params.append(from_date)
@@ -199,6 +212,7 @@ def list_bookings(
 
     order_sql = {
         "event_at": "b.event_at ASC, b.created_at ASC",
+        "event_at_desc": "b.event_at DESC, b.created_at DESC",
         "customer_name": "c.name ASC, b.event_at ASC, b.created_at ASC",
     }.get(order_by)
     if order_sql is None:

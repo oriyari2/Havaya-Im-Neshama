@@ -11,6 +11,7 @@ from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.activity_dialogs import ActivityDialog
 from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4
+from desktop_client.app.views.filter_popup import FloatingFilterPopup
 from desktop_client.app.views.management_common import ActiveBadge, RetryState, confirm_action
 from desktop_client.app.views.management_workspace import ManagementWorkspace
 from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, set_disabled_explanation, set_item_text
@@ -62,15 +63,14 @@ class ActivitiesView(StatefulWidget):
         self.actions = self.workspace.actions_container
         self.create_button.setVisible(role == "manager")
 
-        panel_parent = self.toolbar.parentWidget(); panel_layout = panel_parent.layout()
-        self.filter_panel = QWidget(); filter_layout = QHBoxLayout(self.filter_panel); filter_layout.setContentsMargins(0, SPACE_2, 0, 0); filter_layout.setDirection(QHBoxLayout.Direction.RightToLeft); filter_layout.setSpacing(SPACE_2)
+        self.filter_button = QPushButton("סינון", self.toolbar); self.filter_button.hide()
+        self.filter_popup = FloatingFilterPopup(self.filter_button, self.list_page)
         self.audience = QComboBox(); self.audience.setEditable(True); self.audience.addItem("כל קהלי היעד", "")
         self.season = QComboBox(); self.season.setEditable(True); self.season.addItem("כל העונות", "")
         self.active = QComboBox(); self.active.addItem("כל המצבים", None); self.active.addItem("פעילה", True); self.active.addItem("לא פעילה", False); self.active.setVisible(role == "manager")
-        self.apply_filters_button = QPushButton("החלת סינון")
-        for widget in (self.audience, self.season, self.active, self.apply_filters_button): filter_layout.addWidget(widget)
-        filter_layout.addStretch(); panel_layout.addWidget(self.filter_panel)
-        self.filter_summary = QLabel(); self.filter_summary.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); panel_layout.addWidget(self.filter_summary); self.filter_summary.hide()
+        self.filter_popup.add_section("קהל יעד", self.audience); self.filter_popup.add_section("עונה", self.season)
+        if role == "manager": self.filter_popup.add_section("מצב", self.active)
+        self.apply_filters_button = self.filter_popup.apply_button; self.clear_filters_button = self.filter_popup.clear_button
 
         self.edit_button = self.workspace.add_action("עריכת פעילות")
         self.deactivate_button = self.workspace.add_action("השבתת פעילות", destructive=True)
@@ -85,7 +85,7 @@ class ActivitiesView(StatefulWidget):
         self.toolbar.search_requested.connect(lambda search, order: self.filters_requested.emit({"search": search or None, "order_by": order or "name"}))
         self.toolbar.sort_combo.currentIndexChanged.connect(lambda _index: self.filters_requested.emit({"search": self.toolbar.search_input.text().strip() or None, "order_by": str(self.toolbar.sort_combo.currentData() or "name")}))
         self.toolbar.refresh_requested.connect(self._reset_filters)
-        self.apply_filters_button.clicked.connect(self._apply_filters); self.footer.page_requested.connect(self.page_requested)
+        self.filter_button.clicked.connect(self.filter_popup.toggle); self.filter_popup.apply_requested.connect(self._apply_filters); self.filter_popup.clear_requested.connect(self._clear_popup_filters); self.footer.page_requested.connect(self.page_requested)
         self.table.itemSelectionChanged.connect(self._select); self.table.cellDoubleClicked.connect(lambda row, _column: self._request_open(self._row_id(row))); self.table.installEventFilter(self)
         self.workspace.empty_action_button.clicked.connect(self._empty_action); self.clear_details()
         self.set_manager_actions(role == "manager"); self.set_media_actions(role == "manager")
@@ -129,21 +129,20 @@ class ActivitiesView(StatefulWidget):
         if self.workspace.detail_title.text() and self._selected_id == activity_id: self._pending_open_id = None; self.workspace.show_details()
 
     def _apply_filters(self) -> None:
+        self.filter_popup.hide()
         audience = self.audience.currentText().strip(); season = self.season.currentText().strip()
         values = {"target_audience": None if audience == "כל קהלי היעד" else audience or None, "season": None if season == "כל העונות" else season or None}
         if self.role == "manager": values["is_active"] = self.active.currentData()
-        parts = []
-        if values.get("target_audience"): parts.append(f"קהל יעד: {values['target_audience']}")
-        if values.get("season"): parts.append(f"עונה: {values['season']}")
-        if values.get("is_active") is not None: parts.append("מצב: פעילה" if values["is_active"] else "מצב: לא פעילה")
-        self.filter_summary.setText("מסננים פעילים: " + " · ".join(parts)); self.filter_summary.setVisible(bool(parts)); self.filters_requested.emit(values)
+        self.filters_requested.emit(values)
+    def _clear_popup_filters(self) -> None:
+        self.audience.setCurrentIndex(0); self.audience.setEditText("כל קהלי היעד"); self.season.setCurrentIndex(0); self.season.setEditText("כל העונות"); self.active.setCurrentIndex(0); self._apply_filters()
     def _reset_filters(self) -> None:
         self._reset_controls()
         values = {"search": None, "target_audience": None, "season": None, "tag": None, "order_by": "name", "_clear_selection": True}
         if self.role == "manager": values["is_active"] = None
         self.filters_requested.emit(values)
     def _reset_controls(self) -> None:
-        self.toolbar.search_input.clear(); blocked = self.toolbar.sort_combo.blockSignals(True); self.toolbar.sort_combo.setCurrentIndex(0); self.toolbar.sort_combo.blockSignals(blocked); self.audience.setCurrentIndex(0); self.audience.setEditText("כל קהלי היעד"); self.season.setCurrentIndex(0); self.season.setEditText("כל העונות"); self.active.setCurrentIndex(0); self.filter_summary.hide(); self.filter_panel.show(); self.table.clearSelection(); self.clear_details()
+        self.toolbar.search_input.clear(); blocked = self.toolbar.sort_combo.blockSignals(True); self.toolbar.sort_combo.setCurrentIndex(0); self.toolbar.sort_combo.blockSignals(blocked); self.audience.setCurrentIndex(0); self.audience.setEditText("כל קהלי היעד"); self.season.setCurrentIndex(0); self.season.setEditText("כל העונות"); self.active.setCurrentIndex(0); self.filter_popup.hide(); self.table.clearSelection(); self.clear_details()
     def _empty_action(self) -> None: self._reset_filters() if self._empty_filtered else self.create_requested.emit()
 
     def set_manager_actions(self, manager: bool) -> None: self.create_button.setVisible(manager); self.actions.setVisible(manager)
