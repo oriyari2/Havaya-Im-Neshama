@@ -94,6 +94,85 @@ class ApiClientTests(unittest.TestCase):
                 self.assertEqual(client.access_token, "manager-token")
                 self.assertEqual(notified, [])
 
+    def test_ai_timeout_has_distinct_message_and_preserves_session(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        notified = []
+        client.set_unauthorized_handler(lambda: notified.append(True))
+        requests = []
+
+        def fail(request, timeout):
+            requests.append((request, timeout))
+            raise TimeoutError()
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=fail):
+            with self.assertRaises(ApiError) as raised:
+                client.post_ai("/api/ai/consult", {"prompt": "hello"})
+
+        self.assertEqual(raised.exception.kind, ApiErrorKind.TIMEOUT)
+        self.assertEqual(requests[0][1], 480.0)
+        self.assertIn("AI", str(raised.exception))
+        self.assertNotIn("להתחבר לשרת", str(raised.exception))
+        self.assertEqual(client.access_token, "manager-token")
+        self.assertEqual(notified, [])
+
+    def test_ai_urlerror_wrapped_timeout_is_classified_as_timeout(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        notified = []
+        client.set_unauthorized_handler(lambda: notified.append(True))
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=URLError(TimeoutError("timed out"))):
+            with self.assertRaises(ApiError) as raised:
+                client.post_ai("/api/ai/consult", {"prompt": "hello"})
+
+        self.assertEqual(raised.exception.kind, ApiErrorKind.TIMEOUT)
+        self.assertIn("AI", str(raised.exception))
+        self.assertEqual(client.access_token, "manager-token")
+        self.assertEqual(notified, [])
+
+    def test_ai_503_preserves_session(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        notified = []
+        client.set_unauthorized_handler(lambda: notified.append(True))
+        error = HTTPError(
+            "http://example.test/api/ai/consult",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(b'{"detail":"AI service is unavailable"}'),
+        )
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+            with self.assertRaises(ApiError) as raised:
+                client.post_ai("/api/ai/consult", {"prompt": "hello"})
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(str(raised.exception), "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.")
+        self.assertNotIn("AI service is unavailable", str(raised.exception))
+        self.assertEqual(client.access_token, "manager-token")
+        self.assertEqual(notified, [])
+
+    def test_ai_embedding_backend_detail_is_not_exposed(self) -> None:
+        client = ApiClient("http://example.test")
+        client.set_access_token("manager-token")
+        error = HTTPError(
+            "http://example.test/api/ai/consult",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(b'{"detail":"Embedding service is unavailable. Verify Ollama is running."}'),
+        )
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+            with self.assertRaises(ApiError) as raised:
+                client.post_ai("/api/ai/consult", {"prompt": "hello"})
+
+        self.assertEqual(raised.exception.status_code, 503)
+        self.assertEqual(str(raised.exception), "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.")
+        self.assertNotIn("Embedding service is unavailable", str(raised.exception))
+
     def test_multipart_upload_is_authenticated_and_contains_file(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("manager-token")

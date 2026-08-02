@@ -46,6 +46,7 @@ class _View:
         self.cancellation_confirmed = True
         self.command_status = ""
         self.request_states = []
+        self.cleared_errors = 0
 
     def set_loading(self, loading: bool) -> None:
         self.loading.append(loading)
@@ -55,6 +56,10 @@ class _View:
 
     def show_error(self, message: str) -> None:
         self.error = message
+
+    def clear_error(self) -> None:
+        self.error = ""
+        self.cleared_errors += 1
 
     def show_bookings(self, rows, **page) -> None:
         self.rows = rows
@@ -217,6 +222,23 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("Task17 Equipment", view.messages[-1][1])
         self.assertIn("demo://equipment", view.messages[-1][1])
 
+    def test_ai_chat_presenter_displays_rag_fallback_sources(self) -> None:
+        view = _View()
+
+        class AIService:
+            def consult(self, prompt):
+                return {
+                    "answer": "Fallback answer from approved content.",
+                    "answer_basis": "rag_fallback",
+                    "sources": [{"source_title": "Task17 Equipment", "source_uri": "demo://equipment"}],
+                }
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message("hello")
+
+        self.assertIn("Fallback answer from approved content.", view.messages[-1][1])
+        self.assertIn("Task17 Equipment", view.messages[-1][1])
+
     def test_ai_chat_presenter_handles_empty_prompt_and_errors(self) -> None:
         view = _View()
 
@@ -230,6 +252,26 @@ class PresenterTests(unittest.TestCase):
         presenter.send_message("שלום")
         self.assertEqual(view.error, "offline")
         self.assertEqual(view.loading, [True, False])
+
+    def test_ai_chat_presenter_clears_stale_error_after_success(self) -> None:
+        view = _View()
+
+        class AIService:
+            def __init__(self):
+                self.fail = True
+
+            def consult(self, prompt):
+                if self.fail:
+                    self.fail = False
+                    raise RuntimeError("offline")
+                return {"answer": "ok", "answer_basis": "rag", "sources": []}
+
+        presenter = AIChatPresenter(view, AIService())
+        presenter.send_message("hello")
+        self.assertEqual(view.error, "offline")
+        presenter.send_message("hello again")
+        self.assertEqual(view.error, "")
+        self.assertEqual(view.cleared_errors, 1)
 
     def test_ai_consult_503_shows_error_without_expiring_session_or_login_navigation(self) -> None:
         view = _View()

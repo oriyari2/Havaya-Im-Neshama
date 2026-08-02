@@ -14,6 +14,22 @@ class EmbeddingClientError(RuntimeError):
     """Raised when the configured embedding service cannot complete a request."""
 
 
+class EmbeddingClientTimeoutError(EmbeddingClientError):
+    """Raised when embedding generation exceeds the configured timeout."""
+
+
+class EmbeddingClientConnectionError(EmbeddingClientError):
+    """Raised when Ollama cannot be reached for embeddings."""
+
+
+class EmbeddingClientHTTPError(EmbeddingClientError):
+    """Raised when Ollama returns an unsuccessful HTTP status for embeddings."""
+
+
+class EmbeddingClientMalformedResponseError(EmbeddingClientError):
+    """Raised when Ollama returns JSON without the expected embedding shape."""
+
+
 class EmbeddingClient(ABC):
     @abstractmethod
     def embed(self, text: str) -> list[float]:
@@ -39,17 +55,26 @@ class OllamaEmbeddingClient(EmbeddingClient):
                 timeout=self.timeout_seconds,
             )
             response.raise_for_status()
+        except httpx.TimeoutException as exc:
+            raise EmbeddingClientTimeoutError("Ollama embedding request timed out") from exc
+        except httpx.ConnectError as exc:
+            raise EmbeddingClientConnectionError("Ollama embedding connection failed") from exc
+        except httpx.HTTPStatusError as exc:
+            raise EmbeddingClientHTTPError("Ollama embedding returned an HTTP error") from exc
         except httpx.HTTPError as exc:
             raise EmbeddingClientError("Ollama embedding request failed") from exc
 
-        data = response.json()
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise EmbeddingClientMalformedResponseError("Ollama embedding response was not valid JSON") from exc
         embeddings = data.get("embeddings")
         if not isinstance(embeddings, list) or not embeddings:
-            raise EmbeddingClientError("Ollama response did not include embeddings")
+            raise EmbeddingClientMalformedResponseError("Ollama response did not include embeddings")
 
         embedding = embeddings[0]
         if not embedding or not _is_numeric_sequence(embedding):
-            raise EmbeddingClientError("Ollama response did not include a numeric embedding")
+            raise EmbeddingClientMalformedResponseError("Ollama response did not include a numeric embedding")
         return [float(value) for value in embedding]
 
     def _resolved_base_url(self) -> str:
