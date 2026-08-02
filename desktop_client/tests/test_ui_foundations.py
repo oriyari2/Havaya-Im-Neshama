@@ -90,7 +90,7 @@ class UiFoundationTests(unittest.TestCase):
     def test_entity_dialogs_share_customer_geometry_hierarchy_and_actions(self) -> None:
         dialogs = (CustomerDialog(), InstructorDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
         for dialog in dialogs:
-            self.assertEqual(dialog.minimumSize().width(), 760); self.assertEqual(dialog.minimumSize().height(), 600); self.assertEqual(dialog.maximumWidth(), 860)
+            self.assertEqual(dialog.minimumSize().width(), 760); self.assertLessEqual(dialog.minimumSize().height(), 680); self.assertEqual(dialog.maximumWidth(), 860)
             self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.WrapAllRows)
             self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
 

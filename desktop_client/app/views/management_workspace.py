@@ -60,6 +60,7 @@ class ManagementWorkspace(QWidget):
         header.addWidget(self.identity_container); detail.addWidget(self.detail_header)
         self.details_widget = QWidget(); self.details_widget.setLayoutDirection(Qt.LayoutDirection.LeftToRight); detail_body = QVBoxLayout(self.details_widget); detail_body.setContentsMargins(0, 0, 0, 0)
         self.cards = QBoxLayout(QBoxLayout.Direction.RightToLeft); self.cards.setContentsMargins(0, 0, 0, 0); self.cards.setSpacing(SPACE_4); detail_body.addLayout(self.cards); detail_body.addStretch()
+        self._primary_card = None; self._secondary_cards = None; self._secondary_layout = None
         self.details_scroll = QScrollArea(); self.details_scroll.setWidgetResizable(True); self.details_scroll.setFrameShape(QScrollArea.Shape.NoFrame); self.details_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff); self.details_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.details_scroll.setWidget(self.details_widget); detail.addWidget(self.details_scroll, 1)
         self.back_button.clicked.connect(self.show_list); self.pages.setCurrentWidget(self.list_page)
 
@@ -97,9 +98,15 @@ class ManagementWorkspace(QWidget):
         heading = QLabel(title); heading.setObjectName("sectionTitle"); heading.setLayoutDirection(Qt.LayoutDirection.RightToLeft); heading.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); heading_row.addWidget(heading); layout.addLayout(heading_row)
         form_host = QWidget(); form_host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         form = QFormLayout(form_host); form.setContentsMargins(0, 0, 0, 0); form.setHorizontalSpacing(SPACE_4); form.setVerticalSpacing(SPACE_3); form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight); form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        layout.addWidget(form_host); layout.addStretch(); self.cards.addWidget(frame)
-        count = self.cards.count()
-        for index in range(count): self.cards.setStretch(index, 3 if index == 0 else 2)
+        layout.addWidget(form_host); layout.addStretch()
+        if self._primary_card is None:
+            self._primary_card = frame; self.cards.addWidget(frame, 3)
+        else:
+            if self._secondary_cards is None:
+                self._secondary_cards = QWidget(); self._secondary_cards.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+                self._secondary_layout = QVBoxLayout(self._secondary_cards); self._secondary_layout.setContentsMargins(0, 0, 0, 0); self._secondary_layout.setSpacing(SPACE_4)
+                self.cards.addWidget(self._secondary_cards, 2)
+            self._secondary_layout.addWidget(frame)
         return form
 
     @staticmethod
@@ -109,7 +116,7 @@ class ManagementWorkspace(QWidget):
         form.addRow(label, content)
         label_widget = form.itemAt(form.rowCount() - 1, QFormLayout.ItemRole.LabelRole).widget()
         if isinstance(label_widget, QLabel):
-            label_widget.setFixedWidth(140); label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft); label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            label_widget.setFixedWidth(140); label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft); label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
 
     @staticmethod
     def configure_status_badge(badge: ActiveBadge) -> None:

@@ -228,3 +228,38 @@ implementation details rather than independent Desktop workflows. The dead-UI
 scan found no unreachable management dialog, unconnected action, orphan
 management Presenter/widget, copied placeholder, TODO UI, or visible temporary
 top-level widget. Disabled management actions now carry an accessible reason.
+
+## Shared-foundation closure
+
+The final refactor makes `ManagementWorkspace` the sole layout implementation
+for the Customer, Instructor, and Manager list page, module header, framed
+toolbar, semantic table, pagination, Details hero, action row, responsive card
+composition, and property-sheet rows. Customer no longer carries a separate
+copy of that layout. Entity Views now supply only labels, columns, fields,
+sorts, actions, and data mapping.
+
+`EntityFormDialog` is likewise the sole create/edit/password dialog builder.
+Customer, Instructor, Manager, and password dialogs provide declarative field
+and section specifications. Dialog height follows content (with bounded
+scrolling for long forms), so short forms no longer inherit blank vertical
+space from Customer creation. All management success messages continue through
+the shared `FeedbackBanner`, whose dismiss timer and fade total 2.5 seconds.
+
+### Manager lifecycle architectural review
+
+No lifecycle behavior was changed in this pass. Manager deletion remains a
+reversible logical deactivation of the login account; activation is explicit
+and self-deactivation is rejected by the service. Physical deletion would risk
+breaking audit attribution, historical references, incident investigation, and
+accountability, and should not be introduced without a formal retention and
+referential-integrity policy.
+
+Customer and Instructor Delete currently targets the physical profile record
+and is protected by linked-account, booking, and event-history dependency
+checks. Because normal creation provisions a linked login, those guards make
+physical deletion unavailable for ordinary established profiles. The
+recommended long-term model is one audited, atomic deactivate/reactivate use
+case that synchronizes profile and account state for all three entity types,
+with physical purge reserved for a separately authorized retention workflow.
+That recommendation requires product approval and was deliberately not
+implemented in Task 25.2.

@@ -100,6 +100,10 @@ class MainWindow(QMainWindow):
         self._show_session_expired_dialog()
 
     def _show_session_expired_dialog(self) -> None:
+        # A hidden/unshown application shell must never manufacture a visible
+        # top-level dialog (notably during composition, shutdown, or tests).
+        if not self.isVisible():
+            return
         dialog = QMessageBox(QMessageBox.Icon.Information, "פג תוקף ההתחברות", "לשמירה על אבטחת החשבון, יש להתחבר מחדש כדי להמשיך.", QMessageBox.StandardButton.NoButton, self)
         dialog.setObjectName("sessionExpiredDialog")
         dialog.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
@@ -110,6 +114,14 @@ class MainWindow(QMainWindow):
             label.setWordWrap(True)
         self._session_expired_dialog = dialog
         dialog.open()
+
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        dialog = getattr(self, "_session_expired_dialog", None)
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
+            self._session_expired_dialog = None
+        super().closeEvent(event)
 
     def _show_freshness_warning(self, _resource: str) -> None:
         presenter = self._presenters.get(self._active_page or "")

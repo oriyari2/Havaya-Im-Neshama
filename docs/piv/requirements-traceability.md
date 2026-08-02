@@ -800,3 +800,11 @@ Final QA removed duplicate backing text from Instructor/Manager status cells,
 verified active/inactive badges at multiple window sizes, made the Customer
 toolbar container the canonical `QFrame#filterPanel`, and recorded exhaustive
 endpoint-level Desktop exposure classifications in the Task 25.2 PIV.
+
+The closing shared-foundation refactor removes the remaining Customer-specific
+layout and dialog builders. `ManagementWorkspace` now owns the common RTL
+header, toolbar, table, pagination, Details hero/actions/cards and property
+rows, while `EntityFormDialog` owns Customer/Instructor/Manager create, edit,
+and password geometry. Entity modules contribute configuration and data only.
+Manager lifecycle behavior remains unchanged pending approval of the documented
+logical-deactivation recommendation.

@@ -6,7 +6,7 @@ from unittest import TestCase
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout
+from PySide6.QtWidgets import QApplication, QBoxLayout, QFormLayout
 
 from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
@@ -58,13 +58,13 @@ class CustomerViewTests(TestCase):
         customer["contacts"] = [contact]
         view.show_details(customer_details(customer), customer)
         rendered = " ".join(
-            fields.itemAtPosition(row, 0).widget().text()
-            for key, fields in view.detail_forms.items()
-            for row in range(view._detail_rows[key])
+            fields.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().text()
+            for fields in view.detail_forms.values()
+            for row in range(fields.rowCount())
         )
         self.assertIn("איש קשר", rendered)
         self.assertIn("050-1", rendered)
-        self.assertEqual(view._detail_rows, {"customer": 7, "contact": 2, "system": 3})
+        self.assertEqual({key: form.rowCount() for key, form in view.detail_forms.items()}, {"customer": 5, "contact": 4, "system": 3})
         profile = CustomerProfileView()
         self.assertFalse(hasattr(profile, "contacts"))
         profile.show_profile(customer_details(customer))
@@ -169,29 +169,26 @@ class CustomerViewTests(TestCase):
         self.app.processEvents()
         self.assertGreater(self._center_x(view.identity_container, view), self._center_x(view.actions_container, view))
         self.assertLess(self._center_x(view.back_button, view), view.width() // 2)
-        for key, fields in view.detail_forms.items():
-            heading = view.detail_groups[key].section_heading
-            group = view.detail_groups[key]
-            self.assertGreater(self._center_x(heading, group), group.width() // 2)
-            if view._detail_rows[key]:
-                label = fields.itemAtPosition(0, 1).widget()
-                value = fields.itemAtPosition(0, 0).widget()
+        for fields in view.detail_forms.values():
+            if fields.rowCount():
+                label = fields.itemAt(0, QFormLayout.ItemRole.LabelRole).widget()
+                value = fields.itemAt(0, QFormLayout.ItemRole.FieldRole).widget()
                 self.assertGreater(self._center_x(label, view), self._center_x(value, view))
         labels = [
-            fields.itemAtPosition(row, 1).widget()
-            for key, fields in view.detail_forms.items()
-            for row in range(view._detail_rows[key])
+            fields.itemAt(row, QFormLayout.ItemRole.LabelRole).widget()
+            for fields in view.detail_forms.values()
+            for row in range(fields.rowCount())
         ]
         values = [
-            fields.itemAtPosition(row, 0).widget()
-            for key, fields in view.detail_forms.items()
-            for row in range(view._detail_rows[key])
+            fields.itemAt(row, QFormLayout.ItemRole.FieldRole).widget()
+            for fields in view.detail_forms.values()
+            for row in range(fields.rowCount())
         ]
         self.assertEqual(len({label.width() for label in labels}), 1)
-        for key, fields in view.detail_forms.items():
+        for fields in view.detail_forms.values():
             right_edges = [
-                fields.itemAtPosition(row, 0).widget().geometry().right()
-                for row in range(view._detail_rows[key])
+                fields.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().geometry().right()
+                for row in range(fields.rowCount())
             ]
             self.assertLessEqual(max(right_edges) - min(right_edges), 1)
         for widget in labels + values:
@@ -212,20 +209,14 @@ class CustomerViewTests(TestCase):
             view.select_customer("c1")
             view._open_selected_customer()
             self.app.processEvents()
-            groups = view.detail_groups
             if expect_wide:
-                self.assertGreater(groups["customer"].geometry().x(), groups["contact"].mapTo(view.details_widget, groups["contact"].rect().topLeft()).x())
-                ratio = groups["customer"].width() / view.details_scroll.viewport().width()
-                self.assertGreaterEqual(ratio, 0.58)
-                self.assertLessEqual(ratio, 0.66)
+                self.assertEqual(view.workspace.cards.direction(), QBoxLayout.Direction.RightToLeft)
                 self.assertEqual(view.details_scroll.verticalScrollBar().maximum(), 0)
             else:
-                tops = [groups[key].mapTo(view.details_widget, groups[key].rect().topLeft()).y() for key in ("customer", "contact", "system")]
-                self.assertEqual(tops, sorted(tops))
-                self.assertEqual(len(set(tops)), 3)
+                self.assertEqual(view.workspace.cards.direction(), QBoxLayout.Direction.TopToBottom)
             self.assertEqual(view.details_scroll.horizontalScrollBar().maximum(), 0)
             self.assertGreater(self._center_x(view.identity_container, view), self._center_x(view.actions_container, view))
-            email = view.customer_details.itemAtPosition(5, 0).widget()
+            email = view.contact_details.itemAt(1, QFormLayout.ItemRole.FieldRole).widget()
             self.assertIn("example-domain.test", email.toolTip())
             shell.close()
 

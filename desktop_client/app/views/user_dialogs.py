@@ -2,57 +2,36 @@ from __future__ import annotations
 
 import re
 
-from PySide6.QtWidgets import QLabel, QLineEdit, QWidget
-
-from desktop_client.app.views.customer_dialogs import _BaseFormDialog
 from desktop_client.app.views.account_dialogs import ChangePasswordDialog
-from desktop_client.app.views.ui_foundations import configure_mixed_direction
+from desktop_client.app.views.customer_dialogs import DialogField, DialogSection, EntityFormDialog
 
 
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
+MANAGER_SECTIONS = (
+    DialogSection("פרטי מנהל", (DialogField("manager_name", "שם מנהל *", "שם *"),)),
+    DialogSection("חשבון התחברות", (
+        DialogField("email", "דוא״ל להתחברות *", "דוא״ל *", mixed_direction=True, read_only_on_edit=True),
+        DialogField("role", "תפקיד", kind="static", static_value="מנהל"),
+        DialogField("password", "סיסמה *", kind="password", mixed_direction=True, create_only=True),
+        DialogField("password_confirmation", "אימות סיסמה *", kind="password", mixed_direction=True, create_only=True),
+    )),
+)
 
-class CreateUserDialog(_BaseFormDialog):
+
+class CreateUserDialog(EntityFormDialog):
     """Manager-account dialog; generic User creation is not a Desktop concept."""
 
     def __init__(self, parent=None) -> None:
-        super().__init__("מנהל חדש", parent)
-        self.apply_entity_standard("פרטי המנהל וחשבון ההתחברות")
-        self.body_layout.insertWidget(0, self._section_label("פרטי מנהל"))
-        self.fields = {}
-        self.email = QLineEdit()
-        self.email.setMinimumWidth(240)
-        self.email.setAccessibleName("דוא״ל להתחברות")
-        configure_mixed_direction(self.email)
-        self.form.addRow("דוא״ל להתחברות *", self.email)
-        self.fields["email"] = self.email
-        self.password = QLineEdit()
-        self.password.setMinimumWidth(240)
-        self.password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.password.setAccessibleName("סיסמה")
-        configure_mixed_direction(self.password)
-        self.form.addRow("סיסמה *", self.password)
-        self.fields["password"] = self.password
-        self.confirmation = QLineEdit()
-        self.confirmation.setMinimumWidth(240)
-        self.confirmation.setEchoMode(QLineEdit.EchoMode.Password)
-        self.confirmation.setAccessibleName("אימות סיסמה")
-        configure_mixed_direction(self.confirmation)
-        self.form.addRow("אימות סיסמה *", self.confirmation)
-        self.fields["password_confirmation"] = self.confirmation
-        self.manager_name = QLineEdit()
-        self.manager_name.setMinimumWidth(240)
-        self.manager_name.setAccessibleName("שם מנהל")
-        self.form.addRow("שם מנהל *", self.manager_name)
-        self.fields["manager_name"] = self.manager_name
-        for field in self.fields.values():
+        super().__init__(title="מנהל חדש", description="פרטי המנהל וחשבון ההתחברות", sections=MANAGER_SECTIONS, initial=None, parent=parent)
+        self.manager_name = self.fields["manager_name"]
+        self.email = self.fields["email"]
+        self.password = self.fields["password"]
+        self.confirmation = self.fields["password_confirmation"]
+        self.save_button.setText("יצירת מנהל")
+        for field in (self.manager_name, self.email, self.password, self.confirmation):
             field.textChanged.connect(self._update_save_enabled)
         self._update_save_enabled()
-        self.save_button.setText("יצירת מנהל")
-        self.email.setFocus()
-        order = [self.email, self.password, self.confirmation, self.manager_name, self.save_button, self.cancel_button]
-        for first, second in zip(order, order[1:]):
-            QWidget.setTabOrder(first, second)
 
     def _update_save_enabled(self, *_args) -> None:
         email = self.email.text().strip().lower()
@@ -64,18 +43,7 @@ class CreateUserDialog(_BaseFormDialog):
         self.save_button.setEnabled(bool(valid and self.manager_name.text().strip()))
 
     def values(self) -> dict:
-        return {
-            "email": self.email.text(),
-            "password": self.password.text(),
-            "password_confirmation": self.confirmation.text(),
-            "role": "manager",
-            "manager_name": self.manager_name.text(),
-        }
-
-    def show_error(self, message: str) -> None:
-        self.password.clear()
-        self.confirmation.clear()
-        super().show_error(message)
+        return {**super().values(), "role": "manager"}
 
     def set_submitting(self, value: bool) -> None:
         super().set_submitting(value)
@@ -83,29 +51,14 @@ class CreateUserDialog(_BaseFormDialog):
             self._update_save_enabled()
 
 
-class EditUserDialog(_BaseFormDialog):
+class EditUserDialog(EntityFormDialog):
     def __init__(self, user: dict, parent=None) -> None:
-        super().__init__("עריכת מנהל", parent)
-        self.apply_entity_standard("פרטי המנהל וחשבון ההתחברות")
-        self.body_layout.insertWidget(0, self._section_label("פרטי מנהל"))
-        self.fields = {}
-        self.email = QLineEdit(str(user["email"]))
-        self.email.setMinimumWidth(240)
-        self.email.setAccessibleName("דוא״ל")
-        self.email.setReadOnly(True)
-        self.email.setAccessibleDescription("דוא״ל ההתחברות קבוע ואינו ניתן לעריכה")
-        configure_mixed_direction(self.email)
-        self.form.addRow("דוא״ל *", self.email)
-        self.fields["email"] = self.email
-        self.role = QLabel("מנהל")
-        self.form.addRow("תפקיד", self.role)
-        self.manager_name = QLineEdit(str(user.get("display_name") or "מנהל"))
-        self.manager_name.setMinimumWidth(240)
-        self.manager_name.setAccessibleName("שם מנהל")
-        self.form.addRow("שם *", self.manager_name)
-        self.fields["manager_name"] = self.manager_name
+        initial = {**user, "manager_name": user.get("display_name") or "מנהל"}
+        super().__init__(title="עריכת מנהל", description="פרטי המנהל וחשבון ההתחברות", sections=MANAGER_SECTIONS, initial=initial, parent=parent)
+        self.email = self.fields["email"]
+        self.manager_name = self.fields["manager_name"]
+        self.role = self.fields["role"]
         self.save_button.setText("שמירת שינויים")
-        self.manager_name.setFocus()
 
     def values(self) -> dict:
         return {"email": self.email.text(), "manager_name": self.manager_name.text()}
