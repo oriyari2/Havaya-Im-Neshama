@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QLabel, QPushButton, QTableWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QGroupBox, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QWidget
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
@@ -341,6 +341,70 @@ class UiFoundationTests(unittest.TestCase):
             view.show(); self.app.processEvents(); self.assertTrue(view.isVisible()); view.close()
         activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()
         pilot = CustomersView(); pilot.show(); self.app.processEvents(); self.assertTrue(pilot.table.property("task20Table")); self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32); pilot.close()
+
+    def test_dashboard_phase_two_uses_branded_sections_without_group_boxes(self) -> None:
+        manager = DashboardView("manager")
+        instructor = DashboardView("instructor")
+        self.assertFalse(manager.findChildren(QGroupBox))
+        self.assertEqual(len(manager.card_values), 6)
+        self.assertEqual(set(instructor.card_values), {"upcoming_count", "assigned_count"})
+        self.assertTrue(manager.findChild(QFrame, "dashboardHero"))
+        self.assertTrue(manager.findChild(QFrame, "dashboardShortcuts"))
+        self.assertEqual(manager.first_group.objectName(), "dashboardSection")
+        self.assertEqual(manager.first_table.property("task20Table"), True)
+        hero = manager.findChild(QFrame, "dashboardHero")
+        title = hero.findChild(QLabel, "dashboardHeroTitle")
+        subtitle = hero.findChild(QLabel, "dashboardHeroSubtitle")
+        self.assertEqual(title.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(subtitle.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(subtitle.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(manager.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(manager.scroll_area.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in manager.card_labels.values()))
+        self.assertTrue(all(value.alignment() & Qt.AlignmentFlag.AlignRight for value in manager.card_values.values()))
+        self.assertTrue(all(label.layoutDirection() == Qt.LayoutDirection.RightToLeft for label in manager.card_labels.values()))
+        self.assertTrue(all(value.layoutDirection() == Qt.LayoutDirection.RightToLeft for value in manager.card_values.values()))
+        self.assertEqual(set(manager.drill_buttons), set(manager.card_values))
+        emitted = []
+        manager.drill_down_requested.connect(emitted.append)
+        manager.drill_buttons["assigned_count"].click()
+        self.assertEqual(emitted, ["assigned_count"])
+        buttons = manager.findChildren(QPushButton, "dashboardShortcutButton")
+        self.assertEqual([button.text() for button in buttons], ["יצירת הזמנה", "לקוחות", "מדריכים", "פעילויות", "הזמנות"])
+        self.assertTrue(all(button.layoutDirection() == Qt.LayoutDirection.RightToLeft for button in buttons))
+        self.assertEqual(buttons[0].property("buttonRole"), "managementPrimary")
+        manager.show_sections(
+            "הזמנות קרובות",
+            [{"id": "b1", "activity": "סדנה", "event_at": "2026-08-03 10:00", "status": "מאושר", "city": "חיפה", "venue": "מרכז", "participants": "12"}],
+            "דורשים שיבוץ",
+            [],
+        )
+        self.assertEqual(manager.first_group.title_label.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(manager.first_table.horizontalHeader().defaultAlignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(manager.first_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(manager.first_table.item(0, 1).textAlignment() & Qt.AlignmentFlag.AlignLeft, Qt.AlignmentFlag.AlignLeft)
+        manager.close()
+        instructor.close()
+
+    def test_dashboard_content_scrolls_without_clipping_manager_layout(self) -> None:
+        manager = DashboardView("manager")
+        self.assertIsInstance(manager.scroll_area, QScrollArea)
+        self.assertTrue(manager.scroll_area.widgetResizable())
+        self.assertEqual(manager.scroll_area.verticalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.assertEqual(manager.scroll_area.horizontalScrollBarPolicy(), Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.assertIs(manager.scroll_area.widget(), manager.content)
+        self.assertEqual(manager.cards_layout.columnCount(), 3)
+        self.assertEqual(manager.cards_layout.rowCount(), 2)
+
+        cards = manager.findChildren(QFrame, "dashboardStatCard")
+        self.assertEqual(len(cards), 6)
+        self.assertTrue(all(card.minimumHeight() >= 128 for card in cards))
+        self.assertTrue(all(card.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Preferred for card in cards))
+        self.assertGreaterEqual(manager.first_table.minimumHeight(), 180)
+        self.assertGreaterEqual(manager.second_table.minimumHeight(), 180)
+        self.assertLessEqual(manager.first_table.maximumHeight(), 280)
+        self.assertLessEqual(manager.second_table.maximumHeight(), 280)
+        manager.close()
 
     def test_main_window_enforces_supported_minimum(self) -> None:
         class Api:

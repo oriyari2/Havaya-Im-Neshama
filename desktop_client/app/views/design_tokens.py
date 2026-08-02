@@ -50,13 +50,34 @@ COLOR_AI_SOURCE_BACKGROUND = "#F3F8EC"
 
 def build_branded_stylesheet() -> str:
     return f"""
-QWidget {{ font-family: "Segoe UI"; font-size: {FONT_SIZE_BODY}px; color: {COLOR_TEXT}; }}
+QWidget {{ font-family: "Segoe UI", "Arial", "Tahoma"; font-size: {FONT_SIZE_BODY}px; color: {COLOR_TEXT}; }}
 QMainWindow, QWidget#applicationRoot {{ background: {COLOR_BACKGROUND}; }}
 QFrame#pageHeader, QFrame#filterPanel, QFrame#detailPanel, QFrame#loginPanel, QFrame[statCard="true"] {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; }}
 #screenTitle {{ font-size: {FONT_SIZE_PAGE_TITLE}px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_TEXT}; }}
 #sectionTitle {{ font-size: {FONT_SIZE_SECTION_TITLE}px; font-weight: {FONT_WEIGHT_LABEL}; color: {COLOR_TEXT}; }}
 #summaryValue {{ font-size: {FONT_SIZE_SUMMARY}px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_BRAND}; }}
 QLabel[subtitle="true"], QLabel[metadata="true"] {{ color: {COLOR_TEXT_MUTED}; }}
+QWidget#dashboardPage {{ background: {COLOR_BACKGROUND}; }}
+QFrame#dashboardHero {{ border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; background: {COLOR_SURFACE}; }}
+QLabel#dashboardHeroTitle {{ font-size: 30px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_BRAND}; background: transparent; }}
+QLabel#dashboardHeroSubtitle {{ font-size: {FONT_SIZE_BODY}px; color: {COLOR_TEXT_MUTED}; background: transparent; }}
+QFrame#dashboardStatCard {{ border-top-width: 2px; min-height: 128px; }}
+QFrame#dashboardStatCard[accent="sky"] {{ border-top-color: {COLOR_ACCENT_SKY}; }}
+QFrame#dashboardStatCard[accent="green"] {{ border-top-color: {COLOR_ACCENT_LEAF}; }}
+QFrame#dashboardStatCard[accent="orange"] {{ border-top-color: {COLOR_ACCENT_ORANGE}; }}
+QFrame#dashboardStatCard[accent="coral"] {{ border-top-color: {COLOR_ERROR}; }}
+QLabel#dashboardStatLabel {{ font-weight: {FONT_WEIGHT_LABEL}; color: {COLOR_TEXT}; }}
+QPushButton#dashboardDrillButton {{ min-height: 34px; background: {COLOR_SURFACE_ALT}; border-radius: {RADIUS_SMALL}px; font-weight: {FONT_WEIGHT_LABEL}; }}
+QPushButton#dashboardDrillButton[accent="sky"] {{ color: {COLOR_BRAND}; border-color: #BFE2E7; }}
+QPushButton#dashboardDrillButton[accent="green"] {{ color: {COLOR_SUCCESS}; border-color: #C9E7C5; }}
+QPushButton#dashboardDrillButton[accent="orange"] {{ color: {COLOR_WARNING}; border-color: #F0D5A4; }}
+QPushButton#dashboardDrillButton[accent="coral"] {{ color: {COLOR_ERROR}; border-color: #EDC4C1; }}
+QFrame#dashboardShortcuts, QFrame#dashboardSection {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; }}
+QPushButton#dashboardShortcutButton {{ min-height: 42px; background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SMALL}px; font-weight: {FONT_WEIGHT_LABEL}; }}
+QPushButton#dashboardShortcutButton:hover {{ background: {COLOR_BRAND_SOFT}; border-color: {COLOR_BORDER_STRONG}; }}
+QPushButton#dashboardShortcutButton[buttonRole="managementPrimary"] {{ background: {COLOR_BRAND}; color: white; border-color: {COLOR_BRAND}; }}
+QPushButton#dashboardShortcutButton[buttonRole="managementPrimary"]:hover {{ background: {COLOR_BRAND_HOVER}; border-color: {COLOR_BRAND_HOVER}; }}
+QLabel#dashboardSectionTitle {{ font-size: {FONT_SIZE_SECTION_TITLE}px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_BRAND}; }}
 #sidebar {{ background: #FBFAF5; border-left: 1px solid {COLOR_BORDER}; }}
 #brand {{ font-size: 19px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_BRAND}; }}
 #sidebarEmail {{ color: {COLOR_TEXT_MUTED}; font-size: {FONT_SIZE_SUPPORTING}px; }}
