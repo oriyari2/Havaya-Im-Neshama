@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
+from urllib.error import HTTPError
+import io
 
 from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError
+from desktop_client.app.api.client import ApiClient
 from desktop_client.app.api.client import ApiErrorKind
 from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
 from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, FormValidationError, validate_create_booking
 from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
 from desktop_client.app.presenters.login_presenter import LoginPresenter
 from desktop_client.app.presenters.navigation import navigation_for_role
+from desktop_client.app.services.ai_chat_service import AIChatService
 
 
 BOOKING = {
@@ -224,6 +229,29 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("שאלה", view.error)
         presenter.send_message("שלום")
         self.assertEqual(view.error, "offline")
+        self.assertEqual(view.loading, [True, False])
+
+    def test_ai_consult_503_shows_error_without_expiring_session_or_login_navigation(self) -> None:
+        view = _View()
+        client = ApiClient("http://example.test")
+        client.set_access_token("current-token")
+        login_navigation = []
+        client.set_unauthorized_handler(lambda: login_navigation.append("login"))
+        presenter = AIChatPresenter(view, AIChatService(client))
+        error = HTTPError(
+            "http://example.test/api/ai/consult",
+            503,
+            "Service Unavailable",
+            {},
+            io.BytesIO(b'{"detail":"AI service is unavailable"}'),
+        )
+
+        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+            presenter.send_message("hello")
+
+        self.assertEqual(view.error, "AI service is unavailable")
+        self.assertEqual(client.access_token, "current-token")
+        self.assertEqual(login_navigation, [])
         self.assertEqual(view.loading, [True, False])
 
     def test_login_presenter_validates_and_reports_loading(self) -> None:

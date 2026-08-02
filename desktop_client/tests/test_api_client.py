@@ -70,6 +70,30 @@ class ApiClientTests(unittest.TestCase):
         self.assertEqual(client.access_token, "new-token")
         self.assertEqual(notified, [])
 
+    def test_authenticated_non_401_http_errors_preserve_token_and_do_not_notify(self) -> None:
+        for status_code in (403, 422, 500, 503):
+            with self.subTest(status_code=status_code):
+                client = ApiClient("http://example.test")
+                client.set_access_token("manager-token")
+                notified = []
+                client.set_unauthorized_handler(lambda: notified.append(True))
+                error = HTTPError(
+                    "http://example.test/resource",
+                    status_code,
+                    "Error",
+                    {},
+                    io.BytesIO(b'{"detail":"backend error"}'),
+                )
+
+                with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+                    with self.assertRaises(ApiError) as raised:
+                        client.post("/resource", {"value": "x"})
+
+                self.assertEqual(raised.exception.status_code, status_code)
+                self.assertEqual(str(raised.exception), "backend error")
+                self.assertEqual(client.access_token, "manager-token")
+                self.assertEqual(notified, [])
+
     def test_multipart_upload_is_authenticated_and_contains_file(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("manager-token")

@@ -187,7 +187,7 @@ class ApiClient:
                 return json.loads(body) if body else None
         except HTTPError as exc:
             message = self._error_message(exc.read().decode("utf-8", errors="replace"))
-            if request_token is not None and self.access_token == request_token:
+            if exc.code == 401 and request_token is not None and self.access_token == request_token:
                 self.access_token = None
                 if self._unauthorized_handler is not None:
                     self._unauthorized_handler()

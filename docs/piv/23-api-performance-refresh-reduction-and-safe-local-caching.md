@@ -292,3 +292,46 @@ plus the exact reproduction and native suite after correction.
   requested gesture was not available in the managed execution environment.
 
 Task 24 and Task 25 were not started.
+
+## Post-closure AI consult session-expiry regression fix
+
+### Observed regression
+
+An authenticated AI chat request that returned a non-401 HTTP error, such as
+`503 Service Unavailable` from `/api/ai/consult`, was incorrectly treated as a
+session-expiry event by the desktop `ApiClient`. The client cleared the access
+token and invoked the unauthorized handler for every `HTTPError`, causing the
+shell to return to login with the Hebrew session-expired message even though the
+session had not expired.
+
+### Correction
+
+`desktop_client/app/api/client.py` now clears the current access token and
+invokes the unauthorized/session-expired handler only when the authenticated
+request receives HTTP `401` and the request token is still the current token.
+The existing obsolete-token protection is preserved: a stale request using an
+old token cannot expire a newer logged-in session.
+
+All non-401 HTTP errors, including `403`, `404`, `409`, `422`, `500`, `503`, and
+other statuses, now propagate as normal `ApiError` values. The active screen can
+display the real failure message without losing authentication or navigating to
+login.
+
+### Files changed
+
+- `desktop_client/app/api/client.py`
+- `desktop_client/tests/test_api_client.py`
+- `desktop_client/tests/test_presenters.py`
+- `docs/piv/23-api-performance-refresh-reduction-and-safe-local-caching.md`
+
+### Validation
+
+- `.\.venv\Scripts\python.exe -m unittest desktop_client.tests.test_api_client desktop_client.tests.test_presenters -v`
+  passed 40 tests.
+- `.\.venv\Scripts\python.exe -m compileall backend desktop_client` passed.
+
+Regression coverage proves authenticated `401` expires the current token and
+notifies once, obsolete-token `401` cannot expire a newer token, authenticated
+`403`, `422`, `500`, and `503` preserve the token without notification, and
+`/api/ai/consult` returning `503` shows the AI error without triggering login
+navigation.
