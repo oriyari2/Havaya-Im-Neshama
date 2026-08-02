@@ -8,7 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QToolButton
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QToolButton
 
 from desktop_client.app.api import client as api_client
 from desktop_client.app.main import MainWindow
@@ -34,17 +34,19 @@ class ActivityViewTests(TestCase):
     def setUpClass(cls): cls.app = QApplication.instance() or QApplication([])
 
     def test_manager_and_read_only_views_share_foundation(self):
-        manager, customer = ActivitiesView("manager"), ActivitiesView("customer")
+        manager, customer, instructor = ActivitiesView("manager"), ActivitiesView("customer"), ActivitiesView("instructor")
         self.assertEqual(manager.scaffold.header.title.text(), "פעילויות")
         self.assertFalse(manager.actions.isHidden()); self.assertTrue(customer.actions.isHidden())
         self.assertFalse(manager.edit_button.isEnabled()); self.assertTrue(customer.create_button.isHidden())
+        for read_only in (instructor, customer):
+            self.assertTrue(read_only.actions.isHidden()); self.assertTrue(read_only.media_actions.isHidden()); self.assertTrue(read_only.create_button.isHidden())
 
     def test_list_search_immediate_sort_filters_reset_and_pagination(self):
         view = ActivitiesView("manager"); emitted = []; pages = []
         view.filters_requested.connect(emitted.append); view.page_requested.connect(lambda offset, limit: pages.append((offset, limit)))
         view.toolbar.search_input.setText("טבע"); view.toolbar.search_button.click(); self.assertEqual(emitted[-1]["search"], "טבע")
         view.toolbar.sort_combo.setCurrentIndex(0); self.assertEqual(view.toolbar.sort_combo.currentData(), "name")
-        view.filter_button.click(); self.assertFalse(view.filter_panel.isHidden()); view.season.setEditText("קיץ"); view.active.setCurrentIndex(1); view.apply_filters_button.click()
+        self.assertFalse(view.filter_panel.isHidden()); self.assertFalse(hasattr(view, "filter_button")); view.season.setEditText("קיץ"); view.active.setCurrentIndex(1); view.apply_filters_button.click()
         self.assertEqual(emitted[-1]["season"], "קיץ"); self.assertTrue(emitted[-1]["is_active"]); self.assertIn("קיץ", view.filter_summary.text())
         view.show_activities([ROW] * 25, offset=0, count=25, filtered=True); view.footer.next_button.click(); self.assertEqual(pages[-1], (25, 25))
         view.toolbar.refresh_button.click(); self.assertEqual(emitted[-1]["search"], None); self.assertEqual(emitted[-1]["season"], None); self.assertTrue(view.filter_summary.isHidden())
@@ -62,6 +64,13 @@ class ActivityViewTests(TestCase):
     def test_details_cards_and_lifecycle_are_context_sensitive(self):
         view = ActivitiesView("manager")
         view.show_details(activity_details(ACTIVITY), ACTIVITY); self.assertFalse(view.deactivate_button.isHidden()); self.assertTrue(view.reactivate_button.isHidden())
+        headings = [label for label in view.details_page.findChildren(type(view.gallery_heading)) if label.objectName() == "sectionTitle"]
+        self.assertEqual({label.text() for label in headings}, {"פרטי פעילות", "תפעול ותמחור", "מידע מערכת", "גלריית תמונות"})
+        self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in headings))
+        for form in (view.activity_details, view.operational_details, view.system_details):
+            for row in range(form.rowCount()):
+                self.assertTrue(form.itemAt(row, QFormLayout.ItemRole.LabelRole).widget().alignment() & Qt.AlignmentFlag.AlignRight)
+                self.assertTrue(form.itemAt(row, QFormLayout.ItemRole.FieldRole).widget().alignment() & Qt.AlignmentFlag.AlignRight)
         inactive = {**ACTIVITY, "is_active": False}; view.show_details(activity_details(inactive), inactive)
         self.assertTrue(view.deactivate_button.isHidden()); self.assertFalse(view.reactivate_button.isHidden()); self.assertIn("חוויה בטבע", view.workspace.detail_subtitle.text())
 

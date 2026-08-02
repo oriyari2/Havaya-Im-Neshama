@@ -62,8 +62,6 @@ class ActivitiesView(StatefulWidget):
         self.actions = self.workspace.actions_container
         self.create_button.setVisible(role == "manager")
 
-        toolbar_layout = self.toolbar.layout(); toolbar_layout.removeWidget(self.toolbar.refresh_button)
-        self.filter_button = QPushButton("סינון"); toolbar_layout.addWidget(self.filter_button); toolbar_layout.addWidget(self.toolbar.refresh_button)
         panel_parent = self.toolbar.parentWidget(); panel_layout = panel_parent.layout()
         self.filter_panel = QWidget(); filter_layout = QHBoxLayout(self.filter_panel); filter_layout.setContentsMargins(0, SPACE_2, 0, 0); filter_layout.setDirection(QHBoxLayout.Direction.RightToLeft); filter_layout.setSpacing(SPACE_2)
         self.audience = QComboBox(); self.audience.setEditable(True); self.audience.addItem("כל קהלי היעד", "")
@@ -71,7 +69,7 @@ class ActivitiesView(StatefulWidget):
         self.active = QComboBox(); self.active.addItem("כל המצבים", None); self.active.addItem("פעילה", True); self.active.addItem("לא פעילה", False); self.active.setVisible(role == "manager")
         self.apply_filters_button = QPushButton("החלת סינון")
         for widget in (self.audience, self.season, self.active, self.apply_filters_button): filter_layout.addWidget(widget)
-        filter_layout.addStretch(); panel_layout.addWidget(self.filter_panel); self.filter_panel.hide()
+        filter_layout.addStretch(); panel_layout.addWidget(self.filter_panel)
         self.filter_summary = QLabel(); self.filter_summary.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter); panel_layout.addWidget(self.filter_summary); self.filter_summary.hide()
 
         self.edit_button = self.workspace.add_action("עריכת פעילות")
@@ -86,7 +84,7 @@ class ActivitiesView(StatefulWidget):
         self.deactivate_button.clicked.connect(self.deactivate_requested); self.reactivate_button.clicked.connect(self.reactivate_requested)
         self.toolbar.search_requested.connect(lambda search, _order: self.filters_requested.emit({"search": search or None, "order_by": "name"}))
         self.toolbar.sort_combo.currentIndexChanged.connect(lambda _index: self.filters_requested.emit({"search": self.toolbar.search_input.text().strip() or None, "order_by": "name"}))
-        self.toolbar.refresh_requested.connect(self._reset_filters); self.filter_button.clicked.connect(lambda: self.filter_panel.setVisible(not self.filter_panel.isVisible()))
+        self.toolbar.refresh_requested.connect(self._reset_filters)
         self.apply_filters_button.clicked.connect(self._apply_filters); self.footer.page_requested.connect(self.page_requested)
         self.table.itemSelectionChanged.connect(self._select); self.table.cellDoubleClicked.connect(lambda row, _column: self._request_open(self._row_id(row))); self.table.installEventFilter(self)
         self.workspace.empty_action_button.clicked.connect(self._empty_action); self.clear_details()
@@ -95,11 +93,12 @@ class ActivitiesView(StatefulWidget):
     def _build_gallery(self) -> None:
         self.media_group = QFrame(); self.media_group.setObjectName("detailPanel")
         media = QVBoxLayout(self.media_group); media.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4); media.setSpacing(SPACE_3)
-        heading = QLabel("גלריית תמונות"); heading.setObjectName("sectionTitle"); heading.setAlignment(Qt.AlignmentFlag.AlignRight); media.addWidget(heading)
+        heading_row = QHBoxLayout(); heading_row.setContentsMargins(0, 0, 0, 0); heading_row.addStretch()
+        self.gallery_heading = QLabel("גלריית תמונות"); self.gallery_heading.setObjectName("sectionTitle"); self.gallery_heading.setLayoutDirection(Qt.LayoutDirection.RightToLeft); self.gallery_heading.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute); heading_row.addWidget(self.gallery_heading); media.addLayout(heading_row)
         self.preview = QLabel("אין תמונות להצגה."); self.preview.setObjectName("activityImagePreview"); self.preview.setAlignment(Qt.AlignmentFlag.AlignCenter); self.preview.setMinimumHeight(260); self.preview.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding); self.preview.setWordWrap(True); media.addWidget(self.preview, 1)
         nav = QHBoxLayout(); nav.setDirection(QHBoxLayout.Direction.RightToLeft); self.previous_image_button = QPushButton("הקודמת"); self.next_image_button = QPushButton("הבאה"); self.image_position = QLabel("0 מתוך 0"); self.image_position.setAlignment(Qt.AlignmentFlag.AlignCenter)
         nav.addWidget(self.previous_image_button); nav.addWidget(self.image_position); nav.addWidget(self.next_image_button); nav.addStretch(); media.addLayout(nav)
-        self.image_list = QListWidget(); self.image_list.setMaximumHeight(90); self.image_list.currentItemChanged.connect(self._image_changed); media.addWidget(self.image_list)
+        self.image_list = QListWidget(); self.image_list.setLayoutDirection(Qt.LayoutDirection.RightToLeft); self.image_list.setMaximumHeight(90); self.image_list.currentItemChanged.connect(self._image_changed); media.addWidget(self.image_list)
         self.preview_retry = QPushButton("נסו שוב להציג תמונה"); self.preview_retry.clicked.connect(self.preview_retry_requested); self.preview_retry.hide(); media.addWidget(self.preview_retry)
         self.media_actions = QWidget(); actions = QHBoxLayout(self.media_actions); actions.setDirection(QHBoxLayout.Direction.RightToLeft); actions.setContentsMargins(0, 0, 0, 0)
         self.upload_image_button = QPushButton("העלאת תמונה"); self.delete_image_button = QPushButton("הסרת התמונה הנוכחית"); actions.addWidget(self.upload_image_button); actions.addWidget(self.delete_image_button); actions.addStretch(); media.addWidget(self.media_actions)
@@ -144,7 +143,7 @@ class ActivitiesView(StatefulWidget):
         if self.role == "manager": values["is_active"] = None
         self.filters_requested.emit(values)
     def _reset_controls(self) -> None:
-        self.toolbar.search_input.clear(); blocked = self.toolbar.sort_combo.blockSignals(True); self.toolbar.sort_combo.setCurrentIndex(0); self.toolbar.sort_combo.blockSignals(blocked); self.audience.setCurrentIndex(0); self.audience.setEditText("כל קהלי היעד"); self.season.setCurrentIndex(0); self.season.setEditText("כל העונות"); self.active.setCurrentIndex(0); self.filter_summary.hide(); self.filter_panel.hide(); self.table.clearSelection(); self.clear_details()
+        self.toolbar.search_input.clear(); blocked = self.toolbar.sort_combo.blockSignals(True); self.toolbar.sort_combo.setCurrentIndex(0); self.toolbar.sort_combo.blockSignals(blocked); self.audience.setCurrentIndex(0); self.audience.setEditText("כל קהלי היעד"); self.season.setCurrentIndex(0); self.season.setEditText("כל העונות"); self.active.setCurrentIndex(0); self.filter_summary.hide(); self.filter_panel.show(); self.table.clearSelection(); self.clear_details()
     def _empty_action(self) -> None: self._reset_filters() if self._empty_filtered else self.create_requested.emit()
 
     def set_manager_actions(self, manager: bool) -> None: self.create_button.setVisible(manager); self.actions.setVisible(manager)
@@ -200,7 +199,7 @@ class ActivitiesView(StatefulWidget):
     def show_images(self, images) -> None:
         self.image_list.blockSignals(True); self.image_list.clear()
         for image in images:
-            item = QListWidgetItem(_image_label(image)); item.setData(Qt.ItemDataRole.UserRole, str(image.get("id"))); self.image_list.addItem(item)
+            item = QListWidgetItem(_image_label(image)); item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute); item.setData(Qt.ItemDataRole.UserRole, str(image.get("id"))); self.image_list.addItem(item)
         self.image_list.blockSignals(False); self.delete_image_button.setEnabled(False); self._update_gallery_controls()
     def select_image(self, image_id: str) -> None:
         self.image_list.blockSignals(True)

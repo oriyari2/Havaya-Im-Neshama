@@ -13,6 +13,7 @@ from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
 from desktop_client.app.presenters.customer_formatting import customer_details
 from desktop_client.app.views.customer_dialogs import CustomerDialog
+from desktop_client.app.views.activity_dialogs import ActivityDialog
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
 from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog
 from desktop_client.app.views.customers_view import CustomersView
@@ -89,15 +90,15 @@ class UiFoundationTests(unittest.TestCase):
             self.assertEqual(not panel.isHidden(), expected, phase)
 
     def test_entity_dialogs_share_customer_geometry_hierarchy_and_actions(self) -> None:
-        dialogs = (CustomerDialog(), InstructorDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
+        dialogs = (CustomerDialog(), InstructorDialog(), ActivityDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
         for dialog in dialogs:
             self.assertEqual(dialog.minimumSize().width(), 760); self.assertLessEqual(dialog.minimumSize().height(), 680); self.assertEqual(dialog.maximumWidth(), 860)
             self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.DontWrapRows)
             self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
 
     def test_management_modules_share_exact_customer_foundation_values(self) -> None:
-        customer, instructor, manager = CustomersView(), InstructorsView(), UsersView()
-        modules = (customer, instructor, manager)
+        customer, instructor, manager, activity = CustomersView(), InstructorsView(), UsersView(), ActivitiesView("manager")
+        modules = (customer, instructor, manager, activity)
         reference_header = customer.scaffold.header.layout()
         reference_toolbar = customer.toolbar.layout()
         for view in modules:
@@ -105,13 +106,14 @@ class UiFoundationTests(unittest.TestCase):
             self.assertEqual(header.contentsMargins(), reference_header.contentsMargins()); self.assertEqual(header.spacing(), reference_header.spacing())
             self.assertEqual(view.scaffold.header.title.objectName(), "screenTitle"); self.assertEqual(view.scaffold.header.description.alignment(), customer.scaffold.header.description.alignment())
             self.assertEqual(toolbar.contentsMargins(), reference_toolbar.contentsMargins()); self.assertEqual(toolbar.spacing(), reference_toolbar.spacing()); self.assertEqual(toolbar.direction(), reference_toolbar.direction())
-            self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())],[view.toolbar.search_input,view.toolbar.search_button,view.toolbar.sort_combo,view.toolbar.refresh_button])
+            expected = [view.toolbar.search_input, view.toolbar.search_button, view.toolbar.sort_combo, view.toolbar.refresh_button]
+            self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())], expected)
             self.assertEqual(view.toolbar.parentWidget().objectName(), "filterPanel"); self.assertIsInstance(view.toolbar.parentWidget(), QFrame)
             self.assertEqual(view.table.verticalHeader().defaultSectionSize(), customer.table.verticalHeader().defaultSectionSize()); self.assertEqual(view.table.horizontalHeader().minimumHeight(), customer.table.horizontalHeader().minimumHeight()); self.assertEqual(view.table.alternatingRowColors(), customer.table.alternatingRowColors())
             self.assertEqual(view.footer.maximumWidth(), customer.footer.maximumWidth()); self.assertEqual(view.back_button.minimumHeight(), customer.back_button.minimumHeight())
 
     def test_management_create_and_search_buttons_share_primary_style_role(self) -> None:
-        modules = (CustomersView(), InstructorsView(), UsersView())
+        modules = (CustomersView(), InstructorsView(), UsersView(), ActivitiesView("manager"))
         buttons = [button for view in modules for button in (view.create_button, view.toolbar.search_button)]
         self.assertEqual({button.property("buttonRole") for button in buttons}, {"managementPrimary"})
 
