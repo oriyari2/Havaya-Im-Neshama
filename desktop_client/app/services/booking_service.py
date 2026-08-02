@@ -19,8 +19,8 @@ class BookingService:
     def invalidate_open_events(self) -> None:
         self.api_client.invalidate_cached_get("/bookings/open-events")
 
-    def my_bookings(self, *, limit: int = 50, offset: int = 0) -> dict:
-        return self.api_client.get("/bookings/my-bookings", {"limit": limit, "offset": offset})
+    def my_bookings(self, *, limit: int = 50, offset: int = 0, order_by: str = "event_at") -> dict:
+        return self.api_client.get("/bookings/my-bookings", {"limit": limit, "offset": offset, "order_by": order_by})
 
     def open_events(self) -> list[dict]:
         return self.api_client.get("/bookings/open-events")

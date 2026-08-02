@@ -76,6 +76,7 @@ def list_bookings(
     instructor_id: UUID | None = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
+    order_by: str = "event_at",
 ) -> list[dict]:
     role, scope_customer_id, scope_instructor_id = _resolve_visibility_scope(
         current_user,
@@ -85,6 +86,8 @@ def list_bookings(
 
     if from_date is not None and to_date is not None and from_date > to_date:
         raise BookingValidationError("from_date must be before or equal to to_date")
+    if order_by not in {"event_at", "customer_name"}:
+        raise BookingValidationError("unsupported booking order")
 
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -95,6 +98,7 @@ def list_bookings(
                 "status": status,
                 "limit": limit,
                 "offset": offset,
+                "order_by": order_by,
             }
             if role == "manager":
                 if customer_id is not None:
@@ -125,10 +129,10 @@ def get_dashboard_summary(current_user: dict) -> dict:
             )
 
 
-def get_my_bookings(current_user: dict, limit: int, offset: int) -> list[dict]:
+def get_my_bookings(current_user: dict, limit: int, offset: int, *, order_by: str = "event_at") -> list[dict]:
     if current_user.get("role") != "customer":
         raise BookingAccessDeniedError
-    return list_bookings(current_user, None, limit, offset)
+    return list_bookings(current_user, None, limit, offset, order_by=order_by)
 
 
 def get_open_events(current_user: dict) -> list[dict]:

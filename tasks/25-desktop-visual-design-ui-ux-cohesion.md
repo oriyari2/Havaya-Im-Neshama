@@ -147,3 +147,11 @@ ID-backed entity selectors replace the split list/detail and duplicate Open
 Events page. CQRS, Event Sourcing, role scoping, optimistic concurrency and the
 existing assignment commands remain unchanged. See
 `docs/piv/25-4-unified-booking-operations-workspace.md`.
+
+### Task 25.4.1 - Booking UI polish
+
+Booking filters now use an anchored collapsible popover and removable filter
+chips. Booking Details uses compact Instructor assignment cards and the
+existing searchable assignment dialog for assign/replace operations. Booking
+Create/Edit forms explicitly preserve Hebrew RTL geometry. Backend contracts,
+authorization and Booking domain behavior remain unchanged.

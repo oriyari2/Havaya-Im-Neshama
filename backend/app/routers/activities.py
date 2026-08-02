@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated, NoReturn
+from typing import Annotated, Literal, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -38,6 +38,7 @@ def list_activities(
     season: str | None = None,
     tag: str | None = None,
     is_active: bool | None = None,
+    order_by: Literal["name", "duration_minutes"] = "name",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),
@@ -49,6 +50,7 @@ def list_activities(
             season=season,
             tag=tag,
             is_active=is_active,
+            order_by=order_by,
             limit=limit,
             offset=offset,
             current_user=current_user,

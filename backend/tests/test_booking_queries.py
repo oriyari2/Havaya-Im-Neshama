@@ -89,6 +89,23 @@ class BookingQueryTests(unittest.TestCase):
         self.assertEqual(kwargs["to_date"], to_date)
         self.assertEqual(kwargs["limit"], 10)
         self.assertEqual(kwargs["offset"], 2)
+        self.assertEqual(kwargs["order_by"], "event_at")
+
+    def test_customer_name_sort_is_whitelisted_and_applied_before_pagination(self) -> None:
+        cursor = _CaptureCursor()
+        booking_projection_repository.list_bookings(
+            cursor,
+            role="manager",
+            order_by="customer_name",
+            limit=25,
+            offset=25,
+        )
+        self.assertIn("ORDER BY c.name ASC, b.event_at ASC, b.created_at ASC", cursor.executed_sql)
+        self.assertEqual(cursor.params[-2:], [25, 25])
+        with self.assertRaises(ValueError):
+            booking_projection_repository.list_bookings(cursor, role="manager", order_by="unsafe", limit=25, offset=0)
+        with self.assertRaises(query_handlers.BookingValidationError):
+            query_handlers.list_bookings({"role": "manager"}, None, 25, 0, order_by="unsafe")
 
     def test_customer_rejects_customer_id_filter(self) -> None:
         current_user = {"role": "customer", "customer_id": uuid4()}
@@ -440,7 +457,7 @@ class BookingQueryTests(unittest.TestCase):
             result = query_handlers.get_my_bookings(customer, 20, 3)
 
         self.assertEqual(result, owned)
-        list_mock.assert_called_once_with(customer, None, 20, 3)
+        list_mock.assert_called_once_with(customer, None, 20, 3, order_by="event_at")
 
         with self.assertRaises(query_handlers.BookingAccessDeniedError):
             query_handlers.get_my_bookings({"role": "manager"}, 20, 0)

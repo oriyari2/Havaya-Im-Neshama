@@ -38,6 +38,18 @@ from desktop_client.app.views.ui_foundations import (
 
 
 class UiFoundationTests(unittest.TestCase):
+    def test_management_sort_menus_follow_final_operational_policy(self) -> None:
+        views = (
+            (CustomersView(), ["name", "created_at"]),
+            (InstructorsView(), ["full_name", "created_at", "is_active"]),
+            (UsersView(), ["display_name", "created_at", "is_active"]),
+            (ActivitiesView("manager"), ["name", "duration_minutes"]),
+            (BookingsView("manager"), ["event_at", "customer_name"]),
+        )
+        for view, expected in views:
+            combo = view.toolbar.sort_combo
+            self.assertEqual([combo.itemData(index) for index in range(combo.count())], expected)
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.app = QApplication.instance() or QApplication([])

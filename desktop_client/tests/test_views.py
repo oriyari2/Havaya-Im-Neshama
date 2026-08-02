@@ -7,7 +7,7 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QCoreApplication, QEvent
-from PySide6.QtWidgets import QApplication, QWidget
+from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QWidget
 
 from desktop_client.app.main import MainWindow
 from desktop_client.app.models.session import Session
@@ -29,14 +29,16 @@ class ViewTests(unittest.TestCase):
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         self.app.processEvents()
 
-    def test_manager_has_related_filters_and_customer_has_status_only(self) -> None:
+    def test_booking_filters_open_as_anchored_popover(self) -> None:
         customer = BookingsView("customer")
         customer.show()
-        self.assertFalse(customer.filter_panel.isVisible())
+        self.assertFalse(customer.filter_popover.isVisible())
         self.assertFalse(customer.customer_filter.isVisible())
         manager = BookingsView("manager")
         manager.show()
-        manager.filter_button.click(); self.assertTrue(manager.filter_panel.isVisible())
+        manager.filter_button.click(); self.assertTrue(manager.filter_popover.isVisible())
+        self.assertIs(manager.filter_popover.parentWidget(), manager.list_page)
+        self.assertNotIn(manager.filter_popover, QApplication.topLevelWidgets())
         manager.close()
 
     def test_booking_command_controls_are_manager_only(self) -> None:
@@ -71,21 +73,19 @@ class ViewTests(unittest.TestCase):
         customer = BookingsView("customer")
         instructor = BookingsView("instructor")
         self.assertEqual(manager.assignment_group.objectName(), "detailPanel")
-        self.assertEqual(manager.assign_button.text(), "שיבוץ מדריך")
-        self.assertIn("בחרו פעילות", manager.assignment_hint.text())
-        self.assertFalse(manager.assign_button.isEnabled())
-        manager.set_command_availability("NEW")
-        self.assertFalse(manager.assign_and_confirm_button.isHidden())
+        self.assertIn("מצב השיבוץ", manager.assignment_hint.text())
         unassigned = {"activity_name": "פעילות", "assignment_required": True, "assignments": []}
         manager.show_assignments([unassigned])
-        manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
-        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ ואישור")
+        labels = [label.text() for label in manager.assignment_cards.findChildren(QLabel)]
+        self.assertIn("ממתין לשיבוץ", labels); self.assertIn("לא שובץ מדריך", labels)
+        self.assertIn("שיבוץ מדריך", [button.text() for button in manager.assignment_cards.findChildren(QPushButton)])
         assigned = {**unassigned, "assignments": [{"instructor_name": "מדריך", "instructor_city": None}]}
         manager.show_assignments([assigned])
-        manager.assignment_tree.setCurrentItem(manager.assignment_tree.topLevelItem(0))
-        self.assertEqual(manager.assign_and_confirm_button.text(), "שיבוץ ואישור")
-        manager.set_command_availability("CONFIRMED")
-        self.assertTrue(manager.assign_and_confirm_button.isHidden())
+        self.app.processEvents()
+        labels = [label.text() for label in manager.assignment_cards.findChildren(QLabel)]
+        buttons = [button.text() for button in manager.assignment_cards.findChildren(QPushButton)]
+        self.assertIn("משובץ", labels); self.assertIn("מדריך", labels)
+        self.assertIn("החלפת מדריך", buttons); self.assertIn("הסרת שיבוץ", buttons)
         self.assertFalse(manager.assignment_group.isHidden())
         self.assertTrue(customer.assignment_group.isHidden())
         self.assertTrue(instructor.assignment_group.isHidden())

@@ -64,6 +64,33 @@ class BookingAssignmentsPresenter:
         )
         self.load_selector({"search": None, "city": None, "is_active": True, "order_by": "full_name", "limit": 25, "offset": 0})
 
+    def begin_replace(self, activity, assignment):
+        if self.submitting or not self.model:
+            return
+        self.selector = self.view.open_instructor_selector(
+            activity,
+            self.load_selector,
+            lambda instructor: self.replace(activity, assignment, instructor),
+        )
+        self.load_selector({"search": None, "city": None, "is_active": True, "order_by": "full_name", "limit": 25, "offset": 0})
+
+    def replace(self, activity, assignment, instructor):
+        def operation():
+            removed = self.assignment_service.remove(
+                self.booking_id,
+                activity["booking_activity_id"],
+                assignment["instructor_id"],
+                self.model["version"],
+            )
+            return self.assignment_service.assign(
+                self.booking_id,
+                activity["booking_activity_id"],
+                instructor["id"],
+                int(removed["version"]),
+            )
+
+        self._command(operation, "המדריך הוחלף בהצלחה.")
+
     def assign_after_creation(self, booking, instructor_id):
         booking_id = str(booking["id"])
         context = self._operations.replace("post_create_assignment")

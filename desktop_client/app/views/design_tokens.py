@@ -68,6 +68,12 @@ QLabel[feedback="error"], #errorLabel {{ color: {COLOR_ERROR}; background: {COLO
 QLabel[bookingState="NEW"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
 QLabel[bookingState="CONFIRMED"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
 QLabel[bookingState="COMPLETED"], QLabel[bookingState="CANCELLED"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; }}
+QFrame#filterPopover {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; }}
+QToolButton[filterChip="true"] {{ background: #EFF6FF; color: #1D4ED8; border: 1px solid #BFDBFE; border-radius: 12px; padding: 4px 10px; }}
+QFrame#assignmentCard {{ background: {COLOR_SURFACE_ALT}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SMALL}px; }}
+QLabel[assignmentState="waiting"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[assignmentState="assigned"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[assignmentState="neutral"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; border-radius: 9px; padding: 3px 8px; }}
 QLabel#fieldError {{ color: {COLOR_ERROR}; font-size: {FONT_SIZE_SUPPORTING}px; }}
 QLineEdit[invalid="true"], QPlainTextEdit[invalid="true"] {{ border: 2px solid {COLOR_ERROR}; }}
 QTableWidget[task20Table="true"] {{ background: {COLOR_SURFACE}; alternate-background-color: {COLOR_SURFACE_ALT}; gridline-color: {COLOR_BORDER}; }}

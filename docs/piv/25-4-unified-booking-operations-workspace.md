@@ -124,6 +124,28 @@ driver, open database connections, or read `DATABASE_URL`.
   assignment, list/Details actions and RTL behavior.
 - Parent Task 25 and requirements traceability: Task 25.4 completion evidence.
 
+## Task 25.4.1 - Booking UI polish
+
+The final polish replaces the Details-page assignment tree with compact
+per-activity cards. Unassigned activities show an amber state and one primary
+assignment action; assigned activities show the Instructor, a green state,
+and replace/remove actions. Assignment and replacement continue through the
+existing searchable, debounced Instructor dialog and existing assignment
+commands.
+
+The permanent filter row is replaced by an RTL child popover anchored to the
+toolbar. Its collapsible sections expose only filters supported by current
+contracts: one Booking status, the derived unassigned queue, one Activity and
+a date range. Active filters render as individually removable chips. No new
+top-level window, backend endpoint, authorization rule or domain status was
+introduced. Create/Edit labels, headings and Hebrew fields now enforce RTL
+alignment explicitly.
+
+The Booking sort menu also offers `שם לקוח`. The Desktop sends the whitelisted
+`customer_name` value through the existing list service; the projection orders
+by `customers.name ASC` before `LIMIT/OFFSET`, with event time and creation time
+as stable tie-breakers. Reset restores the default event-time order.
+
 ## Next
 
-Stop after Task 25.4 and wait for approval.
+Stop after Task 25.4.1 and wait for approval.

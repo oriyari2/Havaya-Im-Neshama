@@ -6,6 +6,15 @@ from backend.app.infrastructure.repositories.activity_repository import list_act
 
 
 class ActivityQueryTests(TestCase):
+    def test_duration_sort_is_whitelisted_and_applied_before_pagination(self):
+        cur = Mock(); cur.fetchall.return_value = []
+        list_activities(cur, None, None, None, None, None, 25, 0, order_by="duration_minutes")
+        sql, params = cur.execute.call_args.args
+        self.assertIn("ORDER BY COALESCE(duration_minutes, default_duration_minutes) ASC NULLS LAST", sql)
+        self.assertEqual(params[-2:], [25, 0])
+        with self.assertRaises(ValueError):
+            list_activities(cur, None, None, None, None, None, 25, 0, order_by="unsafe")
+
     def test_manager_all_has_no_active_predicate(self):
         cur = Mock(); cur.fetchall.return_value = []
         list_activities(cur, None, None, None, None, None, 25, 0)

@@ -243,7 +243,7 @@ class MainWindow(QMainWindow):
         if session.role=="manager":
             assignments_presenter=BookingAssignmentsPresenter(bookings_view,self.assignment_service,self.instructor_service,refresh_booking=bookings_presenter.select_booking,refresh_related=self._refresh_booking_related,confirm_after_assignment=bookings_presenter.confirm_after_assignment,executor=self.operation_executor)
             bookings_presenter.assign_after_creation=assignments_presenter.assign_after_creation
-            bookings_view.booking_selected.connect(assignments_presenter.select_booking);bookings_view.assignment_add_requested.connect(assignments_presenter.begin_assign);bookings_view.assignment_add_and_confirm_requested.connect(assignments_presenter.begin_assign_and_confirm);bookings_view.assignment_remove_requested.connect(assignments_presenter.remove);self._presenters["booking_assignments"]=assignments_presenter
+            bookings_view.booking_selected.connect(assignments_presenter.select_booking);bookings_view.assignment_add_requested.connect(assignments_presenter.begin_assign);bookings_view.assignment_add_and_confirm_requested.connect(assignments_presenter.begin_assign_and_confirm);bookings_view.assignment_replace_requested.connect(assignments_presenter.begin_replace);bookings_view.assignment_remove_requested.connect(assignments_presenter.remove);self._presenters["booking_assignments"]=assignments_presenter
 
         ai_chat_view = AIChatView()
         ai_chat_presenter = AIChatPresenter(ai_chat_view, self.ai_chat_service, self.operation_executor)

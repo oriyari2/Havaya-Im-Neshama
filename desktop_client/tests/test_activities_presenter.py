@@ -14,7 +14,7 @@ class ActivitiesPresenterTests(TestCase):
         for role,active in (("manager",None),("instructor",True),("customer",True)):
             view,service,p=self.build(role); p.load(); self.assertIs(service.list_activities.call_args.args[0]["is_active"],active); view.set_manager_actions.assert_called_with(role=="manager")
     def test_filters_paging_and_reset(self):
-        _,service,p=self.build(); p.apply_filters({"search":"Task","target_audience":"Audience","season":"Season","tag":"tag","is_active":False}); self.assertEqual(service.list_activities.call_args.args[0]["offset"],0); p.page(25,10); query=service.list_activities.call_args.args[0]; self.assertEqual((query["offset"],query["limit"],query["tag"]),(25,10,"tag"))
+        _,service,p=self.build(); p.apply_filters({"search":"Task","target_audience":"Audience","season":"Season","tag":"tag","is_active":False,"order_by":"duration_minutes"}); self.assertEqual(service.list_activities.call_args.args[0]["offset"],0); p.page(25,10); query=service.list_activities.call_args.args[0]; self.assertEqual((query["offset"],query["limit"],query["tag"],query["order_by"]),(25,10,"tag","duration_minutes"))
     def test_repeated_navigation_resets_activity_state(self):
         view,service,p=self.build();p.selected_id="a1";p.selected_activity=ITEM;p.reset_to_default();self.assertIsNone(p.selected_id);self.assertIsNone(p.selected_activity);view.reset_to_default.assert_called_once()
     def test_non_manager_cannot_override_active_or_mutate(self):

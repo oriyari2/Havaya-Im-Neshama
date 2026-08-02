@@ -52,7 +52,7 @@ class ActivitiesView(StatefulWidget):
             subtitle="ניהול פעילויות, קהלי יעד ותמחור" if role == "manager" else "עיון בפעילויות הזמינות",
             create_text="פעילות חדשה", plural="פעילויות",
             detail_subtitle="מידע מלא ופעולות עבור הפעילות שנבחרה",
-            search_placeholder="חיפוש לפי שם או תיאור", sort_options=(("name", "מיון לפי: שם"),),
+            search_placeholder="חיפוש לפי שם או תיאור", sort_options=(("name", "מיון לפי: שם"), ("duration_minutes", "מיון לפי: משך פעילות")),
             headers=headers, policies=policies,
         )
         root.addWidget(self.workspace)
@@ -82,8 +82,8 @@ class ActivitiesView(StatefulWidget):
 
         self.create_button.clicked.connect(self.create_requested); self.edit_button.clicked.connect(self.edit_requested)
         self.deactivate_button.clicked.connect(self.deactivate_requested); self.reactivate_button.clicked.connect(self.reactivate_requested)
-        self.toolbar.search_requested.connect(lambda search, _order: self.filters_requested.emit({"search": search or None, "order_by": "name"}))
-        self.toolbar.sort_combo.currentIndexChanged.connect(lambda _index: self.filters_requested.emit({"search": self.toolbar.search_input.text().strip() or None, "order_by": "name"}))
+        self.toolbar.search_requested.connect(lambda search, order: self.filters_requested.emit({"search": search or None, "order_by": order or "name"}))
+        self.toolbar.sort_combo.currentIndexChanged.connect(lambda _index: self.filters_requested.emit({"search": self.toolbar.search_input.text().strip() or None, "order_by": str(self.toolbar.sort_combo.currentData() or "name")}))
         self.toolbar.refresh_requested.connect(self._reset_filters)
         self.apply_filters_button.clicked.connect(self._apply_filters); self.footer.page_requested.connect(self.page_requested)
         self.table.itemSelectionChanged.connect(self._select); self.table.cellDoubleClicked.connect(lambda row, _column: self._request_open(self._row_id(row))); self.table.installEventFilter(self)

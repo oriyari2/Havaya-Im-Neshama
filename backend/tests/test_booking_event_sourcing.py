@@ -159,6 +159,7 @@ class BookingEventSourcingTests(unittest.TestCase):
             customer_id=None,
             instructor_id=None,
             status=None,
+            order_by="event_at",
             limit=50,
             offset=0,
         )
@@ -181,6 +182,7 @@ class BookingEventSourcingTests(unittest.TestCase):
             customer_id=customer_id,
             instructor_id=None,
             status=None,
+            order_by="event_at",
             limit=50,
             offset=0,
         )

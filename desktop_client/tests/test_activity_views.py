@@ -45,7 +45,8 @@ class ActivityViewTests(TestCase):
         view = ActivitiesView("manager"); emitted = []; pages = []
         view.filters_requested.connect(emitted.append); view.page_requested.connect(lambda offset, limit: pages.append((offset, limit)))
         view.toolbar.search_input.setText("טבע"); view.toolbar.search_button.click(); self.assertEqual(emitted[-1]["search"], "טבע")
-        view.toolbar.sort_combo.setCurrentIndex(0); self.assertEqual(view.toolbar.sort_combo.currentData(), "name")
+        self.assertEqual([view.toolbar.sort_combo.itemData(i) for i in range(view.toolbar.sort_combo.count())], ["name", "duration_minutes"])
+        view.toolbar.sort_combo.setCurrentIndex(1); self.assertEqual(view.toolbar.sort_combo.currentData(), "duration_minutes"); self.assertEqual(emitted[-1]["order_by"], "duration_minutes")
         self.assertFalse(view.filter_panel.isHidden()); self.assertFalse(hasattr(view, "filter_button")); view.season.setEditText("קיץ"); view.active.setCurrentIndex(1); view.apply_filters_button.click()
         self.assertEqual(emitted[-1]["season"], "קיץ"); self.assertTrue(emitted[-1]["is_active"]); self.assertIn("קיץ", view.filter_summary.text())
         view.show_activities([ROW] * 25, offset=0, count=25, filtered=True); view.footer.next_button.click(); self.assertEqual(pages[-1], (25, 25))

@@ -115,9 +115,9 @@ class _Service:
         self.calls.append(("list", filters))
         return {"items": [BOOKING], "count": 1}
 
-    def my_bookings(self, *, limit=50, offset=0):
+    def my_bookings(self, *, limit=50, offset=0, order_by="event_at"):
         self._check()
-        self.calls.append(("mine", limit, offset))
+        self.calls.append(("mine", limit, offset, order_by))
         return {"items": [BOOKING], "count": 1}
 
     def open_events(self):
@@ -293,8 +293,17 @@ class PresenterTests(unittest.TestCase):
         view = _View()
         service = _Service()
         BookingsPresenter(view, service, "customer").load()
-        self.assertEqual(service.calls, [("mine", 25, 0)])
+        self.assertEqual(service.calls, [("mine", 25, 0, "event_at")])
         self.assertEqual(view.rows[0]["id"], "booking-1")
+
+    def test_customer_name_sort_is_preserved_with_filters_and_pagination(self) -> None:
+        view = _View(); service = _Service(); presenter = BookingsPresenter(view, service, "manager")
+        presenter.load({"order_by": "customer_name", "status": "CONFIRMED"})
+        presenter.page(25, 25)
+        list_calls = [call for call in service.calls if call[0] == "list"]
+        self.assertEqual(list_calls[-1][1]["order_by"], "customer_name")
+        self.assertEqual(list_calls[-1][1]["status"], "CONFIRMED")
+        self.assertEqual(list_calls[-1][1]["offset"], 25)
 
     def test_manager_details_include_history_but_instructor_details_do_not(self) -> None:
         manager_view, manager_service = _View(), _Service()

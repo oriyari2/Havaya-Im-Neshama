@@ -48,6 +48,7 @@ def list_activities(
     limit: int,
     offset: int,
     current_user: dict,
+    order_by: str = "name",
 ) -> list[dict]:
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:
@@ -58,6 +59,7 @@ def list_activities(
                 season=season,
                 tag=tag,
                 is_active=_visible_is_active(current_user, is_active),
+                order_by=order_by,
                 limit=limit,
                 offset=offset,
             )

@@ -845,3 +845,10 @@ history and commands, customer ownership, instructor assignment scope, status
 actions, filters, pagination and immutable event history remain enforced by
 the existing backend contracts. See
 `docs/piv/25-4-unified-booking-operations-workspace.md`.
+
+Task 25.4.1 completes the Booking UI polish with a compact Details assignment
+card, anchored progressive filters, removable active-filter chips and explicit
+RTL Booking form alignment. Existing Booking/assignment APIs, CQRS commands,
+Event Sourcing, role scoping and authorization remain unchanged.
+Booking list ordering now additionally supports the whitelisted alphabetical
+Customer-name order end to end, including filtering and pagination.

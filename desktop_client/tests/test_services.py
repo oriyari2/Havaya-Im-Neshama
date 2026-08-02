@@ -55,7 +55,7 @@ class BookingServiceTests(unittest.TestCase):
             [
                 ("/bookings/dashboard", None),
                 ("/bookings", {"status": "CONFIRMED"}),
-                ("/bookings/my-bookings", {"limit": 20, "offset": 2}),
+                ("/bookings/my-bookings", {"limit": 20, "offset": 2, "order_by": "event_at"}),
                 ("/bookings/open-events", None),
                 ("/bookings/booking-id", None),
                 ("/bookings/booking-id/history", None),

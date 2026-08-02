@@ -25,7 +25,7 @@ class BookingsViewPort(Protocol):
 
 class BookingServicePort(Protocol):
     def list_bookings(self, filters=None) -> dict: ...
-    def my_bookings(self, *, limit=50, offset=0) -> dict: ...
+    def my_bookings(self, *, limit=50, offset=0, order_by="event_at") -> dict: ...
     def booking(self, booking_id: str) -> dict: ...
     def history(self, booking_id: str) -> list[dict]: ...
     def booking_form_options(self): ...
@@ -153,10 +153,10 @@ class BookingsPresenter:
                     self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
                 )
             limit, offset = int(snapshot.get("limit", 25)), max(0, int(snapshot.get("offset", 0)))
-            api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "from_date", "to_date", "limit", "offset"}}
+            api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "from_date", "to_date", "order_by", "limit", "offset"}}
             if self.role == "customer":
-                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "limit", "offset"}}
-                payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset)
+                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "order_by", "limit", "offset"}}
+                payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset, order_by=str(snapshot.get("order_by") or "event_at"))
             else:
                 scoped = dict(api_snapshot)
                 if self.role == "instructor":

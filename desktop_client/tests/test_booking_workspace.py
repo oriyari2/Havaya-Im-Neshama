@@ -6,7 +6,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QFormLayout, QToolButton
+from PySide6.QtWidgets import QApplication, QFormLayout, QLabel, QLineEdit, QToolButton
 
 from desktop_client.app.presenters.formatting import booking_details, booking_row
 from desktop_client.app.views.booking_dialogs import BookingFormDialog
@@ -37,3 +37,24 @@ class BookingWorkspaceTests(TestCase):
         view=BookingsView("manager");view.show_details(booking_details(BOOKING),[])
         for form in (view.booking_details,view.customer_details,view.system_details):
             for row in range(form.rowCount()):self.assertTrue(form.itemAt(row,QFormLayout.ItemRole.LabelRole).widget().alignment()&Qt.AlignmentFlag.AlignRight);self.assertTrue(form.itemAt(row,QFormLayout.ItemRole.FieldRole).widget().alignment()&Qt.AlignmentFlag.AlignRight)
+    def test_filter_popover_applies_supported_filters_and_chips_remove_individually(self):
+        view=BookingsView("manager");view.show_filter_options([], [{"id":"a1","name":"קיץ"}], []);emitted=[];view.filters_requested.connect(emitted.append);view.status_checks["NEW"].setChecked(True);view.activity_checks["a1"].setChecked(True);view.from_filter.setText("2026-09-01");view._apply_popover_filters();self.assertEqual(emitted[-1]["status"],"NEW");self.assertEqual(emitted[-1]["activity_id"],"a1");self.assertFalse(view.chips.isHidden());chips=[button for button in view.chips.findChildren(QToolButton) if button.property("filterChip")];self.assertGreaterEqual(len(chips),3);next(button for button in chips if "קיץ" in button.text()).click();self.assertIsNone(emitted[-1]["activity_id"]);self.assertEqual(emitted[-1]["status"],"NEW")
+    def test_booking_create_and_edit_dialogs_render_hebrew_form_rtl(self):
+        create=BookingFormDialog(customers=[{"id":"c","name":"לקוח"}],activities=[{"id":"a","name":"פעילות"}],instructors=[]);edit=BookingFormDialog(booking=BOOKING)
+        for dialog in (create,edit):
+            dialog.show();self.app.processEvents();self.assertEqual(dialog.layoutDirection(),Qt.LayoutDirection.RightToLeft);self.assertTrue(dialog.heading_label.alignment()&Qt.AlignmentFlag.AlignRight)
+            for row in range(dialog.form.rowCount()):
+                label_item=dialog.form.itemAt(row,QFormLayout.ItemRole.LabelRole)
+                if label_item and isinstance(label_item.widget(),QLabel):self.assertTrue(label_item.widget().alignment()&Qt.AlignmentFlag.AlignRight)
+            for field in (dialog.city,dialog.venue,dialog.event_at,dialog.participants,dialog.price):self.assertTrue(field.alignment()&Qt.AlignmentFlag.AlignRight)
+            self.assertTrue(dialog.notes.alignment()&Qt.AlignmentFlag.AlignRight);dialog.close()
+    def test_filter_popover_stays_inside_booking_page_at_supported_sizes(self):
+        for width,height in ((1024,640),(1200,760),(1440,900)):
+            view=BookingsView("manager");view.resize(width,height);view.show();self.app.processEvents();view.filter_button.click();self.app.processEvents();geometry=view.filter_popover.geometry();self.assertGreaterEqual(geometry.left(),0);self.assertGreaterEqual(geometry.top(),0);self.assertLess(geometry.right(),view.list_page.width());self.assertLess(geometry.bottom(),view.list_page.height());view.close()
+    def test_every_supported_status_and_assignment_queue_filter_emits_exact_contract(self):
+        view=BookingsView("manager");emitted=[];queues=[];view.filters_requested.connect(emitted.append);view.queue_requested.connect(queues.append)
+        for status in ("NEW","CONFIRMED","CANCELLED","COMPLETED"):
+            view._clear_filter_choices();view.status_checks[status].setChecked(True);view._apply_popover_filters();self.assertEqual(emitted[-1]["status"],status)
+        view._clear_filter_choices();view.unassigned_check.setChecked(True);view._apply_popover_filters();self.assertEqual(queues[-1],"unassigned")
+    def test_customer_name_sort_emits_immediately_and_reset_restores_event_time(self):
+        view=BookingsView("manager");emitted=[];view.filters_requested.connect(emitted.append);self.assertEqual(view.toolbar.sort_combo.itemData(1),"customer_name");self.assertIn("שם לקוח",view.toolbar.sort_combo.itemText(1));view.toolbar.sort_combo.setCurrentIndex(1);self.assertEqual(emitted[-1]["order_by"],"customer_name");view.toolbar.refresh_button.click();self.assertEqual(view.toolbar.sort_combo.currentData(),"event_at");self.assertEqual(emitted[-1]["order_by"],"event_at")

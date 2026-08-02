@@ -57,6 +57,7 @@ def list_activities(
     is_active: bool | None,
     limit: int,
     offset: int,
+    order_by: str = "name",
 ) -> list[dict]:
     clauses: list[str] = []
     params: list[object] = []
@@ -90,13 +91,16 @@ def list_activities(
         clauses.append("tags ILIKE %s")
         params.append(f"%{cleaned_tag}%")
 
+    order_sql = {"name": "name ASC, id ASC", "duration_minutes": "COALESCE(duration_minutes, default_duration_minutes) ASC NULLS LAST, name ASC, id ASC"}.get(order_by)
+    if order_sql is None:
+        raise ValueError("unsupported activity order")
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     cur.execute(
         f"""
         SELECT {ACTIVITY_COLUMNS}
         FROM activities
         {where_sql}
-        ORDER BY name ASC, id ASC
+        ORDER BY {order_sql}
         LIMIT %s OFFSET %s;
         """,
         [*params, limit, offset],

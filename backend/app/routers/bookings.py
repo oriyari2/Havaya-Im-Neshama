@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated, NoReturn
+from typing import Annotated, Literal, NoReturn
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -106,6 +106,7 @@ def list_bookings(
     instructor_id: UUID | None = None,
     from_date: datetime | None = None,
     to_date: datetime | None = None,
+    order_by: Literal["event_at", "customer_name"] = "event_at",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),
@@ -121,6 +122,7 @@ def list_bookings(
             instructor_id=instructor_id,
             from_date=from_date,
             to_date=to_date,
+            order_by=order_by,
         )
     except Exception as exc:
         _raise_query_error(exc)
@@ -164,12 +166,13 @@ def get_open_event_detail(booking_id:UUID,current_user:dict=Depends(get_current_
     description="Returns a compact list containing only the signed-in customer's bookings.",
 )
 def get_my_bookings(
+    order_by: Literal["event_at", "customer_name"] = "event_at",
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     current_user: dict = Depends(get_current_user),
 ) -> CustomerBookingSummaryListResponse:
     try:
-        bookings = query_handlers.get_my_bookings(current_user, limit, offset)
+        bookings = query_handlers.get_my_bookings(current_user, limit, offset, order_by=order_by)
     except Exception as exc:
         _raise_query_error(exc)
     return CustomerBookingSummaryListResponse(

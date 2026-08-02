@@ -57,7 +57,7 @@ def validate_activity(values: dict[str, object]) -> dict[str, object]:
 class ActivitiesPresenter:
     def __init__(self, view, service: ActivityServicePort, role: str, *, limit: int = 25, executor: OperationExecutor | None = None) -> None:
         self.view, self.service, self.role = view, service, role
-        self.filters: dict[str, object] = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if role == "manager" else True, "limit": limit, "offset": 0}
+        self.filters: dict[str, object] = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if role == "manager" else True, "order_by": "name", "limit": limit, "offset": 0}
         self.selected_id: str | None = None; self.selected_activity: dict | None = None; self._loading = False; self._submitting = False
         self.images: list[dict] = []
         self.selected_image_id: str | None = None
@@ -96,7 +96,7 @@ class ActivitiesPresenter:
         self._operations.executor.submit(context, lambda: self.service.list_activities(filters), success, failure, finished)
 
     def apply_filters(self, values: dict[str, object]) -> None:
-        allowed = {"search", "target_audience", "season", "tag"}
+        allowed = {"search", "target_audience", "season", "tag", "order_by"}
         if self.role == "manager": allowed.add("is_active")
         self.filters.update({k: v for k, v in values.items() if k in allowed}); self.filters["offset"] = 0
         if values.get("_clear_selection"):
@@ -105,7 +105,7 @@ class ActivitiesPresenter:
 
     def reset_to_default(self) -> None:
         limit = self.filters["limit"]
-        self.filters = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if self.role == "manager" else True, "limit": limit, "offset": 0}
+        self.filters = {"search": None, "target_audience": None, "season": None, "tag": None, "is_active": None if self.role == "manager" else True, "order_by": "name", "limit": limit, "offset": 0}
         self.selected_id = None; self.selected_activity = None; self._last_list_render = None; self._clear_media_selection()
         self.view.reset_to_default()
 

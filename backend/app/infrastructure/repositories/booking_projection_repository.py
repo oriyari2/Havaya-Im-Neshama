@@ -164,6 +164,7 @@ def list_bookings(
     status: str | None = None,
     from_date: object | None = None,
     to_date: object | None = None,
+    order_by: str = "event_at",
     limit: int,
     offset: int,
 ) -> list[dict]:
@@ -196,6 +197,12 @@ def list_bookings(
         filters.append("AND b.event_at <= %s")
         params.append(to_date)
 
+    order_sql = {
+        "event_at": "b.event_at ASC, b.created_at ASC",
+        "customer_name": "c.name ASC, b.event_at ASC, b.created_at ASC",
+    }.get(order_by)
+    if order_sql is None:
+        raise ValueError("unsupported booking order")
     filter_sql = "\n".join(filters)
     cur.execute(
         f"""
@@ -206,7 +213,7 @@ def list_bookings(
         WHERE 1 = 1
         {visibility_sql}
         {filter_sql}
-        ORDER BY event_at ASC, created_at ASC
+        ORDER BY {order_sql}
         LIMIT %s OFFSET %s;
         """,
         [*params, limit, offset],
