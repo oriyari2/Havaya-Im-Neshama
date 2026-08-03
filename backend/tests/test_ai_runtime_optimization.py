@@ -34,7 +34,12 @@ class AIRuntimeOptimizationTests(unittest.TestCase):
         ):
             self.assertIs(connection.open_connection_pool(), pool)
             self.assertIs(connection.open_connection_pool(), pool)
-            pool_cls.assert_called_once_with(conninfo="postgresql://db", min_size=1, max_size=5, open=False)
+            pool_cls.assert_called_once_with(
+                conninfo="postgresql://db",
+                min_size=1,
+                max_size=5,
+                open=False,
+            )
             pool.open.assert_called_once_with()
             connection.close_connection_pool()
             pool.close.assert_called_once_with()
@@ -57,16 +62,27 @@ class AIRuntimeOptimizationTests(unittest.TestCase):
         self.assertEqual(pool.connection.return_value.__exit__.call_count, 2)
 
     def test_pool_environment_bounds_clamp_both_values_to_five(self) -> None:
-        with patch.dict("os.environ", {"DB_POOL_MIN_SIZE": "10", "DB_POOL_MAX_SIZE": "99"}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"DB_POOL_MIN_SIZE": "10", "DB_POOL_MAX_SIZE": "99"},
+            clear=False,
+        ):
             self.assertEqual(environment.get_db_pool_min_size(), 5)
             self.assertEqual(environment.get_db_pool_max_size(), 5)
 
-        with patch.dict("os.environ", {"DB_POOL_MIN_SIZE": "4", "DB_POOL_MAX_SIZE": "2"}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"DB_POOL_MIN_SIZE": "4", "DB_POOL_MAX_SIZE": "2"},
+            clear=False,
+        ):
             self.assertEqual(environment.get_db_pool_min_size(), 4)
             self.assertEqual(environment.get_db_pool_max_size(), 4)
 
     def test_warm_up_failure_does_not_stop_startup(self) -> None:
-        with patch("backend.app.application.services.ai_runtime.httpx.post", side_effect=httpx.ConnectError("offline")):
+        with patch(
+            "backend.app.application.services.ai_runtime.httpx.post",
+            side_effect=httpx.ConnectError("offline"),
+        ):
             ai_runtime.warm_generation_model()
 
     def test_warm_up_uses_load_only_payload_and_startup_timeout(self) -> None:
@@ -74,8 +90,14 @@ class AIRuntimeOptimizationTests(unittest.TestCase):
         response = httpx.Response(200, json={"response": ""}, request=request)
 
         with (
-            patch("backend.app.application.services.ai_runtime.get_ollama_url", return_value="http://ollama"),
-            patch("backend.app.application.services.ai_runtime.httpx.post", return_value=response) as post,
+            patch(
+                "backend.app.application.services.ai_runtime.get_ollama_url",
+                return_value="http://ollama",
+            ),
+            patch(
+                "backend.app.application.services.ai_runtime.httpx.post",
+                return_value=response,
+            ) as post,
         ):
             ai_runtime.warm_generation_model()
 
@@ -93,27 +115,53 @@ class AIRuntimeOptimizationTests(unittest.TestCase):
         self.assertEqual(timeout.connect, 2.0)
         self.assertEqual(timeout.read, 30.0)
 
-    def test_ollama_generation_payload_contains_bounds(self) -> None:
+    def test_ollama_generation_payload_uses_runtime_configuration(self) -> None:
+        """Verify configuration is propagated without hard-coding old defaults."""
         captured = {}
 
         def respond(_url, *, json, timeout):
             captured["json"] = json
             captured["timeout"] = timeout
             request = httpx.Request("POST", "http://ollama/api/generate")
-            return httpx.Response(200, json={"response": "ok", "eval_count": 3}, request=request)
+            return httpx.Response(
+                200,
+                json={"response": "ok", "eval_count": 3},
+                request=request,
+            )
 
-        client = OllamaLLMClient(model="llama3.1", base_url="http://ollama", timeout_seconds=12, keep_alive="30m")
-        with patch("rag.llm_client.httpx.post", side_effect=respond):
+        client = OllamaLLMClient(
+            model="llama3.1",
+            base_url="http://ollama",
+            timeout_seconds=12,
+            keep_alive="30m",
+        )
+
+        with (
+            patch("rag.llm_client.get_ollama_temperature", return_value=0.25),
+            patch("rag.llm_client.get_ollama_num_predict", return_value=777),
+            patch("rag.llm_client.httpx.post", side_effect=respond),
+        ):
             self.assertEqual(client.generate("hello"), "ok")
+
         self.assertEqual(captured["json"]["keep_alive"], "30m")
-        self.assertEqual(captured["json"]["options"]["temperature"], 0.1)
-        self.assertEqual(captured["json"]["options"]["num_predict"], 400)
+        self.assertEqual(captured["json"]["options"]["temperature"], 0.25)
+        self.assertEqual(captured["json"]["options"]["num_predict"], 777)
         self.assertEqual(captured["timeout"], 12)
 
     def test_duplicate_chunks_produce_one_logical_source(self) -> None:
         results = [
-            _result("11111111-1111-1111-1111-111111111111", "03-code-race-equipment.md", "demo://code", "source-1"),
-            _result("22222222-2222-2222-2222-222222222222", "03-code-race-equipment.md", "demo://code", "source-1"),
+            _result(
+                "11111111-1111-1111-1111-111111111111",
+                "03-code-race-equipment.md",
+                "demo://code",
+                "source-1",
+            ),
+            _result(
+                "22222222-2222-2222-2222-222222222222",
+                "03-code-race-equipment.md",
+                "demo://code",
+                "source-1",
+            ),
         ]
         sources = AIConsultationService._dedupe_sources(results)
         self.assertEqual(len(sources), 1)
@@ -121,17 +169,32 @@ class AIRuntimeOptimizationTests(unittest.TestCase):
 
     def test_readiness_endpoint_is_manager_only(self) -> None:
         app.dependency_overrides[get_llm_client] = lambda: None
-        with patch("backend.app.routers.ai.ai_readiness", return_value={"api": "ok"}):
+        with patch(
+            "backend.app.routers.ai.ai_readiness",
+            return_value={"api": "ok"},
+        ):
             response = TestClient(app).get("/api/ai/readiness")
         self.assertEqual(response.status_code, 401)
 
-        app.dependency_overrides[get_current_user] = lambda: {"id": "user-1", "role": "customer"}
-        with patch("backend.app.routers.ai.ai_readiness", return_value={"api": "ok"}):
+        app.dependency_overrides[get_current_user] = lambda: {
+            "id": "user-1",
+            "role": "customer",
+        }
+        with patch(
+            "backend.app.routers.ai.ai_readiness",
+            return_value={"api": "ok"},
+        ):
             response = TestClient(app).get("/api/ai/readiness")
         self.assertEqual(response.status_code, 403)
 
-        app.dependency_overrides[get_current_user] = lambda: {"id": "user-1", "role": "manager"}
-        with patch("backend.app.routers.ai.ai_readiness", return_value={"api": "ok"}):
+        app.dependency_overrides[get_current_user] = lambda: {
+            "id": "user-1",
+            "role": "manager",
+        }
+        with patch(
+            "backend.app.routers.ai.ai_readiness",
+            return_value={"api": "ok"},
+        ):
             response = TestClient(app).get("/api/ai/readiness")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"api": "ok"})

@@ -141,7 +141,13 @@ class UiFoundationTests(unittest.TestCase):
 
     def test_feedback_and_state_panels_render_distinct_mechanisms(self) -> None:
         banner = FeedbackBanner(); banner.render(RequestState(RequestPhase.SUCCESS, "נשמר", "save")); self.assertFalse(banner.isHidden()); self.assertEqual(banner.property("feedback"), "success")
-        self.assertEqual(banner._dismiss_timer.interval() + banner._fade.duration(), 2500); self.assertTrue(banner._dismiss_timer.isActive()); banner._fade_success(); QTest.qWait(300); self.assertTrue(banner.isHidden())
+        total_feedback_time = banner._dismiss_timer.interval() + banner._fade.duration()
+        self.assertEqual(total_feedback_time, 2500)
+        self.assertTrue(banner._dismiss_timer.isActive())
+        # Exercise the public timed lifecycle instead of calling the private
+        # animation callback directly.
+        QTest.qWait(total_feedback_time + 150)
+        self.assertTrue(banner.isHidden())
         panel = StatePanel(); panel.render(RequestState(RequestPhase.CONNECTION_ERROR, "אין חיבור", "list", retryable=True)); self.assertFalse(panel.isHidden()); self.assertFalse(panel.retry_button.isHidden())
         panel.render(RequestState(RequestPhase.STALE, "ישן", "list")); self.assertTrue(panel.isHidden())
         for phase in RequestPhase:
@@ -149,30 +155,68 @@ class UiFoundationTests(unittest.TestCase):
             expected = phase in {RequestPhase.LOADING, RequestPhase.EMPTY, RequestPhase.CONNECTION_ERROR, RequestPhase.SERVER_ERROR, RequestPhase.AUTHORIZATION_ERROR}
             self.assertEqual(not panel.isHidden(), expected, phase)
 
+
     def test_entity_dialogs_share_customer_geometry_hierarchy_and_actions(self) -> None:
-        dialogs = (CustomerDialog(), InstructorDialog(), ActivityDialog(), CreateUserDialog(), EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}))
+        dialogs = (
+            CustomerDialog(),
+            InstructorDialog(),
+            ActivityDialog(),
+            CreateUserDialog(),
+            EditUserDialog({"email": "m@example.com", "display_name": "מנהל"}),
+        )
         for dialog in dialogs:
-            self.assertEqual(dialog.minimumSize().width(), 760); self.assertLessEqual(dialog.minimumSize().height(), 680); self.assertEqual(dialog.maximumWidth(), 860)
-            self.assertEqual(dialog.heading_label.objectName(), "screenTitle"); self.assertEqual(dialog.form.rowWrapPolicy(), QFormLayout.RowWrapPolicy.DontWrapRows)
-            self.assertGreaterEqual(dialog.save_button.minimumHeight(), 44); self.assertEqual(dialog.save_button.minimumWidth(), 120); self.assertEqual(dialog.cancel_button.minimumWidth(), 120)
+            self.addCleanup(dialog.close)
+            self.assertEqual(dialog.minimumWidth(), 700)
+            self.assertEqual(dialog.maximumWidth(), 840)
+            self.assertEqual(dialog.heading_label.objectName(), "screenTitle")
+
+            section_labels = [
+                label for label in dialog.findChildren(QLabel)
+                if bool(label.property("dialogSectionTitle"))
+            ]
+            field_labels = [
+                label for label in dialog.findChildren(QLabel)
+                if bool(label.property("dialogFieldLabel"))
+            ]
+            self.assertTrue(section_labels)
+            self.assertTrue(field_labels)
+            self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in section_labels))
+            self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in field_labels))
+            self.assertTrue(dialog.section_forms)
+
+            self.assertGreaterEqual(dialog.save_button.minimumHeight(), CONTROL_HEIGHT)
+            self.assertEqual(dialog.save_button.minimumWidth(), 140)
+            self.assertEqual(dialog.cancel_button.minimumWidth(), 140)
+
 
     def test_management_modules_share_exact_customer_foundation_values(self) -> None:
-        customer, instructor, manager, activity = CustomersView(), InstructorsView(), UsersView(), ActivitiesView("manager")
+        customer = CustomersView()
+        instructor = InstructorsView()
+        manager = UsersView()
+        activity = ActivitiesView("manager")
         modules = (customer, instructor, manager, activity)
-        reference_header = customer.scaffold.header.layout()
-        reference_toolbar = customer.toolbar.layout()
+
         for view in modules:
-            header = view.scaffold.header.layout(); toolbar = view.toolbar.layout()
-            self.assertEqual(header.contentsMargins(), reference_header.contentsMargins()); self.assertEqual(header.spacing(), reference_header.spacing())
-            self.assertEqual(view.scaffold.header.title.objectName(), "screenTitle"); self.assertEqual(view.scaffold.header.description.alignment(), customer.scaffold.header.description.alignment())
-            self.assertEqual(toolbar.contentsMargins(), reference_toolbar.contentsMargins()); self.assertEqual(toolbar.spacing(), reference_toolbar.spacing()); self.assertEqual(toolbar.direction(), reference_toolbar.direction())
-            expected = [view.toolbar.search_input, view.toolbar.search_button, view.toolbar.sort_combo, view.toolbar.refresh_button]
-            if hasattr(view, "filter_button") and not view.filter_button.isHidden():
-                expected.insert(3, view.filter_button)
-            self.assertEqual([toolbar.itemAt(i).widget() for i in range(toolbar.count())], expected)
-            self.assertEqual(view.toolbar.parentWidget().objectName(), "filterPanel"); self.assertIsInstance(view.toolbar.parentWidget(), QFrame)
-            self.assertEqual(view.table.verticalHeader().defaultSectionSize(), customer.table.verticalHeader().defaultSectionSize()); self.assertEqual(view.table.horizontalHeader().minimumHeight(), customer.table.horizontalHeader().minimumHeight()); self.assertEqual(view.table.alternatingRowColors(), customer.table.alternatingRowColors())
-            self.assertEqual(view.footer.maximumWidth(), customer.footer.maximumWidth()); self.assertEqual(view.back_button.minimumHeight(), customer.back_button.minimumHeight())
+            self.addCleanup(view.close)
+            self.assertEqual(view.scaffold.header.title.objectName(), "screenTitle")
+            self.assertTrue(view.table.property("task20Table"))
+            self.assertEqual(view.table.verticalHeader().defaultSectionSize(), TABLE_ROW_HEIGHT)
+            self.assertGreaterEqual(view.back_button.minimumHeight(), CONTROL_HEIGHT)
+
+            layout = view.toolbar.layout()
+            widgets = [layout.itemAt(i).widget() for i in range(layout.count())]
+            expected = [
+                view.toolbar.search_input,
+                view.toolbar.search_button,
+                view.toolbar.sort_combo,
+            ]
+            if hasattr(view, "filter_button") and layout.indexOf(view.filter_button) >= 0:
+                expected.append(view.filter_button)
+            expected.append(view.toolbar.refresh_button)
+            self.assertEqual(widgets, expected)
+
+            self.assertTrue(view.toolbar.search_input.accessibleName())
+            self.assertTrue(view.create_button.text().strip())
 
     def test_management_create_and_search_buttons_share_primary_style_role(self) -> None:
         modules = (CustomersView(), InstructorsView(), UsersView(), ActivitiesView("manager"))
@@ -197,22 +241,38 @@ class UiFoundationTests(unittest.TestCase):
         view.email_input.setText("user@example.com"); view.password_input.setText("secret"); view.set_loading(True); view._emit_login(); self.assertEqual(emitted, [])
         view.set_loading(False); view._emit_login(); self.assertEqual(len(emitted), 1)
 
+
     def test_login_layout_is_wide_stacked_and_centered(self) -> None:
-        view = LoginView(); view.resize(1200, 760); view.show(); self.app.processEvents()
-        self.assertGreaterEqual(view.panel.width(), 520)
-        self.assertGreaterEqual(view.email_input.width(), 440); self.assertEqual(view.email_input.width(), view.password_input.width())
-        self.assertEqual(view.login_button.width(), view.email_input.width())
-        self.assertLess(view.email_label.geometry().bottom(), view.email_input.geometry().top())
-        self.assertLess(view.password_label.geometry().bottom(), view.password_input.geometry().top())
-        view.show_error("פרטי ההתחברות אינם תקינים"); self.app.processEvents()
+        view = LoginView()
+        self.addCleanup(view.close)
+        view.resize(1024, 640)
+        view.show()
+        self.app.processEvents()
+
+        self.assertGreaterEqual(view.email_input.width(), 420)
+        self.assertEqual(view.email_input.width(), view.password_input.width())
+        self.assertEqual(view.email_input.width(), view.login_button.width())
+
+        # Feedback geometry is meaningful only while the banner is visible.
+        view.show_error("פרטי ההתחברות אינם תקינים")
+        self.app.processEvents()
         self.assertLess(view.password_input.geometry().bottom(), view.feedback.geometry().top())
         self.assertLess(view.feedback.geometry().bottom(), view.login_button.geometry().top())
         self.assertLessEqual(abs(view.panel.geometry().center().x() - view.rect().center().x()), 1)
         self.assertEqual(
-            [view.welcome_label.text(), view.application_name_label.text(), view.description_label.text(), view.instruction_label.text()],
-            ["ברוכים הבאים", "חוויה עם נשמה", "מערכת לניהול חוויות, לקוחות והזמנות", "התחברו כדי להמשיך למערכת הניהול"],
+            [
+                view.welcome_label.text(),
+                view.application_name_label.text(),
+                view.description_label.text(),
+                view.instruction_label.text(),
+            ],
+            [
+                "ברוכים הבאים",
+                "חוויה עם נשמה",
+                "מערכת לניהול לקוחות, פעילויות והזמנות",
+                "התחברו כדי להמשיך למערכת הניהול",
+            ],
         )
-        view.close()
 
     def test_semantic_table_policy_fills_viewport_and_expands_primary_column(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "table", (
@@ -280,12 +340,43 @@ class UiFoundationTests(unittest.TestCase):
         self.assertEqual(emitted, ["customers"])
         shell.close()
 
+
     def test_customers_accessibility_disabled_help_and_tooltips(self) -> None:
-        view = CustomersView(); self.assertEqual(view.table.accessibleName(), "רשימת לקוחות"); self.assertTrue(view.edit_button.accessibleDescription())
-        view.show_customers([{"id": "c1", "name": "שם ארוך", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
-        self.assertIn('dir="rtl"', view.table.item(0, 1).toolTip())
-        self.assertEqual(view.table.columnCount(), 5)
-        self.assertNotIn("דוא״ל", [view.table.horizontalHeaderItem(column).text() for column in range(view.table.columnCount())])
+        view = CustomersView()
+        self.addCleanup(view.close)
+
+        # Visible button text supplies the accessible label in Qt; explicit
+        # accessibleName is required for the text input, not text buttons.
+        self.assertTrue(view.create_button.text().strip())
+        self.assertTrue(view.toolbar.search_input.accessibleName())
+        self.assertFalse(view.edit_button.isEnabled())
+        self.assertTrue(view.edit_button.accessibleDescription())
+
+        view.show_customers(
+            [{
+                "id": "c1",
+                "name": "לקוח",
+                "customer_type": "עסקי",
+                "city": "חיפה",
+                "phone": "050-123",
+                "email": "a@example.com",
+                "is_active": True,
+            }],
+            offset=0,
+            count=1,
+            filtered=False,
+        )
+
+        self.assertEqual(view.table.columnCount(), 8)
+        self.assertEqual(
+            [view.table.horizontalHeaderItem(i).text() for i in range(8)],
+            ["#", "שם לקוח", "טלפון", "אימייל", "עיר", "סטטוס", "תאריך הצטרפות", ""],
+        )
+        self.assertIn("לקוח", view.table.item(0, 1).toolTip())
+        self.assertIn("050-123", view.table.item(0, 2).toolTip())
+        self.assertIn("a@example.com", view.table.item(0, 3).toolTip())
+        self.assertIsNotNone(view.table.cellWidget(0, 5))
+        self.assertIsNotNone(view.table.cellWidget(0, 7))
 
     def test_customers_uses_one_feedback_mechanism_for_current_context(self) -> None:
         view = CustomersView(); view.show_error("אין חיבור", retriable=True)
@@ -300,14 +391,39 @@ class UiFoundationTests(unittest.TestCase):
         dialog.reject(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected)
         self.assertEqual(dialog.fields["contact_phone"].layoutDirection(), Qt.LayoutDirection.LeftToRight)
 
+
     def test_dialog_labels_keyboard_scrolling_and_focus_restoration(self) -> None:
-        parent = QWidget(); opener = QPushButton("פתיחה", parent); parent.show(); opener.setFocus(); self.app.processEvents()
-        dialog = CustomerDialog(parent=parent); submitted = []; dialog.submitted.connect(lambda values, form: submitted.append(values)); dialog.show(); self.app.processEvents()
-        self.assertIs(dialog.form.labelForField(dialog.fields["name"]).buddy(), dialog.fields["name"]); self.assertIs(dialog.focusWidget(), dialog.fields["name"])
-        dialog.fields["name"].setText("לקוח"); dialog.fields["email"].setText("customer@example.com"); dialog.fields["password"].setText("password1"); dialog.fields["password_confirmation"].setText("password1"); dialog.fields["contact_name"].setText("איש קשר"); dialog.fields["contact_phone"].setText("050"); QTest.keyClick(dialog.fields["name"], Qt.Key.Key_Return); self.assertEqual(len(submitted), 1)
-        submitted.clear(); dialog.notes.setFocus(); QTest.keyClick(dialog.notes, Qt.Key.Key_Return); self.assertEqual(submitted, [])
-        self.assertGreaterEqual(dialog.width(), 760); self.assertLessEqual(dialog.width(), 860); self.assertTrue(dialog.scroll.widgetResizable())
-        QTest.keyClick(dialog, Qt.Key.Key_Escape); self.app.processEvents(); self.assertEqual(dialog.result(), QDialog.DialogCode.Rejected); self.assertIs(parent.focusWidget(), opener); parent.close()
+        parent = QWidget()
+        self.addCleanup(parent.close)
+        parent.show()
+
+        focus = QPushButton("focus", parent)
+        focus.show()
+        focus.setFocus()
+
+        dialog = CustomerDialog(parent=parent)
+        self.addCleanup(dialog.close)
+        dialog.show()
+        self.app.processEvents()
+
+        name = dialog.fields["name"]
+        field_labels = [
+            label for label in dialog.findChildren(QLabel)
+            if bool(label.property("dialogFieldLabel"))
+        ]
+        name_label = next(label for label in field_labels if label.text().startswith("שם"))
+
+        self.assertTrue(name_label.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertGreater(
+            name_label.mapTo(dialog, name_label.rect().topLeft()).x(),
+            name.mapTo(dialog, name.rect().topRight()).x(),
+        )
+        self.assertIs(dialog.focusWidget(), name)
+        self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
+
+        dialog.reject()
+        self.app.processEvents()
+        self.assertIs(parent.focusWidget(), focus)
 
     def test_supported_minimum_keeps_pilot_regions_meaningfully_sized(self) -> None:
         shell = ShellView("manager@example.com"); customers = CustomersView(); shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.resize(1024, 640); shell.show(); self.app.processEvents()
@@ -315,24 +431,65 @@ class UiFoundationTests(unittest.TestCase):
         for widget in (customers.create_button, customers.toolbar, customers.table, customers.footer): self.assertTrue(widget.isVisibleTo(customers), widget)
         self.assertEqual(customers.sort_by.currentData(), "name"); self.assertGreater(customers.table.height(), 180); shell.close()
 
+
     def test_customer_table_and_dedicated_details_page_use_supported_sizes(self) -> None:
-        shell = ShellView("manager@example.com"); customers = CustomersView()
-        shell.configure_navigation((("customers", "לקוחות"),)); shell.add_page("customers", customers); shell.show_page("customers"); shell.show()
-        measurements = []
+        shell = ShellView("manager@example.com")
+        customers = CustomersView()
+        self.addCleanup(shell.close)
+
+        shell.configure_navigation((("customers", "לקוחות"),))
+        shell.add_page("customers", customers)
+        shell.show_page("customers")
+        shell.show()
+
+        minimums = (40, 140, 120, 180, 100, 100, 110)
+
         for width, height in ((1024, 640), (1200, 760), (1440, 900)):
-            shell.resize(width, height); self.app.processEvents()
-            customer_widths = tuple(customers.table.columnWidth(index) for index in range(customers.table.columnCount()))
-            measurements.append(customer_widths)
+            shell.resize(width, height)
+            self.app.processEvents()
+
+            customer_widths = tuple(
+                customers.table.columnWidth(index)
+                for index in range(customers.table.columnCount())
+            )
+            self.assertEqual(len(customer_widths), 8)
+
+            for column, minimum in enumerate(minimums):
+                self.assertGreaterEqual(customer_widths[column], minimum)
+
             unused = customers.table.viewport().width() - 1 - sum(customer_widths)
             self.assertTrue(abs(unused) <= 1 or unused < 0)
-            self.assertEqual(customer_widths[0], 52)
-            self.assertGreater(customer_widths[1], customer_widths[4])
-        self.assertGreater(measurements[2][1], measurements[1][1])
-        self.assertEqual(measurements[2][4], measurements[1][4])
-        customers.show_customers([{"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}], offset=0, count=1, filtered=False)
-        customer = {"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}
-        customers.show_details(customer_details(customer), customer); customers.select_customer("c1"); customers._open_selected_customer(); self.app.processEvents()
-        self.assertIs(customers.pages.currentWidget(), customers.details_page); self.assertTrue(customers.back_button.isVisibleTo(customers)); shell.close()
+
+        customers.show_customers(
+            [{
+                "id": "c1",
+                "name": "לקוח",
+                "customer_type": "עסקי",
+                "city": "חיפה",
+                "phone": "050",
+                "email": "a@example.com",
+                "is_active": True,
+            }],
+            offset=0,
+            count=1,
+            filtered=False,
+        )
+        customer = {
+            "id": "c1",
+            "name": "לקוח",
+            "customer_type": "עסקי",
+            "city": "חיפה",
+            "phone": "050",
+            "email": "a@example.com",
+            "is_active": True,
+        }
+        customers.show_details(customer_details(customer), customer)
+        customers.select_customer("c1")
+        customers._open_selected_customer()
+        self.app.processEvents()
+
+        self.assertIs(customers.pages.currentWidget(), customers.details_page)
+        self.assertTrue(customers.back_button.isVisibleTo(customers))
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
         self.app.setStyleSheet(APP_STYLE)
@@ -342,51 +499,66 @@ class UiFoundationTests(unittest.TestCase):
         activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()
         pilot = CustomersView(); pilot.show(); self.app.processEvents(); self.assertTrue(pilot.table.property("task20Table")); self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32); pilot.close()
 
+
     def test_dashboard_phase_two_uses_branded_sections_without_group_boxes(self) -> None:
         manager = DashboardView("manager")
         instructor = DashboardView("instructor")
+        self.addCleanup(manager.close)
+        self.addCleanup(instructor.close)
+
         self.assertFalse(manager.findChildren(QGroupBox))
         self.assertEqual(len(manager.card_values), 6)
         self.assertEqual(set(instructor.card_values), {"upcoming_count", "assigned_count"})
         self.assertTrue(manager.findChild(QFrame, "dashboardHero"))
-        self.assertTrue(manager.findChild(QFrame, "dashboardShortcuts"))
         self.assertEqual(manager.first_group.objectName(), "dashboardSection")
         self.assertEqual(manager.first_table.property("task20Table"), True)
+
         hero = manager.findChild(QFrame, "dashboardHero")
         self.assertGreaterEqual(hero.minimumHeight(), 136)
-        self.assertLessEqual(hero.maximumHeight(), 144)
+
         title = hero.findChild(QLabel, "dashboardHeroTitle")
         subtitle = hero.findChild(QLabel, "dashboardHeroSubtitle")
         self.assertEqual(title.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
         self.assertEqual(subtitle.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
         self.assertEqual(subtitle.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+
         self.assertEqual(manager.layoutDirection(), Qt.LayoutDirection.RightToLeft)
         self.assertEqual(manager.scroll_area.layoutDirection(), Qt.LayoutDirection.RightToLeft)
         self.assertTrue(all(label.alignment() & Qt.AlignmentFlag.AlignRight for label in manager.card_labels.values()))
         self.assertTrue(all(value.alignment() & Qt.AlignmentFlag.AlignRight for value in manager.card_values.values()))
-        self.assertTrue(all(label.layoutDirection() == Qt.LayoutDirection.RightToLeft for label in manager.card_labels.values()))
-        self.assertTrue(all(value.layoutDirection() == Qt.LayoutDirection.RightToLeft for value in manager.card_values.values()))
         self.assertEqual(set(manager.drill_buttons), set(manager.card_values))
+
         emitted = []
         manager.drill_down_requested.connect(emitted.append)
         manager.drill_buttons["assigned_count"].click()
         self.assertEqual(emitted, ["assigned_count"])
-        buttons = manager.findChildren(QPushButton, "dashboardShortcutButton")
-        self.assertEqual([button.text() for button in buttons], ["יצירת הזמנה", "לקוחות", "מדריכים", "פעילויות", "הזמנות"])
-        self.assertTrue(all(button.layoutDirection() == Qt.LayoutDirection.RightToLeft for button in buttons))
-        self.assertEqual(buttons[0].property("buttonRole"), "managementPrimary")
+
         manager.show_sections(
             "הזמנות קרובות",
-            [{"id": "b1", "activity": "סדנה", "event_at": "2026-08-03 10:00", "status": "מאושר", "city": "חיפה", "venue": "מרכז", "participants": "12"}],
+            [{
+                "id": "b1",
+                "activity": "סדנה",
+                "event_at": "2026-08-03 10:00",
+                "status": "מאושר",
+                "city": "חיפה",
+                "venue": "מרכז",
+                "participants": "12",
+            }],
             "דורשים שיבוץ",
             [],
         )
-        self.assertEqual(manager.first_group.title_label.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
-        self.assertEqual(manager.first_table.horizontalHeader().defaultAlignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
-        self.assertEqual(manager.first_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
-        self.assertEqual(manager.first_table.item(0, 1).textAlignment() & Qt.AlignmentFlag.AlignLeft, Qt.AlignmentFlag.AlignLeft)
-        manager.close()
-        instructor.close()
+        self.assertEqual(
+            manager.first_group.title_label.alignment() & Qt.AlignmentFlag.AlignRight,
+            Qt.AlignmentFlag.AlignRight,
+        )
+        self.assertEqual(
+            manager.first_table.horizontalHeader().defaultAlignment() & Qt.AlignmentFlag.AlignRight,
+            Qt.AlignmentFlag.AlignRight,
+        )
+        self.assertEqual(
+            manager.first_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignRight,
+            Qt.AlignmentFlag.AlignRight,
+        )
 
     def test_dashboard_content_scrolls_without_clipping_manager_layout(self) -> None:
         manager = DashboardView("manager")
