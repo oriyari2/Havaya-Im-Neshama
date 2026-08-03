@@ -14,6 +14,7 @@ from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4
 from desktop_client.app.views.filter_popup import FloatingFilterPopup
 from desktop_client.app.views.management_common import ActiveBadge, RetryState, confirm_action
 from desktop_client.app.views.management_workspace import ManagementWorkspace
+from desktop_client.app.views.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, style_reference_extra_panel
 from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, set_disabled_explanation, set_item_text
 
 
@@ -79,6 +80,20 @@ class ActivitiesView(StatefulWidget):
         self.operational_details = self.workspace.add_card("תפעול ותמחור")
         self.system_details = self.workspace.add_card("מידע מערכת")
         self._build_gallery()
+        hero_image = {
+            "manager": "activities-manager-hero.png",
+            "instructor": "activities-instructor-hero.png",
+            "customer": "activities-customer-hero.png",
+        }.get(role, "activities-manager-hero.png")
+        self.hero = install_management_hero(self.workspace, hero_image, "תמונת פעילות למסך פעילויות")
+        apply_reference_list_layout(self.workspace, extra_toolbar_controls=(self.filter_button,))
+        apply_reference_detail_layout(
+            self.workspace,
+            back_text="← חזרה לרשימת פעילויות" if role == "manager" else "← חזרה לקטלוג הפעילויות",
+            actions=((self.deactivate_button, "destructive"), (self.reactivate_button, "success"), (self.edit_button, "primary")),
+            cards=((self.activity_details, "primary"), (self.operational_details, "secondary"), (self.system_details, "system")),
+        )
+        style_reference_extra_panel(self.media_group, role="media")
 
         self.create_button.clicked.connect(self.create_requested); self.edit_button.clicked.connect(self.edit_requested)
         self.deactivate_button.clicked.connect(self.deactivate_requested); self.reactivate_button.clicked.connect(self.reactivate_requested)

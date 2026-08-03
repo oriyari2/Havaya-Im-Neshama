@@ -9,6 +9,7 @@ from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
 from desktop_client.app.views.management_common import ActiveBadge, confirm_action
 from desktop_client.app.views.management_workspace import ManagementWorkspace
+from desktop_client.app.views.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero
 from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, configure_mixed_direction, set_disabled_explanation, set_item_text
 
 
@@ -20,6 +21,14 @@ class InstructorsView(StatefulWidget):
         root.addWidget(self.workspace);self.scaffold=self.workspace.scaffold;self.toolbar=self.workspace.toolbar;self.table=self.workspace.table;self.footer=self.workspace.footer;self.create_button=self.workspace.create_button;self.pages=self.workspace.pages;self.list_page=self.workspace.list_page;self.details_page=self.workspace.details_page;self.back_button=self.workspace.back_button;self._selected_id=None;self._pending_open_id=None
         self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button=self.workspace.add_lifecycle_actions(edit="עריכת מדריך",password="שינוי סיסמה",deactivate="השבתת מדריך",reactivate="הפעלת מדריך מחדש")
         self.profile_details=self.workspace.add_card("פרטי מדריך");self.contact_details=self.workspace.add_card("פרטי קשר");self.system_details=self.workspace.add_card("מידע מערכת")
+        self.hero=install_management_hero(self.workspace,"instructors-hero.png","תמונת פעילות למסך מדריכים")
+        apply_reference_list_layout(self.workspace)
+        apply_reference_detail_layout(
+            self.workspace,
+            back_text="← חזרה לרשימת מדריכים",
+            actions=((self.deactivate_button,"destructive"),(self.reactivate_button,"success"),(self.change_password_button,"secondary"),(self.edit_button,"primary")),
+            cards=((self.profile_details,"primary"),(self.contact_details,"secondary"),(self.system_details,"system")),
+        )
         self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.change_password_button.clicked.connect(self.change_password_requested);self.deactivate_button.clicked.connect(self.deactivate_requested);self.reactivate_button.clicked.connect(self.reactivate_requested)
         self.toolbar.search_requested.connect(lambda search,order:self.filters_requested.emit({"search":search or None,"order_by":order or "full_name"}));self.toolbar.sort_combo.currentIndexChanged.connect(self._sort_changed);self.toolbar.refresh_requested.connect(self._reset_toolbar);self.footer.page_requested.connect(self.page_requested);self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda row,_column:self._request_open(self._row_id(row)));self.table.installEventFilter(self);self.workspace.empty_action_button.clicked.connect(self._empty_action);self._empty_filtered=False;self.clear_details()
     def _sort_changed(self,_index):self.filters_requested.emit({"search":self.toolbar.search_input.text().strip() or None,"order_by":str(self.toolbar.sort_combo.currentData() or "full_name")})

@@ -353,6 +353,8 @@ class UiFoundationTests(unittest.TestCase):
         self.assertEqual(manager.first_group.objectName(), "dashboardSection")
         self.assertEqual(manager.first_table.property("task20Table"), True)
         hero = manager.findChild(QFrame, "dashboardHero")
+        self.assertGreaterEqual(hero.minimumHeight(), 136)
+        self.assertLessEqual(hero.maximumHeight(), 144)
         title = hero.findChild(QLabel, "dashboardHeroTitle")
         subtitle = hero.findChild(QLabel, "dashboardHeroSubtitle")
         self.assertEqual(title.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)

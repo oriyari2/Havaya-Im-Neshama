@@ -2,12 +2,13 @@
 
 ## Status
 
-Phase 2 complete: Dashboard only.
+Phase 3 complete: Customers only.
 
-Phase 1 remains the completed shared branded foundation. Customers, Bookings,
-AI Advisor, Login, and the final cross-screen consistency pass remain pending.
-No Customer, Booking, AI Advisor, Login, backend, presenter, API, RBAC, RAG,
-CQRS, or Event Sourcing work was implemented in this phase.
+Phase 1 remains the completed shared branded foundation. Phase 2 remains the
+completed Dashboard styling phase. Bookings, AI Advisor, Login, and the final
+cross-screen consistency pass remain pending. No Booking, AI Advisor, Login,
+backend, presenter, API, RBAC, RAG, CQRS, Event Sourcing, repository, database,
+or authentication work was implemented in this phase.
 
 ## Skill Used
 
@@ -153,16 +154,94 @@ Applied a Dashboard-only correction after follow-up review:
   sidebar, roles, Presenter, backend/API, RBAC, RAG, CQRS, and Event Sourcing
   behavior.
 
+## Phase 3 Customers Implement
+
+Used `design_reference/approved-customers.png` as the Customers visual direction
+and `design_reference/activity-customers-hero.png` as the only Customers hero
+asset.
+
+Implemented only the existing Customers screen:
+
+- added a restrained Customers list-page hero strip using the approved activity
+  image;
+- kept the existing `CustomersView` and `ManagementWorkspace` signal contracts;
+- kept the existing RTL page title/subtitle and primary `לקוח חדש` action;
+- kept the existing search input, search action, immediate sort combo, reset
+  action, and filter emission behavior;
+- kept the existing Customer table columns exactly as implemented:
+  open action, customer name, type, city, and active status;
+- kept the existing table population, row selection, double-click/open-action
+  details flow, pagination footer, empty states, retry state, and feedback
+  behavior;
+- polished the Customers table through a scoped `customerTable` style property;
+- added a small shared `ManagementWorkspace.add_list_header_widget` hook so the
+  Customers hero is shown only on the list page and hidden with the normal list
+  header on the details page.
+
+No new Customer columns, status values, filters, metrics, actions, navigation,
+dialogs, workflows, or mockup-only features were added.
+
+The visual reference shows additional data columns such as phone, email, index,
+and join/created date. Those were intentionally not implemented because the
+current Customers screen is the functional source of truth and currently exposes
+only the existing compact Customer list columns, with email/phone remaining in
+search/details behavior.
+
+## Phase 3 Customers RTL Alignment Repair
+
+Applied a Customers-only visual alignment repair after review:
+
+- moved the `לקוחות • N` result count to the right edge of the Customers list
+  heading row;
+- kept the `לקוח חדש` button in the existing RTL header action composition
+  without changing the current hero height;
+- made Customers toolbar controls render in the natural RTL order while keeping
+  the existing search, sort, and reset behavior;
+- kept Hebrew table headers and textual table cells explicitly right-aligned;
+- preserved LTR alignment for naturally LTR detail values such as email, phone,
+  and date-style metadata.
+
+No Customer functionality, columns, data loading, sidebar, hero dimensions,
+Dashboard, backend, Presenter, API, RBAC, CQRS, Event Sourcing, RAG, or database
+logic changed.
+
+## Phase 3 Customers Header/RTL Composition Repair
+
+Applied a second Customers-only visual correction after review:
+
+- moved the existing `לקוחות`, `ניהול לקוחות ופרטי קשר`, and `לקוח חדש`
+  widgets into the approved `activity-customers-hero.png` hero composition;
+- suppressed the old separate white Customers header card on the list page while
+  preserving the same widget instances, object references, signal wiring, and
+  create action behavior;
+- kept the current hero height and image crop behavior;
+- pinned the title/subtitle to the hero's right side and the existing
+  `לקוח חדש` action to the bottom-left of the hero;
+- tightened the `לקוחות • N` section title so it sits at the right edge above
+  the table instead of spanning the row;
+- kept the RTL search row order, explicit Hebrew table header/cell alignment,
+  pagination, sidebar, Dashboard, Presenters, backend/API, RBAC, RAG, CQRS, and
+  Event Sourcing unchanged.
+
+Visual validation captured:
+
+- `docs/screenshots/task-25-5-customers-header-rtl-composition.png`
+
 ## Files Changed
 
 - `desktop_client/app/views/design_tokens.py`
 - `desktop_client/app/views/dashboard_view.py`
+- `desktop_client/app/views/customers_view.py`
+- `desktop_client/app/views/management_workspace.py`
 - `desktop_client/app/views/shell_view.py`
 - `desktop_client/tests/test_ui_foundations.py`
+- `desktop_client/tests/test_customer_views.py`
 - `docs/screenshots/task-25-5-dashboard-instructor-shell.png`
 - `docs/screenshots/task-25-5-dashboard-instructor.png`
 - `docs/screenshots/task-25-5-dashboard-manager-shell.png`
 - `docs/screenshots/task-25-5-dashboard-manager.png`
+- `docs/screenshots/task-25-5-customers-manager-shell.png`
+- `docs/screenshots/task-25-5-customers-manager-shell-1024.png`
 - `docs/piv/25-5-branded-desktop-visual-system.md`
 - `docs/piv/requirements-traceability.md`
 
@@ -180,6 +259,13 @@ Applied a Dashboard-only correction after follow-up review:
   `drill_down_requested`, `shortcut_requested`, and
   `create_booking_requested`.
 - Existing Dashboard presenter/service contracts were not changed.
+- Existing Customers signals were preserved:
+  `filters_requested`, `page_requested`, `customer_selected`,
+  `retry_requested`, `create_requested`, `edit_requested`,
+  `deactivate_requested`, `reactivate_requested`, and
+  `change_password_requested`.
+- Existing Customer create/edit/deactivate/reactivate/change-password dialogs
+  and Presenter/service/API behavior were not changed.
 
 ## Validation
 
@@ -275,6 +361,40 @@ Phase 2 summary correction validation:
 - All drill-down buttons were visible and the summary card grid had no detected
   horizontal overflow in the checked manager shell.
 
+Phase 3 focused validation:
+
+- `QT_QPA_PLATFORM=offscreen`
+- `.\.venv\Scripts\python.exe -m unittest desktop_client.tests.test_customer_views`
+  - 16 tests passed.
+- `.\.venv\Scripts\python.exe -m unittest desktop_client.tests.test_ui_foundations.UiFoundationTests.test_supported_minimum_keeps_pilot_regions_meaningfully_sized desktop_client.tests.test_ui_foundations.UiFoundationTests.test_customer_table_and_dedicated_details_page_use_supported_sizes desktop_client.tests.test_ui_foundations.UiFoundationTests.test_customers_accessibility_disabled_help_and_tooltips desktop_client.tests.test_ui_foundations.UiFoundationTests.test_management_modules_share_exact_customer_foundation_values desktop_client.tests.test_ui_foundations.UiFoundationTests.test_management_create_and_search_buttons_share_primary_style_role`
+  - 5 tests passed.
+
+Phase 3 visual validation:
+
+- Instantiated the real PySide6 `ShellView` with `CustomersView` for the manager
+  role.
+- Populated the existing table with representative Customer rows.
+- Captured screenshots under `docs/screenshots/`:
+  - `task-25-5-customers-manager-shell.png`
+  - `task-25-5-customers-manager-shell-1024.png`
+- Compared the real screen with `design_reference/approved-customers.png`.
+- Verified title/subtitle right alignment, reachable primary action, reachable
+  search/sort/reset controls, readable high-density table, visible status text,
+  reachable pagination, and no detected overlap at 1200x760 or 1024x640.
+- Verified the Customers hero hides when opening the existing details page and
+  returns when navigating back to the list.
+
+Phase 3 RTL repair validation:
+
+- Instantiated the real PySide6 `ShellView` with `CustomersView` for the manager
+  role and representative Customer rows.
+- Captured updated screenshots:
+  - `docs/screenshots/task-25-5-customers-rtl-alignment-shell.png`
+  - `docs/screenshots/task-25-5-customers-rtl-alignment.png`
+- Verified the result count is right-aligned with the table edge, the
+  search/filter row reads RTL, table headers and Hebrew textual cells are
+  right-aligned, and email/phone/date-style details keep LTR readability.
+
 ## PySide6/QSS Notes
 
 QSS supports property selectors for reusable visual roles, so Phase 1 added
@@ -294,8 +414,13 @@ offscreen font-rendering artifact; the visual validation still confirmed layout,
 hero image placement, card/section hierarchy, sidebar composition, and
 role-specific Dashboard differences.
 
+The same offscreen Hebrew font-rendering limitation appeared in the Customers
+screenshots. The source strings remain valid Hebrew, tests assert the live text
+values and RTL alignment, and the visual validation was used for composition,
+asset placement, table sizing, pagination reachability, and clipping/overlap.
+
 ## Next Task
 
-Task 25.5 Phase 3 should implement only the Customers screen styling using the
-approved Customers reference and Customers hero image. Do not begin Customers
-until explicitly requested.
+Task 25.5 Phase 4 should implement only the Booking/Orders workspace styling
+using the approved Orders reference. Do not begin Bookings until explicitly
+requested.

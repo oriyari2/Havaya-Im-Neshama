@@ -42,8 +42,9 @@ class CustomerViewTests(TestCase):
         self.assertFalse(view.reactivate_button.isVisible())
         self.assertFalse(view.change_password_button.isEnabled())
         self.assertEqual(view.change_password_button.text(), "שינוי סיסמה")
-        self.assertIs(view.scaffold.header.title.parentWidget(), view.header_identity)
-        self.assertIs(view.scaffold.header.description.parentWidget(), view.header_identity)
+        self.assertIs(view.scaffold.header.title.parentWidget().parentWidget(), view.hero)
+        self.assertIs(view.scaffold.header.description.parentWidget().parentWidget(), view.hero)
+        self.assertTrue(view.scaffold.header.property("suppressListHeader"))
         self.assertFalse(view.scaffold.header.description.wordWrap())
         self.assertEqual({button.minimumWidth() for button in (view.edit_button, view.change_password_button, view.deactivate_button, view.reactivate_button)}, {148})
         for obsolete in (
@@ -167,7 +168,8 @@ class CustomerViewTests(TestCase):
         self.assertTrue(view.scaffold.header.isHidden())
         view.back_button.click()
         self.assertIs(view.pages.currentWidget(), view.list_page)
-        self.assertFalse(view.scaffold.header.isHidden())
+        self.assertTrue(view.scaffold.header.isHidden())
+        self.assertFalse(view.hero.isHidden())
         self.assertEqual(view.toolbar.search_input.text(), "לקוח")
         self.assertEqual(view.table.currentRow(), 0)
 
@@ -212,9 +214,16 @@ class CustomerViewTests(TestCase):
                 for row in range(fields.rowCount())
             ]
             self.assertLessEqual(max(right_edges) - min(right_edges), 1)
-        for widget in labels + values:
+        for widget in labels:
             self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignRight)
             self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignAbsolute)
+        for widget in values:
+            if widget.layoutDirection() == Qt.LayoutDirection.LeftToRight:
+                self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignLeft)
+                self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignAbsolute)
+            else:
+                self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignRight)
+                self.assertTrue(widget.alignment() & Qt.AlignmentFlag.AlignAbsolute)
         shell.close()
 
     def test_details_switches_between_wide_rtl_composition_and_narrow_stack(self):
@@ -271,6 +280,8 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.table.columnWidth(0), 52)
         self.assertGreater(view.table.columnWidth(1), view.table.columnWidth(2))
         self.assertGreater(self._center_x(view.scaffold.header.title, view), self._center_x(view.create_button, view))
+        self.assertIs(view.create_button.parentWidget(), view.hero)
+        self.assertTrue(view.scaffold.header.isHidden())
         self.assertEqual([view.table.horizontalHeader().visualIndex(column) for column in range(5)], [0, 1, 2, 3, 4])
         for column in range(1, 4):
             alignment = view.table.item(0, column).textAlignment()
@@ -280,6 +291,40 @@ class CustomerViewTests(TestCase):
         self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignRight)
         self.assertTrue(status.alignment() & Qt.AlignmentFlag.AlignAbsolute)
         self.assertEqual(view.scaffold.header.description.text(), "ניהול לקוחות ופרטי קשר")
+        self.assertTrue(view.toolbar.search_input.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(view.toolbar.search_input.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertEqual(view.sort_by.layoutDirection(), Qt.LayoutDirection.RightToLeft)
+        self.assertTrue(view.workspace.results_label.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(view.footer.label.alignment() & Qt.AlignmentFlag.AlignRight)
+        for column in range(view.table.columnCount()):
+            self.assertTrue(view.table.horizontalHeaderItem(column).textAlignment() & Qt.AlignmentFlag.AlignRight)
+        shell.close()
+
+    def test_phase_three_customers_uses_approved_hero_without_changing_list_contract(self):
+        shell, view = self._shown_manager_customers()
+        self.assertEqual(view.hero.objectName(), "customersHero")
+        self.assertGreaterEqual(view.hero.minimumHeight(), 136)
+        self.assertLessEqual(view.hero.maximumHeight(), 144)
+        self.assertEqual(view.hero.hero_path.name, "activity-customers-hero.png")
+        self.assertIn("design_reference", view.hero.hero_path.parts)
+        self.assertFalse(view.hero._pixmap.isNull())
+        self.assertEqual(view.scaffold.header.property("customersHeader"), True)
+        self.assertEqual(view.table.property("customerTable"), True)
+        self.assertEqual(view.scaffold.header.title.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(view.scaffold.header.description.alignment() & Qt.AlignmentFlag.AlignRight, Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(view.create_button.isVisibleTo(view))
+        self.assertTrue(view.toolbar.isVisibleTo(view))
+        self.assertTrue(view.table.isVisibleTo(view))
+        customer = {"id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה", "phone": "050", "email": "a@example.com", "is_active": True}
+        view.show_customers([customer], offset=0, count=1, filtered=False)
+        view.show_details(customer_details(customer), customer)
+        view.select_customer("c1")
+        view._open_selected_customer()
+        self.app.processEvents()
+        self.assertTrue(view.hero.isHidden())
+        view.back_button.click()
+        self.assertFalse(view.hero.isHidden())
+        self.assertEqual(view.table.columnCount(), 5)
         shell.close()
 
     def test_customer_table_semantic_widths_and_scrollbars_at_supported_sizes(self):
