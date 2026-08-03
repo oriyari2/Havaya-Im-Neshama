@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QRect, Qt, Signal
-from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPixmap
+from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
 from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QVBoxLayout, QWidget
 
 from desktop_client.app.views.common import BOOKING_COLUMNS, StatefulWidget, create_booking_table, populate_booking_table
@@ -70,8 +70,7 @@ class DashboardHero(QFrame):
         self.setObjectName("dashboardHero")
         self._pixmap = QPixmap(str(Path(__file__).resolve().parents[3] / "design_reference" / "activity-dashboard-hero.png"))
         self.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.setMinimumHeight(136)
-        self.setMaximumHeight(144)
+        self.setFixedHeight(166)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(SPACE_6, SPACE_3, SPACE_6, SPACE_3)
@@ -98,23 +97,50 @@ class DashboardHero(QFrame):
         layout.addLayout(text_panel, 1)
 
     def paintEvent(self, event) -> None:
+        # Match the approved management/customer hero treatment: image with a
+        # light RTL text wash and the soft blue wave along the lower edge.
         painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        width, height = self.width(), self.height()
+
+        clip = QPainterPath()
+        clip.moveTo(0, 0)
+        clip.lineTo(width, 0)
+        clip.lineTo(width, height - 30)
+        clip.cubicTo(width * 0.65, height, width * 0.35, height - 25, 0, height - 15)
+        clip.closeSubpath()
+        painter.setClipPath(clip)
+
         if not self._pixmap.isNull():
-            scaled = self._pixmap.scaled(self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
+            scaled = self._pixmap.scaled(
+                self.size(),
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
             source = QRect(
-                max(0, (scaled.width() - self.width()) // 2),
-                max(0, (scaled.height() - self.height()) // 2),
-                self.width(),
-                self.height(),
+                max(0, (scaled.width() - width) // 2),
+                max(0, (scaled.height() - height) // 2),
+                width,
+                height,
             )
             painter.drawPixmap(self.rect(), scaled, source)
-            wash = QLinearGradient(0, 0, self.width(), 0)
-            wash.setColorAt(0.0, QColor(255, 255, 255, 18))
-            wash.setColorAt(0.48, QColor(255, 255, 255, 130))
-            wash.setColorAt(0.72, QColor(255, 255, 255, 238))
+
+            wash = QLinearGradient(0, 0, width, 0)
+            wash.setColorAt(0.0, QColor(255, 255, 255, 10))
+            wash.setColorAt(0.44, QColor(255, 255, 255, 82))
+            wash.setColorAt(0.72, QColor(255, 255, 255, 224))
             wash.setColorAt(1.0, QColor(255, 255, 255, 255))
             painter.fillRect(self.rect(), wash)
-        super().paintEvent(event)
+
+        painter.setClipping(False)
+        curve = QPainterPath()
+        curve.moveTo(width, height - 30)
+        curve.cubicTo(width * 0.65, height, width * 0.35, height - 25, 0, height - 15)
+        painter.setPen(QPen(QColor(140, 190, 210), 2.5))
+        painter.drawPath(curve)
+
+        # QLabel children are painted by Qt after the parent paint event, so no
+        # extra overlay widget is required here.
 
 
 class SectionPanel(QFrame):
@@ -169,8 +195,8 @@ class DashboardView(StatefulWidget):
         self.scroll_area.setWidget(self.content)
 
         layout = QVBoxLayout(self.content)
-        layout.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6)
-        layout.setSpacing(SPACE_4)
+        layout.setContentsMargins(SPACE_6, SPACE_4, SPACE_6, SPACE_6)
+        layout.setSpacing(SPACE_3)
         layout.addWidget(DashboardHero())
         layout.addWidget(self.state_label)
 
@@ -229,28 +255,11 @@ class DashboardView(StatefulWidget):
         self.shortcuts_region = QFrame()
         self.shortcuts_region.setObjectName("dashboardShortcuts")
         self.shortcuts_region.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        shortcuts = QHBoxLayout(self.shortcuts_region)
-        shortcuts.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
-        shortcuts.setSpacing(SPACE_3)
-        targets = {
-            "manager": (("create", "יצירת הזמנה"), ("customers", "לקוחות"), ("instructors", "מדריכים"), ("activities", "פעילויות"), ("bookings", "הזמנות")),
-            "instructor": (("bookings", "האירועים שלי"), ("activities", "פעילויות"), ("my_profile", "הפרופיל שלי")),
-            "customer": (("my_bookings", "ההזמנות שלי"), ("activities", "פעילויות"), ("my_profile", "הפרופיל שלי")),
-        }
-        for key, label in targets.get(role, ()):
-            button = QPushButton(label)
-            button.setObjectName("dashboardShortcutButton")
-            _align_dashboard_button(button)
-            button.setMinimumHeight(42)
-            button.setMinimumWidth(128)
-            button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-            if key == "create":
-                button.setProperty("buttonRole", "managementPrimary")
-                button.clicked.connect(self.create_booking_requested.emit)
-            else:
-                button.clicked.connect(lambda _checked=False, target=key: self.shortcut_requested.emit(target))
-            shortcuts.addWidget(button, 1)
-        layout.addWidget(self.shortcuts_region)
+
+        # Dashboard navigation is available in the persistent sidebar for every
+        # role, so duplicate in-page navigation buttons are intentionally hidden.
+        # Keep the signal/API surface unchanged; only the redundant visual row is removed.
+        self.shortcuts_region.hide()
 
         self.first_group = SectionPanel()
         self.first_table = create_booking_table()
