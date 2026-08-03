@@ -291,7 +291,7 @@ class PresenterTests(unittest.TestCase):
         with patch("desktop_client.app.api.client.urlopen", side_effect=error):
             presenter.send_message("hello")
 
-        self.assertEqual(view.error, "AI service is unavailable")
+        self.assertEqual(view.error, "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.")
         self.assertEqual(client.access_token, "current-token")
         self.assertEqual(login_navigation, [])
         self.assertEqual(view.loading, [True, False])
