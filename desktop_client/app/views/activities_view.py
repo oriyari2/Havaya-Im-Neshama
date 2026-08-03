@@ -55,7 +55,7 @@ class ActivitiesView(StatefulWidget):
             create_text="פעילות חדשה", plural="פעילויות",
             detail_subtitle="מידע מלא ופעולות עבור הפעילות שנבחרה",
             search_placeholder="חיפוש לפי שם או תיאור", sort_options=(("name", "מיון לפי: שם"), ("duration_minutes", "מיון לפי: משך פעילות")),
-            headers=headers, policies=policies,
+            headers=headers, policies=policies, row_action_position="end",
         )
         root.addWidget(self.workspace)
         for name in ("scaffold", "toolbar", "table", "footer", "create_button", "pages", "list_page", "details_page", "back_button"):
@@ -130,7 +130,7 @@ class ActivitiesView(StatefulWidget):
             if event.key() == Qt.Key.Key_Right: self._move_image(-1); return True
         return super().eventFilter(watched, event)
 
-    def _row_id(self, row: int) -> str: return str(self.table.item(row, 1).data(Qt.ItemDataRole.UserRole))
+    def _row_id(self, row: int) -> str: return str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole))
     def _select(self) -> None:
         rows = self.table.selectionModel().selectedRows()
         if not rows: self._selected_id = None; return
@@ -173,11 +173,11 @@ class ActivitiesView(StatefulWidget):
         self.retry_state.hide(); self.table.setRowCount(len(rows)); keys = ("name", "target_audience", "season", "duration_minutes", "pricing_rule")
         for row_index, row in enumerate(rows):
             self.workspace.set_row_open_action(row_index, str(row["id"]), self._request_open)
-            for column, key in enumerate(keys, start=1):
+            for column, key in enumerate(keys, start=0):
                 value = row.get(key) or "—"; value = f"{value} דקות" if key == "duration_minutes" and value != "—" else value
                 item = QTableWidgetItem(str(value)); item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute); set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
-                if column == 1: item.setData(Qt.ItemDataRole.UserRole, str(row["id"]))
-            if self.role == "manager": badge = ActiveBadge(); badge.set_active(bool(row.get("is_active"))); self.workspace.configure_status_badge(badge); self.table.setCellWidget(row_index, 6, badge)
+                if column == 0: item.setData(Qt.ItemDataRole.UserRole, str(row["id"]))
+            if self.role == "manager": badge = ActiveBadge(); badge.set_active(bool(row.get("is_active"))); self.workspace.configure_status_badge(badge); self.table.setCellWidget(row_index, 5, badge)
         self.footer.set_page(offset=offset, count=count); self.workspace.results_label.setText(f"פעילויות • {len(rows)}"); self._empty_filtered = filtered; self.workspace.show_empty_state(empty=not rows, filtered=filtered, plural="פעילויות"); self.footer.setVisible(bool(rows))
 
     def show_details(self, details, activity) -> None:
@@ -204,7 +204,7 @@ class ActivitiesView(StatefulWidget):
     def select_activity(self, activity_id: str) -> None:
         for row in range(self.table.rowCount()):
             if self._row_id(row) == activity_id:
-                changed = self._selected_id != activity_id; blocked = self.table.blockSignals(True); index = self.table.model().index(row, 1); self.table.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows); self.table.blockSignals(blocked); self._selected_id = activity_id
+                changed = self._selected_id != activity_id; blocked = self.table.blockSignals(True); index = self.table.model().index(row, 0); self.table.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows); self.table.blockSignals(blocked); self._selected_id = activity_id
                 if changed: self._clear_forms(); self.workspace.detail_title.clear(); self.workspace.show_list(); self.activity_selected.emit(activity_id)
                 break
     def open_activity_form(self, initial, submit) -> None: self._dialog = ActivityDialog(initial, self); self._dialog.submitted.connect(submit); self._dialog.open()

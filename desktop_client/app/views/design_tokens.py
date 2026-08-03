@@ -307,6 +307,68 @@ QTableWidget[customerTable="true"] QHeaderView::section {{ background: #F2F9F8; 
 QFrame[aiMessage="user"] {{ background: {COLOR_AI_USER_BACKGROUND}; border: 1px solid #C9E9ED; border-radius: {RADIUS_MEDIUM}px; }}
 QFrame[aiMessage="assistant"] {{ background: {COLOR_AI_ASSISTANT_BACKGROUND}; border: 1px solid #F1D8AA; border-radius: {RADIUS_MEDIUM}px; }}
 QFrame[aiSource="true"] {{ background: {COLOR_AI_SOURCE_BACKGROUND}; border: 1px solid #D8E8C9; border-radius: {RADIUS_SMALL}px; }}
+QFrame[referenceCard="true"] {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_LARGE}px; }}
+QFrame[referenceCard="true"] QLabel#sectionTitle {{ color: {COLOR_BRAND}; font-size: 20px; font-weight: {FONT_WEIGHT_TITLE}; background: transparent; }}
+QLabel[referenceFieldLabel="true"] {{ color: {COLOR_TEXT}; font-weight: {FONT_WEIGHT_LABEL}; background: transparent; }}
+QFrame[referenceCard="true"] QLineEdit, QFrame[referenceCard="true"] QTextEdit, QFrame[referenceCard="true"] QComboBox {{
+    min-height: {CONTROL_HEIGHT_COMPACT}px; background: {COLOR_SURFACE}; color: {COLOR_TEXT}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SMALL}px; padding: 0 {SPACE_2}px;
+    selection-color: {COLOR_TEXT}; selection-background-color: {COLOR_SELECTED};
+}}
+QFrame[referenceCard="true"] QTextEdit {{ padding: {SPACE_2}px; }}
+QFrame[referenceCard="true"] QLineEdit:focus, QFrame[referenceCard="true"] QTextEdit:focus, QFrame[referenceCard="true"] QComboBox:focus {{ border: 2px solid {COLOR_FOCUS}; color: {COLOR_TEXT}; }}
+QLineEdit, QTextEdit, QPlainTextEdit {{ selection-color: {COLOR_TEXT}; selection-background-color: {COLOR_SELECTED}; }}
+QComboBox QLineEdit {{ color: {COLOR_TEXT}; selection-color: {COLOR_TEXT}; selection-background-color: {COLOR_SELECTED}; }}
+QFrame[managementDetailCard="true"] {{ min-height: 110px; }}
+
+/* Approved login composition. */
+QFrame#loginPanel {{
+    background: rgba(255, 255, 255, 246);
+    border: 1px solid #D6E0E3;
+    border-radius: 14px;
+}}
+QLabel#loginWelcomeTitle {{ font-size: 27px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_TEXT}; background: transparent; }}
+QLabel#loginBrandSubtitle {{ font-size: 18px; color: {COLOR_TEXT}; background: transparent; }}
+QLabel#loginDescription {{ color: {COLOR_TEXT_MUTED}; font-size: 15px; background: transparent; }}
+QLabel#loginFieldLabel {{ color: {COLOR_TEXT}; font-weight: {FONT_WEIGHT_LABEL}; background: transparent; }}
+QLabel#loginForgotPassword {{ color: {COLOR_TEXT_MUTED}; font-size: {FONT_SIZE_SUPPORTING}px; background: transparent; }}
+QFrame#loginPanel QLineEdit {{
+    min-height: {CONTROL_HEIGHT_LARGE}px;
+    background: {COLOR_SURFACE};
+    color: {COLOR_TEXT};
+    border: 1px solid #CBD7DD;
+    border-radius: 6px;
+    padding: 0 {SPACE_3}px;
+    selection-color: {COLOR_TEXT};
+    selection-background-color: {COLOR_SELECTED};
+}}
+QFrame#loginPanel QLineEdit:focus {{ border: 2px solid {COLOR_FOCUS}; color: {COLOR_TEXT}; }}
+
+/* Approved AI chat composition. */
+QWidget#aiChatPage {{ background: {COLOR_BACKGROUND}; }}
+QFrame#aiConversationCard {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_LARGE}px; }}
+QScrollArea#aiConversationScroll, QScrollArea#aiConversationScroll > QWidget > QWidget, QWidget#aiMessagesHost {{ background: transparent; border: none; }}
+QFrame[aiMessage="user"] {{ background: #EFF8FD; border: 1px solid #C9E3F2; border-radius: 12px; }}
+QFrame[aiMessage="assistant"] {{ background: #FBFDF7; border: 1px solid #D9E7C8; border-radius: 12px; }}
+QLabel#aiMessageSender {{ color: {COLOR_TEXT}; font-weight: {FONT_WEIGHT_LABEL}; background: transparent; }}
+QLabel#aiMessageBody {{ color: {COLOR_TEXT}; background: transparent; line-height: 1.35; }}
+QLabel#aiAvatarUser {{ color: {COLOR_BRAND}; background: #EEF8FC; border: 1px solid #CBE7F1; border-radius: 20px; font-size: 20px; }}
+QLabel#aiAvatarAssistant {{ background: transparent; border: none; }}
+QFrame[aiSource="true"] {{ background: #F8FBF1; border: 1px solid #CFDDBD; border-radius: 8px; }}
+QLabel#aiSourceTitle {{ color: {COLOR_TEXT}; font-weight: {FONT_WEIGHT_LABEL}; background: transparent; }}
+QFrame#aiComposerCard {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: 12px; }}
+QLineEdit#aiPromptInput {{
+    min-height: 44px;
+    background: {COLOR_SURFACE};
+    color: {COLOR_TEXT};
+    border: none;
+    padding: 0 {SPACE_3}px;
+    selection-color: {COLOR_TEXT};
+    selection-background-color: {COLOR_SELECTED};
+}}
+QLineEdit#aiPromptInput:focus {{ border: none; color: {COLOR_TEXT}; }}
+QLabel#aiStateLabel {{ color: {COLOR_TEXT_MUTED}; background: transparent; padding: 0 {SPACE_2}px; }}
+QScrollArea#knowledgeContentScroll,
+QScrollArea#knowledgeContentScroll > QWidget > QWidget {{ background: transparent; border: none; }}
 """
 
 

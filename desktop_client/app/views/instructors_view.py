@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QItemSelectionModel, Qt, Signal
-from PySide6.QtWidgets import QFormLayout, QGroupBox, QLabel, QTableWidgetItem, QVBoxLayout
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
 
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.views.account_dialogs import ChangePasswordDialog
@@ -9,15 +9,15 @@ from desktop_client.app.views.common import StatefulWidget
 from desktop_client.app.views.instructor_dialogs import InstructorDialog
 from desktop_client.app.views.management_common import ActiveBadge, confirm_action
 from desktop_client.app.views.management_workspace import ManagementWorkspace
-from desktop_client.app.views.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero
-from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, configure_mixed_direction, set_disabled_explanation, set_item_text
+from desktop_client.app.views.management_visuals import ReadOnlyProfileCard, apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, install_scaffold_hero
+from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, PageScaffold, configure_mixed_direction, set_disabled_explanation, set_item_text
 
 
 class InstructorsView(StatefulWidget):
     filters_requested=Signal(dict);page_requested=Signal(int,int);instructor_selected=Signal(str);retry_requested=Signal();create_requested=Signal();edit_requested=Signal();deactivate_requested=Signal();reactivate_requested=Signal();change_password_requested=Signal()
     def __init__(self):
         super().__init__();root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
-        self.workspace=ManagementWorkspace(title="מדריכים",subtitle="ניהול מדריכים ופרטי התקשרות",create_text="מדריך חדש",plural="מדריכים",detail_subtitle="מידע מלא ופעולות עבור המדריך שנבחר",search_placeholder="חיפוש לפי שם, דוא״ל, טלפון או עיר",sort_options=(("full_name","מיון לפי: שם"),("created_at","מיון לפי: תאריך יצירה"),("is_active","מיון לפי: מצב")),headers=("שם מדריך","עיר","טלפון","דוא״ל","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,200),ColumnPolicy(ColumnKind.SECONDARY_TEXT,150,230),ColumnPolicy(ColumnKind.TECHNICAL,140),ColumnPolicy(ColumnKind.TECHNICAL,210),ColumnPolicy(ColumnKind.COMPACT,110)))
+        self.workspace=ManagementWorkspace(title="מדריכים",subtitle="ניהול מדריכים ופרטי התקשרות",create_text="מדריך חדש",plural="מדריכים",detail_subtitle="מידע מלא ופעולות עבור המדריך שנבחר",search_placeholder="חיפוש לפי שם, דוא״ל, טלפון או עיר",sort_options=(("full_name","מיון לפי: שם"),("created_at","מיון לפי: תאריך יצירה"),("is_active","מיון לפי: מצב")),headers=("שם מדריך","עיר","טלפון","דוא״ל","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,200),ColumnPolicy(ColumnKind.SECONDARY_TEXT,150,230),ColumnPolicy(ColumnKind.TECHNICAL,140),ColumnPolicy(ColumnKind.TECHNICAL,210),ColumnPolicy(ColumnKind.COMPACT,110)),row_action_position="end")
         root.addWidget(self.workspace);self.scaffold=self.workspace.scaffold;self.toolbar=self.workspace.toolbar;self.table=self.workspace.table;self.footer=self.workspace.footer;self.create_button=self.workspace.create_button;self.pages=self.workspace.pages;self.list_page=self.workspace.list_page;self.details_page=self.workspace.details_page;self.back_button=self.workspace.back_button;self._selected_id=None;self._pending_open_id=None
         self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button=self.workspace.add_lifecycle_actions(edit="עריכת מדריך",password="שינוי סיסמה",deactivate="השבתת מדריך",reactivate="הפעלת מדריך מחדש")
         self.profile_details=self.workspace.add_card("פרטי מדריך");self.contact_details=self.workspace.add_card("פרטי קשר");self.system_details=self.workspace.add_card("מידע מערכת")
@@ -47,7 +47,7 @@ class InstructorsView(StatefulWidget):
     def _open(self):
         if self._selected_id:self._pending_open_id=self._selected_id
         if self._selected_id and self.workspace.detail_title.text():self._pending_open_id=None;self.workspace.show_details()
-    def _row_id(self,row):return str(self.table.item(row,1).data(Qt.ItemDataRole.UserRole))
+    def _row_id(self,row):return str(self.table.item(row,0).data(Qt.ItemDataRole.UserRole))
     def _request_open(self,instructor_id):
         self._pending_open_id=instructor_id;self.select_instructor(instructor_id)
         if self.workspace.detail_title.text() and self._selected_id==instructor_id:self._pending_open_id=None;self.workspace.show_details()
@@ -55,10 +55,10 @@ class InstructorsView(StatefulWidget):
         self.table.setRowCount(len(rows))
         for ri,row in enumerate(rows):
             self.workspace.set_row_open_action(ri,str(row["id"]),self._request_open)
-            for ci,key in enumerate(("full_name","city","phone","email"),start=1):
+            for ci,key in enumerate(("full_name","city","phone","email"),start=0):
                 item=QTableWidgetItem(str(row.get(key) or "—"));set_item_text(self.table,ri,ci,item,tooltip_direction=Qt.LayoutDirection.LeftToRight if key in {"phone","email"} else Qt.LayoutDirection.RightToLeft);item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
-                if ci==1:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
-            status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,5,status)
+                if ci==0:item.setData(Qt.ItemDataRole.UserRole,str(row["id"]))
+            status=ActiveBadge();status.set_active(bool(row.get("is_active")));self.workspace.configure_status_badge(status);self.table.setCellWidget(ri,4,status)
         self.footer.set_page(offset=offset,count=count);self.workspace.results_label.setText(f"מדריכים • {len(rows)}");self._empty_filtered=filtered;self.workspace.show_empty_state(empty=not rows,filtered=filtered,plural="מדריכים")
     def show_details(self,details,item):
         self._clear_forms()
@@ -85,8 +85,8 @@ class InstructorsView(StatefulWidget):
     def show_success(self,message):self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS,message,"instructors"))
     def select_instructor(self,instructor_id):
         for row in range(self.table.rowCount()):
-            if str(self.table.item(row,1).data(Qt.ItemDataRole.UserRole))==instructor_id:
-                changed=self._selected_id!=instructor_id;blocked=self.table.blockSignals(True);index=self.table.model().index(row,1);self.table.selectionModel().setCurrentIndex(index,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows);self.table.blockSignals(blocked);self._selected_id=instructor_id
+            if str(self.table.item(row,0).data(Qt.ItemDataRole.UserRole))==instructor_id:
+                changed=self._selected_id!=instructor_id;blocked=self.table.blockSignals(True);index=self.table.model().index(row,0);self.table.selectionModel().setCurrentIndex(index,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows);self.table.blockSignals(blocked);self._selected_id=instructor_id
                 if changed:self._clear_forms();self.workspace.detail_title.clear();self.workspace.show_list();self.instructor_selected.emit(instructor_id)
                 break
     def open_form(self,initial,submit):self._dialog=InstructorDialog(initial,self);self._dialog.submitted.connect(submit);self._dialog.open()
@@ -100,10 +100,64 @@ class InstructorsView(StatefulWidget):
 
 
 class InstructorProfileView(StatefulWidget):
-    retry_requested=Signal()
+    retry_requested = Signal()
+
     def __init__(self):
-        super().__init__();root=QVBoxLayout(self);title=QLabel("הפרופיל שלי");title.setObjectName("screenTitle");root.addWidget(title);group=QGroupBox("פרטי מדריך");self.details=QFormLayout(group);root.addWidget(group)
-    def show_profile(self,details):
-        while self.details.rowCount():self.details.removeRow(0)
-        for label,value in details:self.details.addRow(label,QLabel(value))
-    def show_error(self,message,*,retriable=False,permission=False):self.show_empty(message)
+        super().__init__()
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+
+        self.scaffold = PageScaffold("הפרופיל שלי", "פרטי המדריך ופרטי הקשר השמורים במערכת")
+        self.scaffold.root.setContentsMargins(16, 12, 16, 16)
+        self.scaffold.root.setSpacing(8)
+        root.addWidget(self.scaffold)
+        self.hero = install_scaffold_hero(self.scaffold, "instructors-hero.png", "תמונת פרופיל מדריך")
+        self.scaffold.main_content.addWidget(self.state_label)
+
+        body = QWidget()
+        body.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        body_layout = QHBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.setSpacing(12)
+        body_layout.setDirection(QHBoxLayout.Direction.LeftToRight)
+
+        left_column = QWidget()
+        left_column.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        left_layout = QVBoxLayout(left_column)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(12)
+
+        self.contact_card = ReadOnlyProfileCard("פרטי קשר", "secondary")
+        self.system_card = ReadOnlyProfileCard("מידע מערכת", "system")
+        left_layout.addWidget(self.contact_card)
+        left_layout.addWidget(self.system_card)
+        left_layout.addStretch(1)
+
+        self.profile_card = ReadOnlyProfileCard("פרטי מדריך", "primary")
+        self.profile_card.setMinimumWidth(430)
+        self.profile_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+        body_layout.addWidget(left_column, 1)
+        body_layout.addWidget(self.profile_card, 1)
+        self.scaffold.main_content.addWidget(body, 1)
+
+        self.details = self.profile_card
+        self.contact_details = self.contact_card
+        self.system_details = self.system_card
+
+    def show_profile(self, details):
+        for card in (self.profile_card, self.contact_card, self.system_card):
+            card.clear_rows()
+        for label, value in details:
+            mixed = any(token in label for token in ("דוא", "טלפון", "מזהה", "נוצר", "עודכן"))
+            if label in {"טלפון", "דוא״ל"}:
+                target = self.contact_card
+            elif label in {"מצב", "נוצר", "עודכן"}:
+                target = self.system_card
+            else:
+                target = self.profile_card
+            target.add_row(label, value, mixed_direction=mixed)
+
+    def show_error(self, message, *, retriable=False, permission=False):
+        self.show_empty(message)

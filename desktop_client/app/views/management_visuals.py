@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QBoxLayout, QFormLayout, QGridLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QBoxLayout, QFormLayout, QFrame, QGridLayout, QHBoxLayout, QHeaderView, QLabel, QPushButton, QSizePolicy, QTableWidget, QVBoxLayout, QWidget
 
 from desktop_client.app.views.design_tokens import (
     COLOR_BACKGROUND,
@@ -33,6 +33,73 @@ from desktop_client.app.views.design_tokens import (
 _RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
 
 
+
+
+class ReadOnlyProfileCard(QFrame):
+    """RTL-safe read-only card used by customer/instructor profile pages."""
+
+    def __init__(self, title: str, role: str) -> None:
+        super().__init__()
+        self.setProperty("managementDetailCard", True)
+        self.setProperty("managementDetailCardRole", role)
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
+        root.setSpacing(SPACE_3)
+
+        heading = QLabel(title)
+        heading.setObjectName("sectionTitle")
+        heading.setAlignment(_RIGHT)
+        root.addWidget(heading)
+
+        self.rows_host = QWidget()
+        self.rows_host.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.rows = QVBoxLayout(self.rows_host)
+        self.rows.setContentsMargins(0, 0, 0, 0)
+        self.rows.setSpacing(SPACE_2)
+        root.addWidget(self.rows_host)
+        root.addStretch(1)
+
+    def clear_rows(self) -> None:
+        while self.rows.count():
+            item = self.rows.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def add_row(self, label_text: str, value: str, *, mixed_direction: bool = False) -> None:
+        row = QWidget()
+        row.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        layout = QHBoxLayout(row)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(SPACE_3)
+        layout.setDirection(QHBoxLayout.Direction.LeftToRight)
+
+        value_label = QLabel(value)
+        value_label.setProperty("managementDetailFieldValue", True)
+        value_label.setWordWrap(True)
+        value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        value_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        value_label.setMinimumHeight(40)
+        if mixed_direction:
+            value_label.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        else:
+            value_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        value_label.setAlignment(_RIGHT)
+
+        field_label = QLabel(label_text)
+        field_label.setProperty("managementDetailFieldLabel", True)
+        field_label.setFixedWidth(132)
+        field_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        field_label.setAlignment(_RIGHT)
+
+        layout.addWidget(value_label, 1)
+        layout.addWidget(field_label, 0)
+        self.rows.addWidget(row)
+
+
 class ManagementHero(QWidget):
     """Reusable hero that mirrors the approved Customers screen composition."""
 
@@ -45,7 +112,7 @@ class ManagementHero(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setAccessibleName(accessible_name)
 
-    def attach_header(self, title: QLabel, subtitle: QLabel, action: QPushButton) -> None:
+    def attach_header(self, title: QLabel, subtitle: QLabel, action: QPushButton | None = None) -> None:
         title.setProperty("managementHeroTitle", True)
         subtitle.setProperty("managementHeroSubtitle", True)
         for label in (title, subtitle):
@@ -57,41 +124,12 @@ class ManagementHero(QWidget):
         subtitle.setWordWrap(True)
         subtitle.setMaximumHeight(42)
 
-        action.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        action.setMinimumWidth(142)
-        action.setMinimumHeight(42)
-        action.setProperty("managementHeroAction", True)
-        # The button originally keeps its management role, but a later/global QSS
-        # rule can override its background after it is re-parented into the hero.
-        # Use a local complete style so primary action text is always readable.
-        action.setStyleSheet(
-            f"""
-            QPushButton {{
-                color: #FFFFFF;
-                background: {COLOR_BRAND};
-                border: 1px solid {COLOR_BRAND};
-                border-radius: 8px;
-                padding: 0 16px;
-                font-weight: 600;
-                text-align: center;
-            }}
-            QPushButton:hover {{
-                color: #FFFFFF;
-                background: {COLOR_BRAND_HOVER};
-                border-color: {COLOR_BRAND_HOVER};
-            }}
-            QPushButton:pressed {{
-                color: #FFFFFF;
-                background: {COLOR_BRAND_PRESSED};
-                border-color: {COLOR_BRAND_PRESSED};
-            }}
-            QPushButton:disabled {{
-                color: {COLOR_DISABLED_TEXT};
-                background: {COLOR_DISABLED_BACKGROUND};
-                border-color: {COLOR_BORDER};
-            }}
-            """
-        )
+        if action is not None:
+            action.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            action.setMinimumWidth(142)
+            action.setMinimumHeight(42)
+            action.setProperty("managementHeroAction", True)
+            style_reference_button(action, "primary")
 
         layout = QGridLayout(self)
         layout.setOriginCorner(Qt.Corner.TopLeftCorner)
@@ -103,28 +141,36 @@ class ManagementHero(QWidget):
         layout.setColumnStretch(1, 1)
         layout.setColumnStretch(2, 1)
 
-        action_box = QWidget()
-        action_box.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        action_layout = QVBoxLayout(action_box)
-        action_layout.setContentsMargins(0, 0, 0, 20)
-        action_layout.addStretch(1)
-        action_layout.addWidget(
-            action,
-            0,
-            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignAbsolute,
-        )
-        layout.addWidget(action_box, 0, 0)
+        if action is not None:
+            action_box = QWidget()
+            action_box.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+            action_layout = QVBoxLayout(action_box)
+            action_layout.setContentsMargins(0, 0, 0, 20)
+            action_layout.addStretch(1)
+            action_layout.addWidget(
+                action,
+                0,
+                Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignAbsolute,
+            )
+            layout.addWidget(action_box, 0, 0)
 
         title_box = QWidget()
         title_box.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        title_box.setMinimumWidth(360)
+        title_box.setMinimumWidth(380)
         title_box.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         title_layout = QVBoxLayout(title_box)
-        title_layout.setContentsMargins(0, 0, 0, 20)
+        # Match the approved dashboard hero exactly: title/subtitle are vertically
+        # centered as one compact group on the right side of the image wash.
+        title_layout.setContentsMargins(0, 0, 0, 0)
         title_layout.setSpacing(SPACE_1)
         title_layout.addStretch(1)
         title_layout.addWidget(title)
         title_layout.addWidget(subtitle)
+        title_layout.addStretch(1)
+        # Let the title box fill the hero row. Its internal top/bottom stretches
+        # keep the title + subtitle vertically centered, matching the approved dashboard.
+        # Using AlignTop here collapses the box to its sizeHint and pushes every title
+        # to the top edge of the hero.
         layout.addWidget(title_box, 0, 2)
 
         _refresh(title, subtitle, action)
@@ -400,6 +446,90 @@ def style_reference_extra_panel(panel: QWidget, *, role: str = "neutral") -> Non
     panel.setProperty("managementExtraPanel", True)
     panel.setProperty("managementExtraPanelRole", role)
     _refresh(panel)
+
+
+def install_scaffold_hero(scaffold, image_filename: str, accessible_name: str) -> ManagementHero:
+    """Install the approved hero on a regular PageScaffold without changing its actions/signals."""
+    hero_path = Path(__file__).resolve().parents[1] / "assets" / "heroes" / image_filename
+    hero = ManagementHero(hero_path, accessible_name)
+    hero.attach_header(scaffold.header.title, scaffold.header.description, None)
+    scaffold.header.hide()
+    scaffold.header.setFixedHeight(0)
+    scaffold.root.insertWidget(0, hero)
+    return hero
+
+
+def style_reference_button(button: QPushButton, role: str = "secondary") -> None:
+    """Apply a complete local button style so global QSS cannot hide its text."""
+    button.setMinimumHeight(40)
+    button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    if role == "primary":
+        color, background, border = "#FFFFFF", COLOR_BRAND, COLOR_BRAND
+        hover_background, hover_border, pressed_background = COLOR_BRAND_HOVER, COLOR_BRAND_HOVER, COLOR_BRAND_PRESSED
+    elif role == "destructive":
+        color, background, border = COLOR_ERROR, COLOR_SURFACE, "#E6B8B5"
+        hover_background, hover_border, pressed_background = COLOR_ERROR_BACKGROUND, COLOR_ERROR, "#F8DEDC"
+    elif role == "success":
+        color, background, border = COLOR_SUCCESS, COLOR_SUCCESS_BACKGROUND, "#BFDDBF"
+        hover_background, hover_border, pressed_background = "#DFF1E2", COLOR_SUCCESS, "#D4EBD8"
+    else:
+        color, background, border = COLOR_TEXT, COLOR_SURFACE, COLOR_BORDER_STRONG
+        hover_background, hover_border, pressed_background = COLOR_SURFACE_ALT, COLOR_BRAND, COLOR_BACKGROUND
+    button.setStyleSheet(
+        f"""
+        QPushButton {{ color: {color}; background: {background}; border: 1px solid {border};
+            border-radius: 8px; padding: 0 16px; font-weight: 600; text-align: center; }}
+        QPushButton:hover {{ color: {color}; background: {hover_background}; border-color: {hover_border}; }}
+        QPushButton:pressed {{ color: {color}; background: {pressed_background}; border-color: {hover_border}; }}
+        QPushButton:disabled {{ color: {COLOR_DISABLED_TEXT}; background: {COLOR_DISABLED_BACKGROUND}; border-color: {COLOR_BORDER}; }}
+        """
+    )
+
+
+def style_reference_table(table: QTableWidget, *, stretch: bool = True) -> None:
+    """Bring an auxiliary table into the same visual/RTL system as the approved list tables."""
+    table.setProperty("managementReferenceTable", True)
+    table.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    table.verticalHeader().hide()
+    header = table.horizontalHeader()
+    header.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    header.setDefaultAlignment(_RIGHT)
+    if stretch:
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    for column in range(table.columnCount()):
+        item = table.horizontalHeaderItem(column)
+        if item is not None:
+            item.setTextAlignment(_RIGHT)
+    _refresh(table)
+
+
+def style_reference_form(form: QFormLayout, *, label_width: int = 136) -> None:
+    """Right-align a read-only/property form while keeping values spacious and consistent."""
+    form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+    form.setHorizontalSpacing(SPACE_3)
+    form.setVerticalSpacing(SPACE_2)
+    form.setLabelAlignment(_RIGHT)
+    form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+    form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+    for row in range(form.rowCount()):
+        label_item = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+        field_item = form.itemAt(row, QFormLayout.ItemRole.FieldRole)
+        label = label_item.widget() if label_item is not None else None
+        field = field_item.widget() if field_item is not None else None
+        if isinstance(label, QLabel):
+            label.setFixedWidth(label_width)
+            label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            label.setAlignment(_RIGHT)
+            label.setProperty("managementDetailFieldLabel", True)
+        if isinstance(field, QLabel):
+            field.setAlignment(_RIGHT)
+            field.setProperty("managementDetailFieldValue", True)
+            field.setMinimumHeight(40)
+            field.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+    host = form.parentWidget()
+    if host is not None:
+        host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+    _refresh(host)
 
 
 def _style_action_button(button: QPushButton, role: str) -> None:

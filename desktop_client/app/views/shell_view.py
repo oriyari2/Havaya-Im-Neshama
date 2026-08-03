@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtCore import QSize, Qt, Signal
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPainter, QPixmap
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,8 +15,40 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4, SPACE_6
+from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3
 from desktop_client.app.views.ui_foundations import configure_mixed_direction
+
+
+class _SidebarFrame(QFrame):
+    """Sidebar surface with a soft decorative image near the lower-right corner."""
+
+    def __init__(self, leaf_path: Path, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._leaf_path = leaf_path
+        self._leaf_pixmap = QPixmap(str(leaf_path))
+
+    def paintEvent(self, event) -> None:  # noqa: N802 - Qt API
+        super().paintEvent(event)
+        if self._leaf_pixmap.isNull():
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        painter.setOpacity(0.24)
+
+        target_width = max(88, min(132, self.width() - 28))
+        target_height = int(target_width * self._leaf_pixmap.height() / self._leaf_pixmap.width())
+        leaf = self._leaf_pixmap.scaled(
+            target_width,
+            target_height,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
+        x = self.width() - leaf.width() - 10
+        y = self.height() - leaf.height() - 62
+        painter.drawPixmap(x, y, leaf)
 
 
 class ShellView(QWidget):
@@ -31,15 +63,17 @@ class ShellView(QWidget):
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
 
-        sidebar = QFrame()
+        self.logo_path = self._logo_path()
+        self.leaf_path = self._leaf_path()
+
+        sidebar = _SidebarFrame(self.leaf_path)
         sidebar.setObjectName("sidebar")
         sidebar.setMinimumWidth(200)
         sidebar.setMaximumWidth(240)
         self.sidebar_layout = QVBoxLayout(sidebar)
-        self.sidebar_layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4)
-        self.sidebar_layout.setSpacing(SPACE_3)
+        self.sidebar_layout.setContentsMargins(SPACE_3, SPACE_3, SPACE_3, SPACE_3)
+        self.sidebar_layout.setSpacing(SPACE_2)
 
-        self.logo_path = self._logo_path()
         identity = QWidget()
         identity_layout = QVBoxLayout(identity)
         identity_layout.setContentsMargins(0, 0, 0, 0)
@@ -52,12 +86,13 @@ class ShellView(QWidget):
         logo = QPixmap(str(self.logo_path))
         if not logo.isNull():
             sidebar_logo = logo.scaled(
-                QSize(176, 128),
+                QSize(144, 102),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation,
             )
             self.logo_label.setPixmap(sidebar_logo)
-            self.logo_label.setFixedSize(sidebar_logo.size())
+            self.logo_label.setMinimumSize(sidebar_logo.size())
+            self.logo_label.setMaximumSize(sidebar_logo.size())
         identity_layout.addWidget(self.logo_label, alignment=Qt.AlignmentFlag.AlignHCenter)
 
         email_label = QLabel(email)
@@ -69,7 +104,7 @@ class ShellView(QWidget):
         identity_layout.addWidget(email_label)
 
         self.sidebar_layout.addWidget(identity)
-        self.sidebar_layout.addSpacing(SPACE_6)
+        self.sidebar_layout.addSpacing(SPACE_3)
 
         self.navigation_buttons: dict[str, QPushButton] = {}
         self.sidebar_layout.addStretch()
@@ -126,3 +161,7 @@ class ShellView(QWidget):
     @staticmethod
     def _logo_path() -> Path:
         return Path(__file__).resolve().parents[1] / "assets" / "branding" / "logo-sidebar.png"
+
+    @staticmethod
+    def _leaf_path() -> Path:
+        return Path(__file__).resolve().parents[1] / "assets" / "branding" / "sidebar-leaf.png"

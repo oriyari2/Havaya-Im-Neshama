@@ -20,7 +20,7 @@ class BookingsView(StatefulWidget):
     def __init__(self, role):
         super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
-        self.workspace=ManagementWorkspace(title="ניהול הזמנות" if role=="manager" else "ההזמנות שלי" if role=="customer" else "האירועים שלי",subtitle="ניהול הזמנות, מועדים, אישורים ושיבוץ מדריכים" if role=="manager" else "מעקב אחר ההזמנות והאירועים שלך" if role=="customer" else "האירועים המשובצים לך ומידע תפעולי",create_text="הזמנה חדשה" if role=="manager" else "בקשת הזמנה חדשה",plural="הזמנות",detail_subtitle="מצב תפעולי ופרטי ההזמנה",search_placeholder="חיפוש ברשימת ההזמנות",sort_options=(("event_at","מיון לפי: מועד, הקרוב ביותר"),("event_at_desc","מיון לפי: מועד, הרחוק ביותר"),("customer_name","מיון לפי: שם לקוח")),headers=("לקוח","פעילות","מועד","מיקום","משתתפים","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,180),ColumnPolicy(ColumnKind.PRIMARY_TEXT,190),ColumnPolicy(ColumnKind.TECHNICAL,160),ColumnPolicy(ColumnKind.SECONDARY_TEXT,170,240),ColumnPolicy(ColumnKind.COMPACT,100),ColumnPolicy(ColumnKind.COMPACT,130)))
+        self.workspace=ManagementWorkspace(title="ניהול הזמנות" if role=="manager" else "ההזמנות שלי" if role=="customer" else "האירועים שלי",subtitle="ניהול הזמנות, מועדים, אישורים ושיבוץ מדריכים" if role=="manager" else "מעקב אחר ההזמנות והאירועים שלך" if role=="customer" else "האירועים המשובצים לך ומידע תפעולי",create_text="הזמנה חדשה" if role=="manager" else "בקשת הזמנה חדשה",plural="הזמנות",detail_subtitle="מצב תפעולי ופרטי ההזמנה",search_placeholder="חיפוש ברשימת ההזמנות",sort_options=(("event_at","מיון לפי: מועד, הקרוב ביותר"),("event_at_desc","מיון לפי: מועד, הרחוק ביותר"),("customer_name","מיון לפי: שם לקוח")),headers=("לקוח","פעילות","מועד","מיקום","משתתפים","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,180),ColumnPolicy(ColumnKind.PRIMARY_TEXT,190),ColumnPolicy(ColumnKind.TECHNICAL,160),ColumnPolicy(ColumnKind.SECONDARY_TEXT,170,240),ColumnPolicy(ColumnKind.COMPACT,100),ColumnPolicy(ColumnKind.COMPACT,130)),row_action_position="end")
         root.addWidget(self.workspace)
         for name in ("scaffold","toolbar","table","footer","create_button","pages","list_page","details_page","back_button"):setattr(self,name,getattr(self.workspace,name))
         self.pagination=self.footer;self.command_panel=self.workspace.actions_container;self.actions=self.command_panel;self.create_button.setVisible(role in {"manager","customer"})
@@ -134,7 +134,7 @@ class BookingsView(StatefulWidget):
     def eventFilter(self,watched,event):
         if watched is self.table and event.type()==QEvent.Type.KeyPress and event.key() in (Qt.Key.Key_Return,Qt.Key.Key_Enter):self._open();return True
         return super().eventFilter(watched,event)
-    def _row_id(self,row):return str(self.table.item(row,1).data(Qt.ItemDataRole.UserRole))
+    def _row_id(self,row):return str(self.table.item(row,0).data(Qt.ItemDataRole.UserRole))
     def _select(self):
         rows=self.table.selectionModel().selectedRows()
         if not rows:self._selected_id=None;return
@@ -191,8 +191,8 @@ class BookingsView(StatefulWidget):
         self.table.setRowCount(len(rows))
         for r,row in enumerate(rows):
             self.workspace.set_row_open_action(r,row["id"],self._request_open);values=(row.get("customer","—"),row.get("activity","—"),row.get("event_at","—")," · ".join(x for x in (row.get("city"),row.get("venue")) if x and x!="—") or "—",row.get("participants","—"))
-            for c,value in enumerate(values,start=1):item=QTableWidgetItem(str(value));item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);set_item_text(self.table,r,c,item,tooltip_direction=Qt.LayoutDirection.RightToLeft);item.setData(Qt.ItemDataRole.UserRole,row["id"] if c==1 else item.data(Qt.ItemDataRole.UserRole))
-            status=QLabel(str(row.get("status") or "—"));status.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);status.setContentsMargins(SPACE_3,0,SPACE_3,0);status.setProperty("bookingState",str(row.get("status_code") or ""));self.table.setCellWidget(r,6,status)
+            for c,value in enumerate(values,start=0):item=QTableWidgetItem(str(value));item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);set_item_text(self.table,r,c,item,tooltip_direction=Qt.LayoutDirection.RightToLeft);item.setData(Qt.ItemDataRole.UserRole,row["id"] if c==0 else item.data(Qt.ItemDataRole.UserRole))
+            status=QLabel(str(row.get("status") or "—"));status.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);status.setContentsMargins(SPACE_3,0,SPACE_3,0);status.setProperty("bookingState",str(row.get("status_code") or ""));self.table.setCellWidget(r,5,status)
         self.footer.limit=limit;self.footer.set_page(offset=offset,count=count);self._empty_filtered=bool(self.toolbar.search_input.text() or self._selected_filters(self.status_checks) or self._selected_filters(self.activity_checks) or self._selected_filters(self.instructor_checks) or self._selected_filters(self.assignment_checks) or self.from_filter.text() or self.to_filter.text());self.workspace.show_empty_state(empty=not rows,filtered=self._empty_filtered,plural="הזמנות");self.footer.setVisible(bool(rows));self.workspace.results_label.setText(f"הזמנות • {len(rows)}")
     def show_filter_options(self,customers,activities,instructors):
         while self.activity_layout.count()>1:
@@ -233,7 +233,7 @@ class BookingsView(StatefulWidget):
     def select_booking(self,booking_id):
         for row in range(self.table.rowCount()):
             if self._row_id(row)==booking_id:
-                changed=self._selected_id!=booking_id;blocked=self.table.blockSignals(True);index=self.table.model().index(row,1);self.table.selectionModel().setCurrentIndex(index,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows);self.table.blockSignals(blocked);self._selected_id=booking_id
+                changed=self._selected_id!=booking_id;blocked=self.table.blockSignals(True);index=self.table.model().index(row,0);self.table.selectionModel().setCurrentIndex(index,QItemSelectionModel.SelectionFlag.ClearAndSelect|QItemSelectionModel.SelectionFlag.Rows);self.table.blockSignals(blocked);self._selected_id=booking_id
                 if changed:self.booking_selected.emit(booking_id)
                 break
     def set_command_availability(self,status):
