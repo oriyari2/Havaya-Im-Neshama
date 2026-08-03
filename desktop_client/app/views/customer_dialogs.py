@@ -5,10 +5,11 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QDialogButtonBox,
-    QFormLayout,
-    QHBoxLayout,
+    QFrame,
+    QGridLayout,
     QLabel,
     QLineEdit,
     QPlainTextEdit,
@@ -18,18 +19,27 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from desktop_client.app.models.request_state import RequestPhase, RequestState
+from desktop_client.app.presenters.dialog_validation import customer_errors
 from desktop_client.app.views.design_tokens import (
+    COLOR_BACKGROUND,
+    COLOR_BORDER,
+    COLOR_BRAND,
+    COLOR_BRAND_HOVER,
+    COLOR_BRAND_PRESSED,
+    COLOR_DISABLED_BACKGROUND,
+    COLOR_DISABLED_TEXT,
+    COLOR_SURFACE,
+    COLOR_SURFACE_ALT,
+    COLOR_TEXT,
     CONTROL_HEIGHT_LARGE,
-    DIALOG_PADDING,
-    DIALOG_ROW_GAP,
-    DIALOG_SECTION_GAP,
+    SPACE_1,
     SPACE_2,
     SPACE_3,
 )
-from desktop_client.app.views.ui_foundations import configure_mixed_direction
-from desktop_client.app.models.request_state import RequestPhase, RequestState
-from desktop_client.app.views.ui_foundations import FeedbackBanner
-from desktop_client.app.presenters.dialog_validation import customer_errors
+from desktop_client.app.views.ui_foundations import FeedbackBanner, configure_mixed_direction
+
+_ALIGN_RIGHT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
 
 
 @dataclass(frozen=True)
@@ -54,7 +64,7 @@ class DialogSection:
 
 
 class _BaseFormDialog(QDialog):
-    """Single layout implementation for every management form dialog."""
+    """Compact RTL customer form dialog with deterministic layout."""
 
     submitted = Signal(dict, object)
 
@@ -64,86 +74,173 @@ class _BaseFormDialog(QDialog):
         self.setWindowTitle(title)
         self.setAccessibleName(title)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.setMinimumWidth(760)
-        self.setMaximumWidth(860)
+        self.setMinimumWidth(700)
+        self.setMaximumWidth(840)
         self._previous_focus = parent.focusWidget() if parent else None
+
         self.root = QVBoxLayout(self)
-        self.root.setContentsMargins(DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING, DIALOG_PADDING)
-        self.root.setSpacing(SPACE_3)
+        self.root.setContentsMargins(20, 18, 20, 18)
+        self.root.setSpacing(SPACE_2)
 
         self.heading_label = QLabel(title)
         self.heading_label.setObjectName("screenTitle")
+        self.heading_label.setProperty("dialogHeading", True)
+        self.heading_label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.heading_label.setAlignment(_ALIGN_RIGHT)
+        self.root.addWidget(self.heading_label)
+
         self.heading_description = QLabel(description)
+        self.heading_description.setProperty("dialogLead", True)
+        self.heading_description.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.heading_description.setAlignment(_ALIGN_RIGHT)
+        self.heading_description.setWordWrap(True)
+        self.root.addWidget(self.heading_description)
+
         self.required_hint = QLabel("* שדה חובה")
-        for label in (self.heading_label, self.heading_description, self.required_hint):
-            label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-            self.root.addWidget(label, alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute)
-        self.required_hint.setAccessibleName("סימון שדות חובה")
+        self.required_hint.setProperty("dialogHint", True)
+        self.required_hint.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.required_hint.setAlignment(_ALIGN_RIGHT)
+        self.root.addWidget(self.required_hint)
 
         self.body = QWidget()
         self.body.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.body_layout = QVBoxLayout(self.body)
-        self.body_layout.setContentsMargins(0, 0, 0, 0)
-        self.body_layout.setSpacing(DIALOG_SECTION_GAP)
+        self.body_layout.setContentsMargins(0, SPACE_1, 0, SPACE_1)
+        self.body_layout.setSpacing(SPACE_3)
+
         self.scroll = QScrollArea()
+        self.scroll.setObjectName("dialogScrollArea")
         self.scroll.setAccessibleName("שדות הטופס")
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.scroll.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.scroll.setWidget(self.body)
-        self.root.addWidget(self.scroll)
+        self.root.addWidget(self.scroll, 1)
 
         self.error_label = FeedbackBanner()
         self.error_label.setObjectName("errorLabel")
-        self.error_label.setAccessibleName("שגיאת אימות")
-        self.error_label.setWordWrap(True)
         self.error_label.hide()
         self.root.addWidget(self.error_label)
 
         self.buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        self.buttons.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.buttons.setObjectName("dialogButtonBox")
+        self.buttons.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.save_button = self.buttons.button(QDialogButtonBox.StandardButton.Save)
+        self.save_button.setObjectName("customerDialogPrimary")
         self.save_button.setText("שמירה")
-        self.save_button.setProperty("primary", True)
         self.save_button.setDefault(True)
         self.cancel_button = self.buttons.button(QDialogButtonBox.StandardButton.Cancel)
+        self.cancel_button.setObjectName("customerDialogCancel")
         self.cancel_button.setText("ביטול")
         for button in (self.save_button, self.cancel_button):
-            button.setMinimumWidth(120)
+            button.setMinimumWidth(140)
             button.setMinimumHeight(CONTROL_HEIGHT_LARGE)
+        self._apply_button_styles()
         self.buttons.accepted.connect(self._submit)
         self.buttons.rejected.connect(self.reject)
-        self.root.addWidget(self.buttons)
+        self.root.addWidget(self.buttons, alignment=Qt.AlignmentFlag.AlignLeft)
+
         self.fields: dict[str, QWidget] = {}
-        self.section_forms: dict[str, QFormLayout] = {}
-        self.section_labels: list[QLabel] = []
-        self.field_labels: list[QLabel] = []
         self.field_errors: dict[str, QLabel] = {}
+        self.section_forms: dict[str, QGridLayout] = {}
         self._validator: Callable[[dict], dict[str, str]] | None = None
         self._validation_attempted = False
-        self.form: QFormLayout | None = None
+        self._tab_order: list[QWidget] = []
 
-    @staticmethod
-    def _configure_form(form: QFormLayout) -> None:
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setVerticalSpacing(DIALOG_ROW_GAP)
-        form.setHorizontalSpacing(SPACE_3)
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
-        form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
-        form.setFormAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.DontWrapRows)
+    def _apply_button_styles(self) -> None:
+        self.save_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                color: #FFFFFF;
+                background: {COLOR_BRAND};
+                border: 1px solid {COLOR_BRAND};
+                border-radius: 8px;
+                padding: 0 18px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                color: #FFFFFF;
+                background: {COLOR_BRAND_HOVER};
+                border-color: {COLOR_BRAND_HOVER};
+            }}
+            QPushButton:pressed {{
+                color: #FFFFFF;
+                background: {COLOR_BRAND_PRESSED};
+                border-color: {COLOR_BRAND_PRESSED};
+            }}
+            QPushButton:disabled {{
+                color: {COLOR_DISABLED_TEXT};
+                background: {COLOR_DISABLED_BACKGROUND};
+                border-color: {COLOR_BORDER};
+            }}
+            """
+        )
+        self.cancel_button.setStyleSheet(
+            f"""
+            QPushButton {{
+                color: {COLOR_TEXT};
+                background: {COLOR_SURFACE};
+                border: 1px solid {COLOR_BORDER};
+                border-radius: 8px;
+                padding: 0 18px;
+                font-weight: 600;
+            }}
+            QPushButton:hover {{
+                color: {COLOR_TEXT};
+                background: {COLOR_SURFACE_ALT};
+                border-color: {COLOR_BRAND};
+            }}
+            QPushButton:pressed {{
+                color: {COLOR_TEXT};
+                background: {COLOR_BACKGROUND};
+            }}
+            """
+        )
 
     @staticmethod
     def _section_label(title: str) -> QLabel:
         label = QLabel(title)
         label.setObjectName("sectionTitle")
-        label.setAccessibleName(title)
-        label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        label.setProperty("dialogSectionTitle", True)
         label.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+        label.setAlignment(_ALIGN_RIGHT)
         return label
+
+    def _create_field_widget(self, spec: DialogField, initial: dict, editing: bool) -> QWidget:
+        value = str(initial.get(spec.key) or "")
+        if spec.kind == "plain":
+            widget = QPlainTextEdit(value)
+            widget.setMinimumHeight(120)
+            widget.setMaximumHeight(140)
+            widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        elif spec.kind == "static":
+            widget = QLabel(spec.static_value or value)
+            widget.setProperty("dialogStaticValue", True)
+            widget.setAlignment(_ALIGN_RIGHT)
+            widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        else:
+            widget = QLineEdit(value)
+            widget.setMinimumHeight(CONTROL_HEIGHT_LARGE)
+            widget.setMinimumWidth(320)
+            widget.setMaximumWidth(9999)
+            if spec.kind == "password":
+                widget.setEchoMode(QLineEdit.EchoMode.Password)
+            if editing and spec.read_only_on_edit:
+                widget.setReadOnly(True)
+                widget.setAccessibleDescription("שדה זה הוא מזהה כניסה קבוע ואינו ניתן לעריכה")
+
+        widget.setAccessibleName(spec.label(editing).replace(" *", ""))
+        if spec.mixed_direction:
+            configure_mixed_direction(widget)
+            if isinstance(widget, QLineEdit):
+                widget.setAlignment(_ALIGN_RIGHT)
+        else:
+            widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            if isinstance(widget, QLineEdit):
+                widget.setAlignment(_ALIGN_RIGHT)
+        return widget
 
     def _build_sections(self, sections: tuple[DialogSection, ...], initial: dict, editing: bool) -> None:
         ordered_fields: list[QWidget] = []
@@ -151,76 +248,80 @@ class _BaseFormDialog(QDialog):
             visible_specs = tuple(field for field in section.fields if not (editing and field.create_only))
             if not visible_specs:
                 continue
-            section_label = self._section_label(section.title)
-            self.section_labels.append(section_label)
-            self.body_layout.addWidget(
-                section_label,
-                alignment=Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
-            )
-            form = QFormLayout()
-            self._configure_form(form)
-            self.section_forms[section.title] = form
-            if self.form is None:
-                self.form = form
+
+            section_frame = QFrame()
+            section_frame.setProperty("dialogSection", True)
+            section_layout = QVBoxLayout(section_frame)
+            section_layout.setContentsMargins(18, 14, 18, 16)
+            section_layout.setSpacing(SPACE_2)
+            section_layout.addWidget(self._section_label(section.title))
+
+            # Keep this host physically LTR: column 0 is always the field on
+            # the left, and column 1 is always the Hebrew label on the right.
+            # The widgets themselves keep their own RTL/LTR text direction.
+            grid_host = QWidget()
+            grid_host.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+            grid = QGridLayout(grid_host)
+            grid.setOriginCorner(Qt.Corner.TopLeftCorner)
+            grid.setContentsMargins(0, 0, 0, 0)
+            grid.setHorizontalSpacing(18)
+            grid.setVerticalSpacing(12)
+            grid.setColumnStretch(0, 1)
+            grid.setColumnStretch(1, 0)
+            grid.setColumnMinimumWidth(1, 150)
+            self.section_forms[section.title] = grid
+
+            row = 0
             for spec in visible_specs:
-                if spec.kind == "plain":
-                    widget = QPlainTextEdit(str(initial.get(spec.key) or ""))
-                    widget.setMinimumHeight(112)
-                    widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-                elif spec.kind == "static":
-                    widget = QLabel(spec.static_value or str(initial.get(spec.key) or ""))
-                    widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-                    widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
-                else:
-                    widget = QLineEdit(str(initial.get(spec.key) or ""))
-                    widget.setMinimumWidth(240)
-                    if spec.kind == "password":
-                        widget.setEchoMode(QLineEdit.EchoMode.Password)
-                    if editing and spec.read_only_on_edit:
-                        widget.setReadOnly(True)
-                        widget.setAccessibleDescription("שדה זה הוא מזהה כניסה קבוע ואינו ניתן לעריכה")
-                widget.setAccessibleName(spec.label(editing).replace(" *", ""))
-                if spec.mixed_direction:
-                    configure_mixed_direction(widget)
+                widget = self._create_field_widget(spec, initial, editing)
                 self.fields[spec.key] = widget
-                form.addRow(spec.label(editing), widget)
-                label_widget = form.labelForField(widget)
-                if isinstance(label_widget, QLabel):
-                    label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-                    label_widget.setAlignment(
-                        Qt.AlignmentFlag.AlignRight
-                        | Qt.AlignmentFlag.AlignVCenter
-                        | Qt.AlignmentFlag.AlignAbsolute
-                    )
-                    self.field_labels.append(label_widget)
-                field_error = QLabel()
-                field_error.setObjectName("fieldError")
-                field_error.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
-                field_error.setWordWrap(True)
-                field_error.hide()
-                form.addRow("", field_error)
-                error_label = form.labelForField(field_error)
-                if error_label is not None:
-                    error_label.hide()
-                self.field_errors[spec.key] = field_error
+
+                label_widget = QLabel(spec.label(editing))
+                label_widget.setProperty("dialogFieldLabel", True)
+                label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+                label_widget.setAlignment(_ALIGN_RIGHT)
+                label_widget.setFixedWidth(150)
+
+                field_column = QWidget()
+                field_column.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+                field_layout = QVBoxLayout(field_column)
+                field_layout.setContentsMargins(0, 0, 0, 0)
+                field_layout.setSpacing(4)
+                field_layout.addWidget(widget)
+
+                error = QLabel()
+                error.setObjectName("fieldError")
+                error.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+                error.setAlignment(_ALIGN_RIGHT)
+                error.setWordWrap(True)
+                error.hide()
+                field_layout.addWidget(error)
+                self.field_errors[spec.key] = error
+
+                grid.addWidget(field_column, row, 0)
+                grid.addWidget(label_widget, row, 1, alignment=_ALIGN_RIGHT)
+
                 if isinstance(widget, QLineEdit):
                     widget.textChanged.connect(lambda _text, key=spec.key: self._field_changed(key))
                 elif isinstance(widget, QPlainTextEdit):
                     widget.textChanged.connect(lambda key=spec.key: self._field_changed(key))
                 ordered_fields.append(widget)
-            self.body_layout.addLayout(form)
-        if self.field_labels:
-            label_width = max(label.sizeHint().width() for label in self.field_labels)
-            for label in self.field_labels:
-                label.setFixedWidth(label_width)
+                row += 1
+
+            section_layout.addWidget(grid_host)
+            self.body_layout.addWidget(section_frame)
+
         self._tab_order = ordered_fields
 
     def _finalize_layout(self) -> None:
-        self.body_layout.activate()
-        content_height = max(1, self.body.sizeHint().height())
-        self.scroll.setFixedHeight(min(content_height, 480))
-        self.adjustSize()
-        self.resize(max(760, self.width()), self.sizeHint().height())
+        screen = self.screen() or QApplication.primaryScreen()
+        available = screen.availableGeometry() if screen is not None else None
+        available_width = available.width() if available is not None else 1280
+        available_height = available.height() if available is not None else 800
+        target_width = min(780, max(700, available_width - 160))
+        target_height = min(760, max(580, available_height - 140))
+        self.resize(target_width, target_height)
+
         order = [*self._tab_order, self.save_button, self.cancel_button]
         for first, second in zip(order, order[1:]):
             QWidget.setTabOrder(first, second)
@@ -234,11 +335,9 @@ class _BaseFormDialog(QDialog):
         if errors:
             self._validation_attempted = True
             self._apply_validation_errors(errors)
-            self.error_label.render_temporary(RequestState(
-                RequestPhase.VALIDATION_ERROR,
-                "לא ניתן לשמור. יש לתקן את השדות המסומנים.",
-                "dialog-validation",
-            ))
+            self.error_label.render_temporary(
+                RequestState(RequestPhase.VALIDATION_ERROR, "לא ניתן לשמור. יש לתקן את השדות המסומנים.", "dialog-validation")
+            )
             first = next((self.fields[key] for key in self.fields if key in errors), None)
             if first is not None:
                 first.setFocus()
@@ -259,11 +358,10 @@ class _BaseFormDialog(QDialog):
             widget.setProperty("invalid", bool(message))
             widget.style().unpolish(widget)
             widget.style().polish(widget)
-            error = self.field_errors.get(key)
-            if error is not None:
-                error.setText(message)
-                error.setAccessibleDescription(message)
-                error.setVisible(bool(message))
+            label = self.field_errors.get(key)
+            if label is not None:
+                label.setText(message)
+                label.setVisible(bool(message))
 
     def clear_validation_errors(self) -> None:
         self._validation_attempted = False
@@ -314,20 +412,26 @@ class EntityFormDialog(_BaseFormDialog):
 
 
 CUSTOMER_SECTIONS = (
-    DialogSection("פרטי לקוח", (
-        DialogField("name", "שם *"),
-        DialogField("customer_type", "סוג"),
-        DialogField("city", "עיר"),
-        DialogField("address", "כתובת"),
-        DialogField("phone", "טלפון", mixed_direction=True),
-        DialogField("email", "דוא״ל להתחברות *", "דוא״ל", mixed_direction=True, read_only_on_edit=True),
-        DialogField("password", "סיסמה *", kind="password", mixed_direction=True, create_only=True),
-        DialogField("password_confirmation", "אימות סיסמה *", kind="password", mixed_direction=True, create_only=True),
-    )),
-    DialogSection("פרטי איש קשר", (
-        DialogField("contact_name", "איש קשר"),
-        DialogField("contact_phone", "טלפון איש קשר", mixed_direction=True),
-    )),
+    DialogSection(
+        "פרטי לקוח",
+        (
+            DialogField("name", "שם *"),
+            DialogField("customer_type", "סוג"),
+            DialogField("city", "עיר"),
+            DialogField("address", "כתובת"),
+            DialogField("phone", "טלפון", mixed_direction=True),
+            DialogField("email", "דוא״ל להתחברות *", "דוא״ל", mixed_direction=True, read_only_on_edit=True),
+            DialogField("password", "סיסמה *", kind="password", mixed_direction=True, create_only=True),
+            DialogField("password_confirmation", "אימות סיסמה *", kind="password", mixed_direction=True, create_only=True),
+        ),
+    ),
+    DialogSection(
+        "פרטי איש קשר",
+        (
+            DialogField("contact_name", "איש קשר"),
+            DialogField("contact_phone", "טלפון איש קשר", mixed_direction=True),
+        ),
+    ),
     DialogSection("הערות", (DialogField("notes", "הערות", kind="plain"),)),
 )
 
@@ -348,4 +452,3 @@ class CustomerDialog(EntityFormDialog):
         self.notes = self.fields["notes"]
         self.contact_form = self.section_forms["פרטי איש קשר"]
         self.save_button.setText("שמירת שינויים" if editing else "יצירת לקוח")
-        self.save_button.setObjectName("customerDialogPrimary")

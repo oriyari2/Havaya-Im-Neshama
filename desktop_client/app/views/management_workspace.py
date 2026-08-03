@@ -17,7 +17,8 @@ class ManagementWorkspace(QWidget):
     def __init__(self, *, title: str, subtitle: str, create_text: str, plural: str,
                  detail_subtitle: str,
                  search_placeholder: str, sort_options: tuple[tuple[str, str], ...],
-                 headers: tuple[str, ...], policies: tuple[ColumnPolicy, ...]) -> None:
+                 headers: tuple[str, ...], policies: tuple[ColumnPolicy, ...],
+                 row_action_position: str = "start") -> None:
         super().__init__()
         root = QVBoxLayout(self); root.setContentsMargins(0, 0, 0, 0)
         self.scaffold = PageScaffold(title, subtitle); self.scaffold.root.setSpacing(SPACE_3); root.addWidget(self.scaffold)
@@ -37,9 +38,18 @@ class ManagementWorkspace(QWidget):
         toolbar_panel = QFrame(); toolbar_panel.setObjectName("filterPanel"); toolbar_layout = QVBoxLayout(toolbar_panel); toolbar_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3); toolbar_layout.setSpacing(SPACE_3)
         self.toolbar = SearchToolbar(placeholder=search_placeholder, sort_options=sort_options); configure_reference_toolbar(self.toolbar); self.toolbar.refresh_button.setText("איפוס"); toolbar_layout.addWidget(self.toolbar); listing.addWidget(toolbar_panel)
         heading = QHBoxLayout(); heading.setDirection(QBoxLayout.Direction.RightToLeft); self.results_label = QLabel(f"רשימת {plural}"); self.results_label.setObjectName("sectionTitle"); heading.addWidget(self.results_label); heading.addStretch(); listing.addLayout(heading)
-        table_headers = ("פתיחה", *headers)
-        table_policies = (ColumnPolicy(ColumnKind.ACTION, 52, 52), *policies)
-        self.table = QTableWidget(0, len(table_headers)); self.table.setHorizontalHeaderLabels(list(table_headers)); self.table.verticalHeader().hide(); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", table_policies); self.table.setColumnWidth(0, 52); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        if row_action_position not in {"start", "end"}:
+            raise ValueError("row_action_position must be 'start' or 'end'")
+        action_policy = ColumnPolicy(ColumnKind.ACTION, 52, 52)
+        if row_action_position == "end":
+            table_headers = (*headers, "")
+            table_policies = (*policies, action_policy)
+            self.row_action_column = len(headers)
+        else:
+            table_headers = ("פתיחה", *headers)
+            table_policies = (action_policy, *policies)
+            self.row_action_column = 0
+        self.table = QTableWidget(0, len(table_headers)); self.table.setHorizontalHeaderLabels(list(table_headers)); self.table.verticalHeader().hide(); self.table.setLayoutDirection(Qt.LayoutDirection.RightToLeft); configure_data_table(self.table, f"רשימת {plural}", table_policies); self.table.setColumnWidth(self.row_action_column, 52); self.table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute); self.table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded); self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.table_region = QStackedWidget(); self.table_region.addWidget(self.table)
         self.empty_state = QWidget(); empty = QVBoxLayout(self.empty_state); empty.setContentsMargins(SPACE_6, SPACE_6, SPACE_6, SPACE_6); empty.setSpacing(SPACE_3); empty.addStretch(); self.empty_title = QLabel(); self.empty_title.setObjectName("sectionTitle"); self.empty_title.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description = QLabel(); self.empty_description.setAlignment(Qt.AlignmentFlag.AlignCenter); self.empty_description.setWordWrap(True); self.empty_action_button = QPushButton(); self.empty_action_button.setProperty("primary", True); self.empty_action_button.setMinimumWidth(160); empty.addWidget(self.empty_title); empty.addWidget(self.empty_description); empty.addWidget(self.empty_action_button, alignment=Qt.AlignmentFlag.AlignHCenter); empty.addStretch(); self.table_region.addWidget(self.empty_state); listing.addWidget(self.table_region, 1)
         self.empty_label = self.empty_description
@@ -70,12 +80,15 @@ class ManagementWorkspace(QWidget):
         button = QToolButton()
         button.setObjectName("managementRowOpenAction")
         button.setIcon(self.style().standardIcon(QStyle.StandardPixmap.SP_ArrowLeft))
+        button.setText("⋮")
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextOnly)
+        button.setProperty("managementReferenceRowAction", True)
         button.setToolTip("פתיחת פרטים")
         button.setAccessibleName("פתיחת פרטים")
         button.setFixedSize(36, 32)
         button.clicked.connect(lambda _checked=False, value=entity_id: callback(value))
         host = QWidget(); layout = QHBoxLayout(host); layout.setContentsMargins(8, 4, 8, 4); layout.addWidget(button, alignment=Qt.AlignmentFlag.AlignCenter)
-        self.table.setCellWidget(row, 0, host)
+        self.table.setCellWidget(row, self.row_action_column, host)
         return button
 
     def add_action(self, text: str, *, destructive: bool = False) -> QPushButton:
@@ -139,12 +152,35 @@ class ManagementWorkspace(QWidget):
 
     @staticmethod
     def add_property_row(form: QFormLayout, label: str, content: QLabel) -> None:
+        right_alignment = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
         content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        content.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+        content.setAlignment(right_alignment)
         form.addRow(label, content)
         label_widget = form.itemAt(form.rowCount() - 1, QFormLayout.ItemRole.LabelRole).widget()
         if isinstance(label_widget, QLabel):
-            label_widget.setFixedWidth(140); label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft); label_widget.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
+            label_widget.setFixedWidth(140)
+            label_widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            label_widget.setAlignment(right_alignment)
+
+        host = form.parentWidget()
+        frame = host.parentWidget() if host is not None else None
+        if frame is not None and bool(frame.property("managementDetailCard")):
+            if isinstance(label_widget, QLabel):
+                label_widget.setProperty("managementDetailFieldLabel", True)
+                label_widget.setFixedWidth(128)
+            content.setProperty("managementDetailFieldValue", True)
+            content.setMinimumHeight(40)
+            text = content.text()
+            content.setLayoutDirection(
+                Qt.LayoutDirection.RightToLeft
+                if any("\u0590" <= character <= "\u05FF" for character in text)
+                else Qt.LayoutDirection.LeftToRight
+            )
+            for widget in (label_widget, content):
+                if widget is not None:
+                    widget.style().unpolish(widget)
+                    widget.style().polish(widget)
+                    widget.update()
 
     @staticmethod
     def configure_status_badge(badge: ActiveBadge) -> None:

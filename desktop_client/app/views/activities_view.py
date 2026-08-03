@@ -14,6 +14,7 @@ from desktop_client.app.views.design_tokens import SPACE_2, SPACE_3, SPACE_4
 from desktop_client.app.views.filter_popup import FloatingFilterPopup
 from desktop_client.app.views.management_common import ActiveBadge, RetryState, confirm_action
 from desktop_client.app.views.management_workspace import ManagementWorkspace
+from desktop_client.app.views.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, style_reference_extra_panel
 from desktop_client.app.views.ui_foundations import ColumnKind, ColumnPolicy, set_disabled_explanation, set_item_text
 
 
@@ -54,7 +55,7 @@ class ActivitiesView(StatefulWidget):
             create_text="פעילות חדשה", plural="פעילויות",
             detail_subtitle="מידע מלא ופעולות עבור הפעילות שנבחרה",
             search_placeholder="חיפוש לפי שם או תיאור", sort_options=(("name", "מיון לפי: שם"), ("duration_minutes", "מיון לפי: משך פעילות")),
-            headers=headers, policies=policies,
+            headers=headers, policies=policies, row_action_position="end",
         )
         root.addWidget(self.workspace)
         for name in ("scaffold", "toolbar", "table", "footer", "create_button", "pages", "list_page", "details_page", "back_button"):
@@ -79,6 +80,20 @@ class ActivitiesView(StatefulWidget):
         self.operational_details = self.workspace.add_card("תפעול ותמחור")
         self.system_details = self.workspace.add_card("מידע מערכת")
         self._build_gallery()
+        hero_image = {
+            "manager": "activities-manager-hero.png",
+            "instructor": "activities-instructor-hero.png",
+            "customer": "activities-customer-hero.png",
+        }.get(role, "activities-manager-hero.png")
+        self.hero = install_management_hero(self.workspace, hero_image, "תמונת פעילות למסך פעילויות")
+        apply_reference_list_layout(self.workspace, extra_toolbar_controls=(self.filter_button,))
+        apply_reference_detail_layout(
+            self.workspace,
+            back_text="← חזרה לרשימת פעילויות" if role == "manager" else "← חזרה לקטלוג הפעילויות",
+            actions=((self.deactivate_button, "destructive"), (self.reactivate_button, "success"), (self.edit_button, "primary")),
+            cards=((self.activity_details, "primary"), (self.operational_details, "secondary"), (self.system_details, "system")),
+        )
+        style_reference_extra_panel(self.media_group, role="media")
 
         self.create_button.clicked.connect(self.create_requested); self.edit_button.clicked.connect(self.edit_requested)
         self.deactivate_button.clicked.connect(self.deactivate_requested); self.reactivate_button.clicked.connect(self.reactivate_requested)
@@ -115,7 +130,7 @@ class ActivitiesView(StatefulWidget):
             if event.key() == Qt.Key.Key_Right: self._move_image(-1); return True
         return super().eventFilter(watched, event)
 
-    def _row_id(self, row: int) -> str: return str(self.table.item(row, 1).data(Qt.ItemDataRole.UserRole))
+    def _row_id(self, row: int) -> str: return str(self.table.item(row, 0).data(Qt.ItemDataRole.UserRole))
     def _select(self) -> None:
         rows = self.table.selectionModel().selectedRows()
         if not rows: self._selected_id = None; return
@@ -158,11 +173,11 @@ class ActivitiesView(StatefulWidget):
         self.retry_state.hide(); self.table.setRowCount(len(rows)); keys = ("name", "target_audience", "season", "duration_minutes", "pricing_rule")
         for row_index, row in enumerate(rows):
             self.workspace.set_row_open_action(row_index, str(row["id"]), self._request_open)
-            for column, key in enumerate(keys, start=1):
+            for column, key in enumerate(keys, start=0):
                 value = row.get(key) or "—"; value = f"{value} דקות" if key == "duration_minutes" and value != "—" else value
                 item = QTableWidgetItem(str(value)); item.setTextAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute); set_item_text(self.table, row_index, column, item, tooltip_direction=Qt.LayoutDirection.RightToLeft)
-                if column == 1: item.setData(Qt.ItemDataRole.UserRole, str(row["id"]))
-            if self.role == "manager": badge = ActiveBadge(); badge.set_active(bool(row.get("is_active"))); self.workspace.configure_status_badge(badge); self.table.setCellWidget(row_index, 6, badge)
+                if column == 0: item.setData(Qt.ItemDataRole.UserRole, str(row["id"]))
+            if self.role == "manager": badge = ActiveBadge(); badge.set_active(bool(row.get("is_active"))); self.workspace.configure_status_badge(badge); self.table.setCellWidget(row_index, 5, badge)
         self.footer.set_page(offset=offset, count=count); self.workspace.results_label.setText(f"פעילויות • {len(rows)}"); self._empty_filtered = filtered; self.workspace.show_empty_state(empty=not rows, filtered=filtered, plural="פעילויות"); self.footer.setVisible(bool(rows))
 
     def show_details(self, details, activity) -> None:
@@ -189,7 +204,7 @@ class ActivitiesView(StatefulWidget):
     def select_activity(self, activity_id: str) -> None:
         for row in range(self.table.rowCount()):
             if self._row_id(row) == activity_id:
-                changed = self._selected_id != activity_id; blocked = self.table.blockSignals(True); index = self.table.model().index(row, 1); self.table.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows); self.table.blockSignals(blocked); self._selected_id = activity_id
+                changed = self._selected_id != activity_id; blocked = self.table.blockSignals(True); index = self.table.model().index(row, 0); self.table.selectionModel().setCurrentIndex(index, QItemSelectionModel.SelectionFlag.ClearAndSelect | QItemSelectionModel.SelectionFlag.Rows); self.table.blockSignals(blocked); self._selected_id = activity_id
                 if changed: self._clear_forms(); self.workspace.detail_title.clear(); self.workspace.show_list(); self.activity_selected.emit(activity_id)
                 break
     def open_activity_form(self, initial, submit) -> None: self._dialog = ActivityDialog(initial, self); self._dialog.submitted.connect(submit); self._dialog.open()

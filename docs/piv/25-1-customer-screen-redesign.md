@@ -250,3 +250,34 @@ part of Task 25.1.
 - Focused backend, service, Presenter, and View tests cover delegation,
   validation, write-only fields, button state, and the corrected header
   ownership. No screenshot or visual artifact was created.
+
+## Customer hero alignment amendment
+
+- `CustomersHero` is now inserted into the Customer list page layout as the
+  first list element instead of into `PageScaffold.root`, so it receives the
+  same horizontal geometry as the search toolbar panel and table region.
+- The shared `PageScaffold.header` is removed from the root layout, fixed to
+  zero height, hidden, and kept hidden by Customer-screen-only list/detail
+  transition wrappers. No shared workspace or scaffold class was changed.
+- The moved title/subtitle live in a zero-margin right-side hero identity host,
+  keeping the RTL title flush with the hero/content right edge.
+
+Files changed by this amendment:
+
+- `desktop_client/app/views/customers_view.py`
+- `docs/piv/25-1-customer-screen-redesign.md`
+
+Validation:
+
+```powershell
+.\.venv\Scripts\python.exe -m compileall backend desktop_client
+```
+
+An offscreen geometry check at 1200x760 confirmed that `CustomersHero`, the
+toolbar panel, and `table_region` share the same left and right edges, and that
+the original scaffold header is hidden with height 0.
+
+Current focused Customer view tests still expose unrelated existing contract
+drift around the Customer table column count/hidden action column and the prior
+144 px hero-height expectation. Those table/legacy-size expectations were not
+changed as part of this alignment-only amendment.
