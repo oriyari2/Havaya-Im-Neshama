@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from backend.app.application.services import customer_service
 from backend.app.routers import customers as customer_router
-from backend.app.schemas.customer import CustomerContactCreate, CustomerContactUpdate, CustomerCreate, CustomerUpdate
+from backend.app.schemas.customer import CustomerContactCreate, CustomerContactUpdate, CustomerCreate, CustomerSelfUpdate, CustomerUpdate
 
 
 class SingleCustomerContactTests(unittest.TestCase):
@@ -101,6 +101,30 @@ class SingleCustomerContactTests(unittest.TestCase):
     def test_contact_update_fields_must_be_supplied_together(self) -> None:
         with self.assertRaises(ValueError):
             CustomerUpdate(contact_name="Only name")
+
+    def test_customer_can_update_only_own_self_service_profile_fields(self) -> None:
+        customer_id = uuid4()
+        payload = CustomerSelfUpdate(
+            name="Updated School", city="Jerusalem", phone="02-555",
+            contact_name="Updated Contact", contact_phone="050-1234567",
+        )
+        expected = ({"id": customer_id, "name": "Updated School"}, [])
+        with patch.object(customer_service, "update_customer", return_value=expected) as update:
+            result = customer_service.update_my_profile(
+                payload, {"role": "customer", "customer_id": customer_id}
+            )
+        self.assertEqual(result, expected)
+        update.assert_called_once_with(customer_id, payload)
+
+    def test_customer_self_update_rejects_other_roles_and_forbidden_fields(self) -> None:
+        with self.assertRaises(customer_service.CustomerAccessDeniedError):
+            customer_service.update_my_profile(
+                CustomerSelfUpdate(name="No"), {"role": "manager", "customer_id": uuid4()}
+            )
+        with self.assertRaises(ValueError):
+            CustomerSelfUpdate(email="cannot-change-login@example.com")
+        with self.assertRaises(ValueError):
+            CustomerSelfUpdate(is_active=False)
 
 
 if __name__ == "__main__":

@@ -76,6 +76,8 @@ class CustomerViewTests(TestCase):
         profile = CustomerProfileView()
         self.addCleanup(profile.close)
         self.assertFalse(hasattr(profile, "contacts"))
+        self.assertTrue(hasattr(profile, "edit_button"))
+        self.assertEqual(profile.edit_button.text(), "עריכת הפרטים שלי")
         profile.show_profile(customer_details(customer))
         # CustomerProfileView now renders through ReadOnlyProfileCard rather
         # than exposing a QFormLayout directly. Verify the user-visible

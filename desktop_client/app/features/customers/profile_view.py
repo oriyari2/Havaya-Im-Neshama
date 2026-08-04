@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
+from desktop_client.app.models.request_state import RequestPhase, RequestState
+from desktop_client.app.features.customers.dialogs import CustomerDialog
 from desktop_client.app.shared.ui.common import StatefulWidget
 from desktop_client.app.shared.ui.design_tokens import SPACE_2, SPACE_3, SPACE_4
 from desktop_client.app.shared.ui.management_common import RetryState
-from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, install_scaffold_hero
+from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, install_scaffold_hero, style_reference_button
 from desktop_client.app.shared.ui.foundations import PageScaffold
 
 
 class CustomerProfileView(StatefulWidget):
     retry_requested = Signal()
+    edit_requested = Signal()
 
     def __init__(self) -> None:
         super().__init__()
@@ -34,6 +37,17 @@ class CustomerProfileView(StatefulWidget):
         self.retry_state.retry_requested.connect(self.retry_requested)
         self.scaffold.main_content.addWidget(self.retry_state)
         self.scaffold.main_content.addWidget(self.state_label)
+
+        action_row = QWidget()
+        action_row.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        action_layout = QHBoxLayout(action_row)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.addStretch(1)
+        self.edit_button = QPushButton("עריכת הפרטים שלי")
+        style_reference_button(self.edit_button, "primary")
+        self.edit_button.clicked.connect(self.edit_requested.emit)
+        action_layout.addWidget(self.edit_button)
+        self.scaffold.main_content.addWidget(action_row)
 
         # Physical layout mirrors the approved customer-detail screen:
         # a large primary card on the right and secondary/system cards stacked on the left.
@@ -86,3 +100,12 @@ class CustomerProfileView(StatefulWidget):
 
     def show_error(self, message, *, retriable=False, permission=False) -> None:
         self.retry_state.show_message(message, retriable=retriable)
+
+    def open_form(self, initial, submit) -> None:
+        self._dialog = CustomerDialog(initial, self)
+        self._dialog.heading_label.setText("עריכת הפרטים שלי")
+        self._dialog.submitted.connect(submit)
+        self._dialog.open()
+
+    def show_success(self, message) -> None:
+        self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS, message, "customer_profile"))

@@ -36,6 +36,17 @@ class CustomersPresenterTests(TestCase):
         with self.assertRaises(ValueError): validate_customer({"name":"A","contact_name":"","contact_phone":"050"})
     def test_profile_is_owned_id_only(self):
         profile=CustomerProfilePresenter(self.view,self.service,"owned"); profile.load(); self.service.customer.assert_called_with("owned"); self.view.show_profile.assert_called()
+
+    def test_customer_profile_can_edit_own_safe_fields(self):
+        profile=CustomerProfilePresenter(self.view,self.service,"owned")
+        self.service.customer.return_value=CUSTOMER
+        self.service.update_my_profile.return_value={**CUSTOMER,"name":"Updated","city":"Jerusalem"}
+        profile.load(); profile.begin_edit(); self.view.open_form.assert_called_once()
+        form=Mock()
+        profile.submit_edit({"name":"Updated","email":"a@b.com","city":"Jerusalem","contact_name":"Contact","contact_phone":"050"},form)
+        payload=self.service.update_my_profile.call_args.args[0]
+        self.assertEqual(payload["name"],"Updated"); self.assertEqual(payload["city"],"Jerusalem"); self.assertNotIn("email",payload)
+        form.close_success.assert_called_once(); self.view.show_success.assert_called_with("הפרטים נשמרו בהצלחה.")
     def test_stale_detail_does_not_render_or_reset_newer_detail_state(self):
         second={**CUSTOMER,"id":"c2","name":"Second"}; calls=iter([None])
         def nested(customer_id):

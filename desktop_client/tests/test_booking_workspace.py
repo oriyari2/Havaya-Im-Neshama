@@ -441,6 +441,23 @@ class BookingWorkspaceTests(TestCase):
             view.close()
             self.app.processEvents()
 
+    def test_customer_filter_popup_hides_staffing_dimensions_and_keeps_customer_filters(self):
+        view = self._track(BookingsView("customer"))
+        emitted = []
+        view.filters_requested.connect(emitted.append)
+
+        self.assertFalse(view.status_section.isHidden())
+        self.assertFalse(view.date_section.isHidden())
+        self.assertFalse(view.activity_section.isHidden())
+        self.assertTrue(view.assignment_section.isHidden())
+        self.assertTrue(view.instructor_section.isHidden())
+
+        view.unassigned_check.setChecked(True)
+        view._emit_filters(search="test")
+        self.assertNotIn("assignment_state", emitted[-1])
+        self.assertNotIn("instructor_id", emitted[-1])
+        self.assertEqual(emitted[-1]["search"], "test")
+
     def test_every_supported_status_and_assignment_queue_filter_emits_exact_contract(self):
         view = self._track(BookingsView("manager"))
         emitted = []

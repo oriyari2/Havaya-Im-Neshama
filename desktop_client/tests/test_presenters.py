@@ -390,24 +390,31 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(calls, [("user@example.com", "secret")]); self.assertFalse(presenter._loading)
 
     def test_dashboard_loads_role_specific_sections(self) -> None:
-        for role, expected_call in (("manager", "list"), ("instructor", "list"), ("customer", "mine")):
+        for role in ("manager", "instructor", "customer"):
             view = _View()
             service = _Service()
             DashboardPresenter(view, service, role).load()
             self.assertEqual(view.summary, {"upcoming_count": 1})
-            self.assertIn(expected_call, [entry[0] for entry in service.calls])
+            self.assertIn("list", [entry[0] for entry in service.calls])
             self.assertIsNotNone(view.sections)
+            if role == "customer":
+                customer_list_call = next(entry for entry in service.calls if entry[0] == "list")
+                self.assertIn("from_date", customer_list_call[1])
 
     def test_dashboard_drilldown_maps_status_and_unassigned_without_cross_role_scope(self) -> None:
         calls = []
         presenter = DashboardPresenter(_View(), _Service(), "manager", lambda key, filters=None: calls.append((key, filters)))
         presenter.drill_down("confirmed_count")
         presenter.drill_down("unassigned_count")
-        self.assertEqual(calls[0], ("bookings", {"status": "CONFIRMED"}))
+        self.assertEqual(calls[0][0], "bookings")
+        self.assertEqual(calls[0][1]["status"], "CONFIRMED")
+        self.assertIn("from_date", calls[0][1])
         self.assertEqual(calls[1], ("bookings", {"queue": "unassigned"}))
         customer_calls = []
         DashboardPresenter(_View(), _Service(), "customer", lambda key, filters=None: customer_calls.append((key, filters))).drill_down("pending_count")
-        self.assertEqual(customer_calls, [("my_bookings", {"status": "NEW"})])
+        self.assertEqual(customer_calls[0][0], "my_bookings")
+        self.assertEqual(customer_calls[0][1]["status"], "NEW")
+        self.assertIn("from_date", customer_calls[0][1])
         instructor_calls = []
         DashboardPresenter(_View(), _Service(), "instructor", lambda key, filters=None: instructor_calls.append((key, filters))).drill_down("assigned_count")
         self.assertEqual(instructor_calls[0][0], "bookings")
@@ -438,6 +445,14 @@ class PresenterTests(unittest.TestCase):
         BookingsPresenter(view, service, "customer").load()
         self.assertEqual(service.calls, [("mine", 25, 0, "event_at")])
         self.assertEqual(view.rows[0]["id"], "booking-1")
+
+    def test_customer_search_reset_really_restores_unfiltered_my_bookings(self) -> None:
+        view = _View(); service = _Service(); presenter = BookingsPresenter(view, service, "customer")
+        presenter.load({"search": "Hall"})
+        self.assertEqual(presenter.filters.get("search"), "Hall")
+        presenter.load({"search": None, "status": None, "activity_id": None, "from_date": None, "to_date": None, "order_by": "event_at", "limit": 25, "offset": 0, "_clear_selection": True})
+        self.assertNotIn("search", presenter.filters)
+        self.assertEqual(service.calls[-1], ("mine", 25, 0, "event_at"))
 
     def test_customer_name_sort_is_preserved_with_filters_and_pagination(self) -> None:
         view = _View(); service = _Service(); presenter = BookingsPresenter(view, service, "manager")

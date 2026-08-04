@@ -40,6 +40,7 @@ class CustomerServicePort(Protocol):
     def customer(self, customer_id: str) -> dict: ...
     def create_customer(self, payload: dict[str, object]) -> dict: ...
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict: ...
+    def update_my_profile(self, payload: dict[str, object]) -> dict: ...
     def activate(self, customer_id: str) -> dict: ...
     def deactivate(self, customer_id: str) -> dict: ...
 
@@ -459,6 +460,8 @@ class CustomerProfilePresenter:
     def __init__(self, view, service: CustomerServicePort, customer_id: str, executor: OperationExecutor | None = None) -> None:
         self.view, self.service, self.customer_id = view, service, customer_id
         self._operations = PresenterOperations(executor, "customer_profile")
+        self.current_profile = None
+        self.submitting = False
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
@@ -471,6 +474,7 @@ class CustomerProfilePresenter:
         def success(customer):
             if not self._operations.is_current(context):
                 return
+            self.current_profile = customer
             self.view.show_profile(customer_details(customer))
 
         def failure(exc):
@@ -486,5 +490,49 @@ class CustomerProfilePresenter:
 
         self._operations.executor.submit(context, lambda: self.service.customer(self.customer_id), success, failure, finished)
 
+    def begin_edit(self) -> None:
+        if not self.current_profile or self.submitting:
+            return
+        initial = dict(self.current_profile)
+        contact = CustomersPresenter._current_contact(self.current_profile)
+        initial["contact_name"] = contact.get("full_name") if contact else ""
+        initial["contact_phone"] = contact.get("phone") if contact else ""
+        self.view.open_form(initial, self.submit_edit)
+
+    def submit_edit(self, values, form) -> None:
+        if self.submitting:
+            return
+        try:
+            payload = validate_customer(values)
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        # Login email and lifecycle state are intentionally not self-service.
+        payload.pop("email", None)
+        context = self._operations.begin("edit")
+        if context is None:
+            return
+        self.submitting = True
+        form.set_submitting(True)
+
+        def success(customer):
+            if self._operations.is_current(context):
+                self.current_profile = customer
+                form.close_success()
+                self.view.show_profile(customer_details(customer))
+                self.view.show_success("הפרטים נשמרו בהצלחה.")
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                form.show_error(CustomersPresenter._message(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                form.set_submitting(False)
+
+        self._operations.executor.submit(context, lambda: self.service.update_my_profile(payload), success, failure, finished)
+
     def retry(self) -> None:
         self.load()
+

@@ -105,6 +105,46 @@ class CustomerUpdate(BaseModel):
         return self
 
 
+class CustomerSelfUpdate(BaseModel):
+    """Fields a signed-in customer may safely maintain on their own profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    customer_type: str | None = None
+    city: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    notes: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_required_text(value, "name")
+
+    @field_validator("customer_type", "city", "address", "phone", "notes")
+    @classmethod
+    def clean_optional_text(cls, value: str | None) -> str | None:
+        return _clean_optional_text(value)
+
+    @field_validator("contact_name", "contact_phone")
+    @classmethod
+    def validate_contact_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return _validate_required_text(value, "contact")
+
+    @model_validator(mode="after")
+    def contact_fields_are_updated_together(self):
+        if (self.contact_name is None) != (self.contact_phone is None):
+            raise ValueError("contact_name and contact_phone must be supplied together")
+        return self
+
+
 class CustomerContactBase(BaseModel):
     role_title: str | None = None
     phone: str | None = None

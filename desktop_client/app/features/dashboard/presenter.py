@@ -42,7 +42,14 @@ class DashboardPresenter:
     def drill_down(self, target: str) -> None:
         status_filters = {"pending_count": "NEW", "confirmed_count": "CONFIRMED", "cancelled_count": "CANCELLED"}
         if target in status_filters:
-            self.navigate("my_bookings" if self.role == "customer" else "bookings", {"status": status_filters[target]})
+            # Dashboard status counters are defined only over upcoming bookings.
+            # Carry the same time boundary into the destination list so opening
+            # a card cannot show historical rows that were not included in the
+            # number displayed on the card.
+            self.navigate(
+                "my_bookings" if self.role == "customer" else "bookings",
+                {"status": status_filters[target], "from_date": datetime.now(UTC).isoformat()},
+            )
         elif target == "unassigned_count":
             self.navigate("bookings", {"queue": "unassigned"})
         elif target in {"upcoming_count", "assigned_count"}:
@@ -111,7 +118,15 @@ class DashboardPresenter:
                 errors.append("לא ניתן לטעון את נתוני הסיכום.")
             try:
                 if self.role == "customer":
-                    first = self.service.my_bookings(limit=10, offset=0)["items"]
+                    # Keep the dashboard table aligned with upcoming_count.  The
+                    # previous my_bookings call also returned historical rows,
+                    # which made the card totals and the visible list disagree.
+                    first = self.service.list_bookings({
+                        "limit": 10,
+                        "offset": 0,
+                        "from_date": datetime.now(UTC).isoformat(),
+                        "order_by": "event_at",
+                    })["items"]
                     first_title = "ההזמנות הקרובות שלי"
                 elif self.role == "instructor":
                     first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]

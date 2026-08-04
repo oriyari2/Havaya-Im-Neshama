@@ -123,8 +123,10 @@ class BookingsPresenter:
     def _normalize_filters(self, filters):
         if filters is None:
             return True
+        filters = dict(filters)
+        filters.pop("_clear_selection", None)
         cleaned = {key: value for key, value in filters.items() if value not in (None, "", [])}
-        for key in ("status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date"):
+        for key in ("search", "status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date"):
             if key in filters and filters[key] in (None, "", []):
                 self.filters.pop(key, None)
         for key, suffix in (("from_date", "T00:00:00+00:00"), ("to_date", "T23:59:59.999999+00:00")):
@@ -170,16 +172,26 @@ class BookingsPresenter:
 
         def operation():
             options = None
-            if self.role == "manager" and not self._filter_options_loaded and all((self.customer_service, self.activity_service, self.instructor_service)):
-                options = (
-                    self.customer_service.list_customers({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
-                    self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
-                    self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
-                )
+            if not self._filter_options_loaded:
+                if self.role == "manager" and all((self.customer_service, self.activity_service, self.instructor_service)):
+                    options = (
+                        self.customer_service.list_customers({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
+                    )
+                elif self.role == "customer" and self.activity_service is not None:
+                    # Customer filters only need customer-visible dimensions.
+                    # Supplying activity options keeps that useful filter while
+                    # avoiding manager-only customer/instructor directory calls.
+                    options = (
+                        [],
+                        self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        [],
+                    )
             limit, offset = int(snapshot.get("limit", 25)), max(0, int(snapshot.get("offset", 0)))
             api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
             if self.role == "customer":
-                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
+                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "order_by", "limit", "offset"}}
                 payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset, order_by=str(snapshot.get("order_by") or "event_at"))
             else:
                 scoped = dict(api_snapshot)

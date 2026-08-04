@@ -77,11 +77,15 @@ class BookingsView(StatefulWidget):
         self.status_checks={};status_body=QWidget();status_layout=QVBoxLayout(status_body);status_layout.setContentsMargins(0,0,SPACE_3,0);status_layout.setSpacing(SPACE_2)
         for value,label in (("NEW","חדש / ממתין לאישור"),("CONFIRMED","מאושר"),("CANCELLED","בוטל"),("COMPLETED","הושלם")):
             check=QCheckBox(label);check.setLayoutDirection(Qt.LayoutDirection.RightToLeft);status_layout.addWidget(check);self.status_checks[value]=check
-        self.filter_popup.add_section("סטטוס",status_body)
-        assignment_body=QWidget();assignment_layout=QVBoxLayout(assignment_body);assignment_layout.setContentsMargins(0,0,0,0);self.unassigned_check=QCheckBox("דורש שיבוץ");self.assigned_check=QCheckBox("שובץ");assignment_layout.addWidget(self.unassigned_check);assignment_layout.addWidget(self.assigned_check);self.assignment_checks={"unassigned":self.unassigned_check,"assigned":self.assigned_check};self.filter_popup.add_section("שיבוץ מדריך",assignment_body)
-        date_body=QWidget();date_layout=QVBoxLayout(date_body);date_layout.setContentsMargins(0,0,0,0);self.from_filter=QLineEdit();self.from_filter.setPlaceholderText("מתאריך YYYY-MM-DD");self.to_filter=QLineEdit();self.to_filter.setPlaceholderText("עד תאריך YYYY-MM-DD");date_layout.addWidget(self.from_filter);date_layout.addWidget(self.to_filter);self.filter_popup.add_section("טווח תאריכים",date_body)
-        self.activity_checks={};self.activity_body=QWidget();self.activity_layout=QVBoxLayout(self.activity_body);self.activity_layout.setContentsMargins(0,0,0,0);self.activity_empty=QLabel("אין פעילויות זמינות");self.activity_empty.setAlignment(Qt.AlignmentFlag.AlignRight);self.activity_layout.addWidget(self.activity_empty);self.filter_popup.add_section("פעילות",self.activity_body)
-        self.instructor_checks={};self.instructor_body=QWidget();self.instructor_layout=QVBoxLayout(self.instructor_body);self.instructor_layout.setContentsMargins(0,0,0,0);self.instructor_empty=QLabel("אין מדריכים זמינים");self.instructor_empty.setAlignment(Qt.AlignmentFlag.AlignRight);self.instructor_layout.addWidget(self.instructor_empty);self.filter_popup.add_section("מדריכים",self.instructor_body)
+        self.status_section=self.filter_popup.add_section("סטטוס",status_body)
+        assignment_body=QWidget();assignment_layout=QVBoxLayout(assignment_body);assignment_layout.setContentsMargins(0,0,0,0);self.unassigned_check=QCheckBox("דורש שיבוץ");self.assigned_check=QCheckBox("שובץ");assignment_layout.addWidget(self.unassigned_check);assignment_layout.addWidget(self.assigned_check);self.assignment_checks={"unassigned":self.unassigned_check,"assigned":self.assigned_check};self.assignment_section=self.filter_popup.add_section("שיבוץ מדריך",assignment_body)
+        date_body=QWidget();date_layout=QVBoxLayout(date_body);date_layout.setContentsMargins(0,0,0,0);self.from_filter=QLineEdit();self.from_filter.setPlaceholderText("מתאריך YYYY-MM-DD");self.to_filter=QLineEdit();self.to_filter.setPlaceholderText("עד תאריך YYYY-MM-DD");date_layout.addWidget(self.from_filter);date_layout.addWidget(self.to_filter);self.date_section=self.filter_popup.add_section("טווח תאריכים",date_body)
+        self.activity_checks={};self.activity_body=QWidget();self.activity_layout=QVBoxLayout(self.activity_body);self.activity_layout.setContentsMargins(0,0,0,0);self.activity_empty=QLabel("אין פעילויות זמינות");self.activity_empty.setAlignment(Qt.AlignmentFlag.AlignRight);self.activity_layout.addWidget(self.activity_empty);self.activity_section=self.filter_popup.add_section("פעילות",self.activity_body)
+        self.instructor_checks={};self.instructor_body=QWidget();self.instructor_layout=QVBoxLayout(self.instructor_body);self.instructor_layout.setContentsMargins(0,0,0,0);self.instructor_empty=QLabel("אין מדריכים זמינים");self.instructor_empty.setAlignment(Qt.AlignmentFlag.AlignRight);self.instructor_layout.addWidget(self.instructor_empty);self.instructor_section=self.filter_popup.add_section("מדריכים",self.instructor_body)
+        if self.role == "customer":
+            # A customer cannot filter by internal staffing information.
+            self.assignment_section.hide()
+            self.instructor_section.hide()
         self.apply_filters_button=self.filter_popup.apply_button;self.clear_filters_button=self.filter_popup.clear_button
         self.chips=QWidget();self.chips_layout=QHBoxLayout(self.chips);self.chips_layout.setDirection(QHBoxLayout.Direction.RightToLeft);self.chips_layout.setContentsMargins(0,0,0,0);self.chips_layout.setSpacing(SPACE_2);self.chips_layout.addStretch();toolbar_panel.layout().addWidget(self.chips);self.chips.hide()
         self.status_filter=QComboBox();self.customer_filter=QComboBox();self.activity_filter=QComboBox();self.instructor_filter=QComboBox()
@@ -183,7 +187,11 @@ class BookingsView(StatefulWidget):
     def _selected_filters(self,group):
         return [key for key,widget in group.items() if widget.isChecked()]
     def _emit_filters(self,search=None):
-        values={"status":self._selected_filters(self.status_checks),"activity_id":self._selected_filters(self.activity_checks),"instructor_id":self._selected_filters(self.instructor_checks),"assignment_state":self._selected_filters(self.assignment_checks),"from_date":self.from_filter.text().strip(),"to_date":self.to_filter.text().strip(),"search":search if search is not None else self.toolbar.search_input.text().strip(),"order_by":str(self.toolbar.sort_combo.currentData() or "event_at"),"limit":self.footer.limit,"offset":0};self._render_filter_chips();self.filters_requested.emit(values)
+        values={"status":self._selected_filters(self.status_checks),"activity_id":self._selected_filters(self.activity_checks),"instructor_id":self._selected_filters(self.instructor_checks),"assignment_state":self._selected_filters(self.assignment_checks),"from_date":self.from_filter.text().strip(),"to_date":self.to_filter.text().strip(),"search":search if search is not None else self.toolbar.search_input.text().strip(),"order_by":str(self.toolbar.sort_combo.currentData() or "event_at"),"limit":self.footer.limit,"offset":0}
+        if self.role == "customer":
+            values.pop("instructor_id", None)
+            values.pop("assignment_state", None)
+        self._render_filter_chips();self.filters_requested.emit(values)
     def _apply_popover_filters(self):
         self.filter_popup.hide()
         self._emit_filters()
@@ -198,9 +206,11 @@ class BookingsView(StatefulWidget):
             if item.widget():item.widget().deleteLater()
         entries=[]
         for key in self._selected_filters(self.status_checks):entries.append((self.status_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("status",value)))
-        for key in self._selected_filters(self.assignment_checks):entries.append((self.assignment_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("assignment",value)))
+        if self.role != "customer":
+            for key in self._selected_filters(self.assignment_checks):entries.append((self.assignment_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("assignment",value)))
         for key in self._selected_filters(self.activity_checks):entries.append((self.activity_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("activity",value)))
-        for key in self._selected_filters(self.instructor_checks):entries.append((self.instructor_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("instructor",value)))
+        if self.role != "customer":
+            for key in self._selected_filters(self.instructor_checks):entries.append((self.instructor_checks[key].text(),lambda _checked=False,value=key:self._remove_filter("instructor",value)))
         if self.from_filter.text().strip():entries.append((f"מ־{self.from_filter.text().strip()}",lambda:self._remove_filter("from",None)))
         if self.to_filter.text().strip():entries.append((f"עד {self.to_filter.text().strip()}",lambda:self._remove_filter("to",None)))
         for text,callback in entries:
@@ -216,7 +226,12 @@ class BookingsView(StatefulWidget):
         self._emit_filters()
     def _reset(self,emit=True):
         self.prepare_list_navigation(clear_filters=True);self._list_context=None
-        if emit:self.filters_requested.emit({"status":None,"activity_id":None,"instructor_id":None,"assignment_state":None,"from_date":None,"to_date":None,"search":None,"order_by":"event_at","limit":25,"offset":0,"_clear_selection":True})
+        if emit:
+            values={"status":None,"activity_id":None,"instructor_id":None,"assignment_state":None,"from_date":None,"to_date":None,"search":None,"order_by":"event_at","limit":25,"offset":0,"_clear_selection":True}
+            if self.role == "customer":
+                values.pop("instructor_id", None)
+                values.pop("assignment_state", None)
+            self.filters_requested.emit(values)
     def reset_to_default(self):
         self.prepare_list_navigation(clear_filters=True);self._list_context=None
     def show_summary(self,summary):
