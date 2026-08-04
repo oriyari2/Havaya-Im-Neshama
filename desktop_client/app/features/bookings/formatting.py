@@ -34,9 +34,12 @@ def format_datetime(value: str | None) -> str:
         return value
 
 
-def booking_row(item: dict[str, Any]) -> dict[str, str]:
+def booking_row(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": str(item["id"]),
+        "booking_id": str(item["id"]),
+        "booking_activity_id": str(item["booking_activity_id"]) if item.get("booking_activity_id") else None,
+        "my_request_status": item.get("my_request_status"),
         "event_at": format_datetime(item.get("event_at")),
         "status": STATUS_LABELS.get(item.get("status", ""), item.get("status", "—")),
         "status_code": str(item.get("status") or ""),
@@ -52,6 +55,8 @@ def booking_details(item: dict[str, Any]) -> list[tuple[str, str]]:
     labels = [
         ("מזהה", "id"),
         ("לקוח", "customer_name"),
+        ("איש קשר", "customer_contact_name"),
+        ("טלפון לקוח", "customer_phone"),
         ("פעילות", "activity_name"),
         ("מועד", "event_at"),
         ("סטטוס", "status"),

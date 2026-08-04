@@ -86,6 +86,14 @@ class ActivitiesView(StatefulWidget):
             "customer": "activities-customer-hero.png",
         }.get(role, "activities-manager-hero.png")
         self.hero = install_management_hero(self.workspace, hero_image, "תמונת פעילות למסך פעילויות")
+        # Keep the Activities search action visually consistent with the branded
+        # primary action used across the desktop, including while a list refresh
+        # temporarily disables the toolbar.
+        self.toolbar.search_button.setObjectName("activitySearchButton")
+        self.toolbar.search_button.setMinimumWidth(88)
+        self.toolbar.search_button.setMaximumWidth(104)
+        self.toolbar.search_button.style().unpolish(self.toolbar.search_button)
+        self.toolbar.search_button.style().polish(self.toolbar.search_button)
         apply_reference_list_layout(self.workspace, extra_toolbar_controls=(self.filter_button,))
         apply_reference_detail_layout(
             self.workspace,

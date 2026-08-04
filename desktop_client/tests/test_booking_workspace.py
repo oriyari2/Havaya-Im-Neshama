@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QFormLayout,
     QLabel,
+    QPushButton,
     QToolButton,
     QWidget,
 )
@@ -84,6 +85,107 @@ class BookingWorkspaceTests(TestCase):
         view.queue_requested.connect(queues.append)
         view.summary_buttons["unassigned"].click()
         self.assertEqual(queues, ["unassigned"])
+
+
+    def test_instructor_open_event_request_controls_and_customer_contact(self):
+        view = self._track(BookingsView("instructor"))
+        self.assertIn("open", view.summary_buttons)
+        self.assertEqual(view.summary_buttons["open"].text(), "אירועים פתוחים לשיבוץ")
+        self.assertTrue(view.assignment_group.isHidden())
+
+        emitted = []
+        view.assignment_request_requested.connect(lambda activity: emitted.append(activity["booking_activity_id"]))
+        view.set_open_event_mode(True)
+        self.assertFalse(view.assignment_group.isHidden())
+        view.show_assignments([{
+            "booking_activity_id": "ba1",
+            "activity_id": "a1",
+            "activity_name": "פעילות פתוחה",
+            "assignment_required": True,
+            "my_request_status": None,
+        }])
+        buttons = [button for button in view.assignment_group.findChildren(type(view.create_button)) if button.text() == "שליחת בקשת שיבוץ"]
+        self.assertEqual(len(buttons), 1)
+        buttons[0].click()
+        self.assertEqual(emitted, ["ba1"])
+
+        details = booking_details({
+            **BOOKING,
+            "customer_contact_name": "איש קשר",
+            "customer_phone": "050-1234567",
+        })
+        view.show_details(details, [])
+        rendered = []
+        for row in range(view.customer_details.rowCount()):
+            field = view.customer_details.itemAt(row, QFormLayout.ItemRole.FieldRole).widget()
+            rendered.append(field.text())
+        self.assertIn("לקוח", rendered)
+        self.assertIn("איש קשר", rendered)
+        self.assertIn("050-1234567", rendered)
+
+
+    def test_instructor_open_event_list_has_direct_registration_button(self):
+        view = self._track(BookingsView("instructor"))
+        view.set_list_context("open")
+        emitted = []
+        view.assignment_request_requested.connect(emitted.append)
+        row = booking_row({
+            **BOOKING,
+            "booking_activity_id": "ba-open-1",
+            "my_request_status": None,
+        })
+
+        view.show_bookings([row], offset=0, count=1, limit=25)
+
+        action_column = view.workspace.row_action_column
+        button = view.table.cellWidget(0, action_column)
+        self.assertIsInstance(button, QPushButton)
+        self.assertEqual(button.text(), "הירשם לאירוע")
+        self.assertTrue(button.isEnabled())
+        self.assertEqual(view.table.horizontalHeaderItem(action_column).text(), "הרשמה")
+        button.click()
+        self.assertEqual(emitted[0]["booking_id"], "b1")
+        self.assertEqual(emitted[0]["booking_activity_id"], "ba-open-1")
+
+        pending = booking_row({
+            **BOOKING,
+            "booking_activity_id": "ba-open-1",
+            "my_request_status": "PENDING",
+        })
+        view.show_bookings([pending], offset=0, count=1, limit=25)
+        pending_button = view.table.cellWidget(0, action_column)
+        self.assertEqual(pending_button.text(), "בקשה ממתינה")
+        self.assertFalse(pending_button.isEnabled())
+
+    def test_booking_search_and_filter_action_text_remains_visible_under_global_qss(self):
+        view = self._track(BookingsView("instructor"))
+        self.assertEqual(view.toolbar.search_button.text(), "חיפוש")
+        self.assertEqual(view.filter_button.text(), "סינון")
+        self.assertTrue(view.filter_popup.apply_button.text().strip())
+        self.assertEqual(view.toolbar.refresh_button.text(), "איפוס")
+        self.assertEqual(view.filter_button.minimumWidth(), view.toolbar.refresh_button.minimumWidth())
+        for button in (view.toolbar.search_button, view.filter_button, view.toolbar.refresh_button, view.filter_popup.apply_button, view.filter_popup.clear_button, view.workspace.empty_action_button):
+            style = button.styleSheet()
+            self.assertIn("background:", style)
+            self.assertIn("color:", style)
+            self.assertIn("QPushButton:disabled", style)
+
+    def test_queue_navigation_clears_stale_filter_and_pending_detail_state(self):
+        view = self._track(BookingsView("instructor"))
+        view.status_checks["CANCELLED"].setChecked(True)
+        view._render_filter_chips()
+        view._selected_id = "old-booking"
+        view._pending_open_id = "old-booking"
+        view.prepare_list_navigation(clear_filters=True)
+        view.set_list_context("open")
+        self.assertFalse(view.status_checks["CANCELLED"].isChecked())
+        self.assertTrue(view.chips.isHidden())
+        self.assertIsNone(view._selected_id)
+        self.assertIsNone(view._pending_open_id)
+        self.assertIs(view.pages.currentWidget(), view.list_page)
+        view.show_bookings([], offset=0, count=0, limit=25)
+        self.assertEqual(view.workspace.empty_title.text(), "אין כרגע אירועים פתוחים לשיבוץ")
+        self.assertEqual(view.workspace.empty_action_button.text(), "רענון הרשימה")
 
     def test_row_action_double_click_enter_and_state_restoration(self):
         view = self._track(BookingsView("manager"))

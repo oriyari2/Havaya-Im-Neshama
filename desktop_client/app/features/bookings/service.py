@@ -28,6 +28,14 @@ class BookingService:
     def open_event_detail(self, booking_id: str) -> dict:
         return self.api_client.get(f"/bookings/open-events/{booking_id}")
 
+    def request_assignment(self, booking_id: str, booking_activity_id: str) -> dict:
+        result = self.api_client.post(
+            f"/bookings/{booking_id}/activities/{booking_activity_id}/assignment-requests",
+            {},
+        )
+        self.invalidate_open_events()
+        return result
+
     def booking(self, booking_id: str) -> dict:
         return self.api_client.get(f"/bookings/{booking_id}")
 

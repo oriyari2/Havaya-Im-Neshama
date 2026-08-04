@@ -26,6 +26,16 @@ def get_my_profile(current_user):
     if current_user["role"]!="instructor" or not current_user.get("instructor_id"):raise InstructorAccessDeniedError
     with get_connection() as conn:
         with conn.cursor(row_factory=dict_row) as cur:return _require(cur,UUID(str(current_user["instructor_id"])))
+def update_my_profile(payload,current_user):
+    if current_user["role"]!="instructor" or not current_user.get("instructor_id"):raise InstructorAccessDeniedError
+    instructor_id=UUID(str(current_user["instructor_id"]))
+    with get_connection() as conn:
+        try:
+            with conn.cursor(row_factory=dict_row) as cur:
+                _require(cur,instructor_id);data=payload.model_dump(exclude_unset=True)
+                item=repo.update_instructor(cur,instructor_id,data) if data else _require(cur,instructor_id)
+            conn.commit();return item
+        except Exception:conn.rollback();raise
 def _ensure_email(cur,email,exclude_id=None):
     if email and repo.get_by_email(cur,email,exclude_id):raise InstructorConflictError("Instructor email already exists")
 def create_instructor(payload):

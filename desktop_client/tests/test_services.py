@@ -23,6 +23,9 @@ class _ApiClient:
         self.calls.append(("PATCH", path, payload))
         return {"id": "booking-id", "version": payload["expected_version"] + 1}
 
+    def invalidate_cached_get(self, path, params=None):
+        self.calls.append(("INVALIDATE", path, params))
+
 
 class BookingServiceTests(unittest.TestCase):
     def test_ai_chat_service_uses_consult_endpoint(self) -> None:
@@ -59,6 +62,24 @@ class BookingServiceTests(unittest.TestCase):
                 ("/bookings/open-events", None),
                 ("/bookings/booking-id", None),
                 ("/bookings/booking-id/history", None),
+            ],
+        )
+
+
+    def test_instructor_assignment_request_uses_open_event_endpoints(self) -> None:
+        client = _ApiClient(post_response={"request_id": "r1", "status": "PENDING"})
+        service = BookingService(client)
+
+        service.open_event_detail("b1")
+        response = service.request_assignment("b1", "ba1")
+
+        self.assertEqual(response["status"], "PENDING")
+        self.assertEqual(
+            client.calls,
+            [
+                ("/bookings/open-events/b1", None),
+                ("POST", "/bookings/b1/activities/ba1/assignment-requests", {}),
+                ("INVALIDATE", "/bookings/open-events", None),
             ],
         )
 

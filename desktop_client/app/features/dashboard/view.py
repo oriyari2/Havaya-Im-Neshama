@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt, Signal
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from desktop_client.app.resource_paths import asset_path
 from desktop_client.app.shared.ui.common import BOOKING_COLUMNS, StatefulWidget, create_booking_table, populate_booking_table
@@ -48,6 +48,11 @@ def _configure_dashboard_table(table: QTableWidget) -> None:
     table.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     table.horizontalHeader().setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     table.horizontalHeader().setDefaultAlignment(_RIGHT_TABLE_ALIGNMENT)
+    # Dashboard tables are compact summaries: stretch every column to the
+    # available viewport so short values such as status are never clipped.
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    table.horizontalHeader().setStretchLastSection(True)
+    table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     for column in range(table.columnCount()):
         header_item = table.horizontalHeaderItem(column)
         if header_item is not None:
@@ -168,9 +173,12 @@ class DashboardView(StatefulWidget):
     drill_down_requested = Signal(str)
     shortcut_requested = Signal(str)
     create_booking_requested = Signal()
+    assignment_request_requested = Signal(dict)
 
     def __init__(self, role: str = "manager") -> None:
         super().__init__()
+        self.role = role
+        self._registration_buttons: dict[str, QPushButton] = {}
         self.setObjectName("dashboardPage")
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         _align_hebrew_label(self.state_label)
@@ -269,7 +277,27 @@ class DashboardView(StatefulWidget):
         self.first_group.content.addWidget(self.first_table)
         self.second_group = SectionPanel()
         self.second_table = create_booking_table()
+        if self.role == "instructor":
+            action_column = len(BOOKING_COLUMNS)
+            self.second_table.insertColumn(action_column)
+            action_header = QTableWidgetItem("הרשמה")
+            action_header.setTextAlignment(_RIGHT_TABLE_ALIGNMENT)
+            self.second_table.setHorizontalHeaderItem(action_column, action_header)
         _configure_dashboard_table(self.second_table)
+        if self.role == "instructor":
+            # Leave more horizontal room for the registration action while
+            # keeping the low-information participant count compact.  The
+            # remaining booking columns continue to share the available space.
+            header = self.second_table.horizontalHeader()
+            header.setStretchLastSection(False)
+            for column in range(len(BOOKING_COLUMNS) - 1):
+                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
+            participants_column = len(BOOKING_COLUMNS) - 1
+            action_column = len(BOOKING_COLUMNS)
+            header.setSectionResizeMode(participants_column, QHeaderView.ResizeMode.Fixed)
+            header.setSectionResizeMode(action_column, QHeaderView.ResizeMode.Fixed)
+            header.resizeSection(participants_column, 78)
+            header.resizeSection(action_column, 145)
         self.second_table.setMinimumHeight(188)
         self.second_table.setMaximumHeight(260)
         self.second_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -290,5 +318,86 @@ class DashboardView(StatefulWidget):
         self.second_group.setVisible(bool(second_title))
         populate_booking_table(self.second_table, second_rows)
         _align_dashboard_table_items(self.second_table)
+        if self.role == "instructor":
+            self._populate_open_event_registration_actions(second_rows)
         if not first_rows and not second_rows:
             self.show_empty("אין נתונים קרובים להצגה.")
+
+    def _populate_open_event_registration_actions(self, rows: list[dict[str, str]]) -> None:
+        self._registration_buttons.clear()
+        action_column = len(BOOKING_COLUMNS)
+        for row_index, row in enumerate(rows):
+            booking_activity_id = str(row.get("booking_activity_id") or "")
+            request_status = str(row.get("my_request_status") or "").upper()
+            button = QPushButton()
+            button.setObjectName("dashboardOpenEventRegisterButton")
+            button.setProperty("buttonRole", "managementPrimary")
+            # Keep the action visually compact while guaranteeing the full
+            # Hebrew label is visible.  The global primary-button QSS adds
+            # generous padding, so this dashboard-only override uses tighter
+            # padding and a slightly taller control that still fits inside the
+            # standard dashboard table row.
+            button.setFixedHeight(34)
+            button.setStyleSheet(
+                "font-size: 12px; font-weight: 600; "
+                "padding: 0 4px; min-height: 0px;"
+            )
+            button.setCursor(Qt.CursorShape.PointingHandCursor)
+
+            if not booking_activity_id:
+                text, enabled = "לא זמין", False
+            elif request_status == "PENDING":
+                text, enabled = "בקשה ממתינה", False
+            elif request_status == "APPROVED":
+                text, enabled = "אושר", False
+            elif request_status == "REJECTED":
+                text, enabled = "הירשם שוב", True
+            else:
+                text, enabled = "הירשם לאירוע", True
+
+            button.setText(text)
+            # Size from the actual rendered text instead of a hard-coded width.
+            # This prevents "הירשם לאירוע" / "בקשה ממתינה" from being clipped
+            # while keeping the button clearly inside the registration column.
+            text_width = button.fontMetrics().horizontalAdvance(text)
+            button.setFixedWidth(max(94, min(128, text_width + 14)))
+            button.setEnabled(enabled)
+            button.setProperty("idleText", text)
+            button.setProperty("idleEnabled", enabled)
+            if enabled:
+                payload = dict(row)
+                button.clicked.connect(
+                    lambda _checked=False, value=payload: self.assignment_request_requested.emit(value)
+                )
+            action_host = QWidget()
+            action_host.setObjectName("dashboardOpenEventRegisterActionHost")
+            action_host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            action_layout = QHBoxLayout(action_host)
+            action_layout.setContentsMargins(4, 2, 4, 2)
+            action_layout.setSpacing(0)
+            action_layout.addStretch(1)
+            action_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignCenter)
+            action_layout.addStretch(1)
+            self.second_table.setCellWidget(row_index, action_column, action_host)
+            if booking_activity_id:
+                self._registration_buttons[booking_activity_id] = button
+
+    def set_registration_pending(self, booking_activity_id: str) -> None:
+        button = self._registration_buttons.get(str(booking_activity_id))
+        if button is None:
+            return
+        button.setProperty("idleText", "בקשה ממתינה")
+        button.setProperty("idleEnabled", False)
+        button.setText("בקשה ממתינה")
+        button.setEnabled(False)
+
+    def set_registration_loading(self, booking_activity_id: str, loading: bool) -> None:
+        button = self._registration_buttons.get(str(booking_activity_id))
+        if button is None:
+            return
+        if loading:
+            button.setText("שולח...")
+            button.setEnabled(False)
+            return
+        button.setText(str(button.property("idleText") or "הירשם לאירוע"))
+        button.setEnabled(bool(button.property("idleEnabled")))

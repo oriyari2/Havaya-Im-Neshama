@@ -111,6 +111,9 @@ class InstructorBookingResponse(BaseModel):
     id: UUID
     activity_id: UUID
     activity_name: str | None = None
+    customer_name: str | None = None
+    customer_contact_name: str | None = None
+    customer_phone: str | None = None
     event_at: datetime
     city: str | None = None
     venue: str | None = None
@@ -161,7 +164,10 @@ class OpenEventResponse(BaseModel):
 
     id: UUID
     activity_id: UUID | None
+    booking_activity_id: UUID | None = None
+    my_request_status: str | None = None
     activity_name: str | None = None
+    customer_name: str | None = None
     event_at: datetime
     city: str | None = None
     venue: str | None = None

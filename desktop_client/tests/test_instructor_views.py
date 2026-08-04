@@ -137,7 +137,9 @@ class InstructorViewTests(TestCase):
         self.assertIsNone(edit.password)
         self.assertTrue(edit.fields["email"].isReadOnly())
         self.assertNotIn("password", edit.values())
-        self.assertFalse(hasattr(profile, "edit_button"))
+        self.assertTrue(hasattr(profile, "edit_button"))
+        self.assertEqual(profile.edit_button.text(), "עריכת הפרטים שלי")
+        self.assertTrue(profile.edit_button.isEnabled())
 
     def test_create_and_edit_render_section_and_notes_label_in_rtl_geometry(self):
         for dialog in (InstructorDialog(), InstructorDialog(ROW)):

@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from backend.app.application.bookings import command_handlers, query_handlers
-from backend.app.application.bookings import assignment_query_handlers
+from backend.app.application.bookings import assignment_query_handlers, assignment_request_handlers
 from backend.app.application.bookings.commands import (
     ChangeDateCommand,
     ChangeLocationCommand,
@@ -40,7 +40,12 @@ from backend.app.schemas.booking import (
     InstructorBookingResponse,
     OpenEventResponse,
 )
-from backend.app.schemas.booking_assignment import BookingAssignmentsResponse,OpenEventDetailResponse
+from backend.app.schemas.booking_assignment import (
+    AssignmentDecisionRequest,
+    AssignmentRequestResponse,
+    BookingAssignmentsResponse,
+    OpenEventDetailResponse,
+)
 
 
 router = APIRouter(tags=["bookings"])
@@ -66,6 +71,16 @@ def _raise_query_error(exc: Exception) -> NoReturn:
     if isinstance(exc, query_handlers.BookingValidationError):
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     raise exc
+
+
+def _raise_assignment_request_error(exc: Exception) -> NoReturn:
+    if isinstance(exc, assignment_request_handlers.AssignmentRequestConflictError):
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if isinstance(exc, command_handlers.BookingConcurrencyError):
+        raise HTTPException(status_code=409, detail="Booking version conflict") from exc
+    if isinstance(exc, command_handlers.BookingValidationError):
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _raise_query_error(exc)
 
 
 @router.post("/bookings", response_model=BookingResponse, status_code=201)
@@ -206,6 +221,58 @@ def get_booking_assignments(booking_id:UUID,current_user:dict=Depends(get_curren
     except Exception as exc:_raise_query_error(exc)
 
 
+@router.post(
+    "/bookings/{booking_id}/activities/{booking_activity_id}/assignment-requests",
+    response_model=AssignmentRequestResponse,
+    status_code=201,
+)
+def request_assignment(
+    booking_id: UUID,
+    booking_activity_id: UUID,
+    current_user: dict = Depends(get_current_user),
+) -> AssignmentRequestResponse:
+    try:
+        request = assignment_request_handlers.request_assignment(booking_id, booking_activity_id, current_user)
+    except Exception as exc:
+        _raise_assignment_request_error(exc)
+    return AssignmentRequestResponse(**request)
+
+
+@router.post(
+    "/bookings/{booking_id}/assignment-requests/{request_id}/approve",
+    response_model=BookingResponse,
+)
+def approve_assignment_request(
+    booking_id: UUID,
+    request_id: UUID,
+    payload: AssignmentDecisionRequest,
+    current_user: dict = RequireManager,
+) -> BookingResponse:
+    try:
+        booking = assignment_request_handlers.approve_request(
+            booking_id, request_id, payload.expected_version, current_user
+        )
+    except Exception as exc:
+        _raise_assignment_request_error(exc)
+    return BookingResponse(**booking)
+
+
+@router.post(
+    "/bookings/{booking_id}/assignment-requests/{request_id}/reject",
+    response_model=AssignmentRequestResponse,
+)
+def reject_assignment_request(
+    booking_id: UUID,
+    request_id: UUID,
+    current_user: dict = RequireManager,
+) -> AssignmentRequestResponse:
+    try:
+        request = assignment_request_handlers.reject_request(booking_id, request_id, current_user)
+    except Exception as exc:
+        _raise_assignment_request_error(exc)
+    return AssignmentRequestResponse(**request)
+
+
 @router.get("/bookings/{booking_id}/history", response_model=list[BookingEventResponse])
 def get_booking_history(booking_id: UUID, current_user: dict = Depends(get_current_user)) -> list[BookingEventResponse]:
     try:
@@ -314,6 +381,9 @@ def assign_instructor(
     try:
         booking = command_handlers.assign_instructor(
             AssignInstructorCommand(booking_id=booking_id, actor_user_id=current_user["id"], **payload.model_dump())
+        )
+        assignment_request_handlers.resolve_after_assignment(
+            payload.booking_activity_id, payload.instructor_id, current_user
         )
     except Exception as exc:
         _raise_command_error(exc)

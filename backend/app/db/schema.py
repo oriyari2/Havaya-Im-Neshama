@@ -11,6 +11,7 @@ EXPECTED_TABLES = [
     "bookings",
     "booking_activities",
     "booking_instructors",
+    "booking_assignment_requests",
     "booking_equipment_items",
     "booking_price_components",
     "booking_events",
@@ -234,6 +235,20 @@ CREATE_TABLE_SQL = [
     );
     """,
     """
+    CREATE TABLE IF NOT EXISTS booking_assignment_requests (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        booking_activity_id uuid NOT NULL REFERENCES booking_activities(id) ON DELETE CASCADE,
+        instructor_id uuid NOT NULL REFERENCES instructors(id),
+        status text NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+        requested_at timestamptz NOT NULL DEFAULT now(),
+        decided_at timestamptz,
+        decided_by uuid REFERENCES users(id),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        updated_at timestamptz NOT NULL DEFAULT now(),
+        UNIQUE (booking_activity_id, instructor_id)
+    );
+    """,
+    """
     CREATE TABLE IF NOT EXISTS booking_equipment_items (
         id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
         booking_id uuid NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
@@ -350,6 +365,8 @@ CREATE_INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_booking_instructors_booking_activity_id ON booking_instructors(booking_activity_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_instructors_instructor_id ON booking_instructors(instructor_id);",
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_booking_instructors_activity_instructor ON booking_instructors(booking_activity_id, instructor_id);",
+    "CREATE INDEX IF NOT EXISTS idx_booking_assignment_requests_activity_status ON booking_assignment_requests(booking_activity_id, status);",
+    "CREATE INDEX IF NOT EXISTS idx_booking_assignment_requests_instructor_status ON booking_assignment_requests(instructor_id, status);",
     "CREATE INDEX IF NOT EXISTS idx_booking_equipment_items_booking_id ON booking_equipment_items(booking_id);",
     "CREATE INDEX IF NOT EXISTS idx_booking_price_components_booking_id ON booking_price_components(booking_id);",
     "CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_source_title ON knowledge_chunks(source_title);",

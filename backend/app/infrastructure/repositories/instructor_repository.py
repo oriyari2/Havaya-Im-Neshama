@@ -20,8 +20,9 @@ def instructor_delete_dependencies(cur,instructor_id:UUID):
     cur.execute("""SELECT
         EXISTS (SELECT 1 FROM users WHERE instructor_id=%s) AS has_user,
         EXISTS (SELECT 1 FROM booking_instructors WHERE instructor_id=%s) AS has_assignment_history,
+        EXISTS (SELECT 1 FROM booking_assignment_requests WHERE instructor_id=%s) AS has_assignment_request_history,
         EXISTS (SELECT 1 FROM booking_events WHERE event_data ->> 'instructor_id'=%s) AS has_event_history;""",
-        (instructor_id,instructor_id,str(instructor_id)))
+        (instructor_id,instructor_id,instructor_id,str(instructor_id)))
     return cur.fetchone()
 def delete_instructor(cur,instructor_id:UUID): cur.execute("DELETE FROM instructors WHERE id=%s RETURNING id;",(instructor_id,)); return cur.fetchone() is not None
 def set_instructor_active(cur,instructor_id:UUID,is_active:bool):

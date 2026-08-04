@@ -72,6 +72,18 @@ class PerformanceCacheTests(unittest.TestCase):
         self.assertEqual(results, [{"value": 7}, {"value": 7}])
         self.assertEqual(self.cache.snapshot()["coalesced"], 1)
 
+    def test_open_event_availability_is_never_served_from_session_cache(self) -> None:
+        calls = 0
+
+        def load():
+            nonlocal calls
+            calls += 1
+            return [{"id": calls}]
+
+        self.assertEqual(self.cache.get_or_load("/bookings/open-events", {}, load), [{"id": 1}])
+        self.assertEqual(self.cache.get_or_load("/bookings/open-events", {}, load), [{"id": 2}])
+        self.assertEqual(calls, 2)
+
     def test_failed_read_is_not_cached_and_does_not_poison_retry(self) -> None:
         calls = 0
 

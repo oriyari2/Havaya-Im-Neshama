@@ -25,6 +25,8 @@ def register(context: FeatureContext) -> None:
     view.booking_selected.connect(presenter.select_booking)
     view.page_requested.connect(presenter.page)
     view.queue_requested.connect(presenter.load_queue)
+    if role == "instructor":
+        view.assignment_request_requested.connect(presenter.request_assignment)
     if role in {"manager", "customer"}:
         view.create_requested.connect(presenter.begin_create)
     if role == "manager":
@@ -55,4 +57,6 @@ def register(context: FeatureContext) -> None:
         view.assignment_add_and_confirm_requested.connect(assignments_presenter.begin_assign_and_confirm)
         view.assignment_replace_requested.connect(assignments_presenter.begin_replace)
         view.assignment_remove_requested.connect(assignments_presenter.remove)
+        view.assignment_request_approve_requested.connect(assignments_presenter.approve_request)
+        view.assignment_request_reject_requested.connect(assignments_presenter.reject_request)
         context.add_presenter("booking_assignments", assignments_presenter)

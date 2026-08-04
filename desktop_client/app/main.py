@@ -150,6 +150,12 @@ class MainWindow(QMainWindow):
         self._active_page = key
         self.shell.show_page(key)
         presenter = self._presenters[key]
+        # Dashboard drill-downs are new list intents, not continuations of the
+        # previous booking selection. Reset the feature UI first so stale chips
+        # or an in-flight detail response cannot reopen a specific booking.
+        reset = getattr(presenter, "reset_to_default", None)
+        if reset is not None and key in {"customers", "instructors", "users", "activities", "bookings", "my_bookings"}:
+            reset()
         presenter.load(filters) if filters is not None else presenter.load()
 
     def _refresh_booking_related(self)->None:

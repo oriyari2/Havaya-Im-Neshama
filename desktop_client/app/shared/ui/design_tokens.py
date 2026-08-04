@@ -98,6 +98,10 @@ QPushButton[buttonRole="managementPrimary"] {{ min-height: {CONTROL_HEIGHT_COMPA
 QPushButton[buttonRole="managementPrimary"]:hover {{ background: {COLOR_BRAND_HOVER}; border-color: {COLOR_BRAND_HOVER}; }}
 QPushButton[buttonRole="managementPrimary"]:pressed {{ background: {COLOR_BRAND_PRESSED}; border-color: {COLOR_BRAND_PRESSED}; }}
 QPushButton[buttonRole="managementPrimary"]:disabled {{ background: {COLOR_DISABLED_BACKGROUND}; color: {COLOR_DISABLED_TEXT}; border-color: {COLOR_BORDER}; }}
+#pageScaffold QPushButton#activitySearchButton {{ min-width: 88px; padding: 0 {SPACE_3}px; background: {COLOR_BRAND}; color: white; border-color: {COLOR_BRAND}; font-weight: {FONT_WEIGHT_LABEL}; }}
+#pageScaffold QPushButton#activitySearchButton:hover {{ background: {COLOR_BRAND_HOVER}; border-color: {COLOR_BRAND_HOVER}; color: white; }}
+#pageScaffold QPushButton#activitySearchButton:pressed {{ background: {COLOR_BRAND_PRESSED}; border-color: {COLOR_BRAND_PRESSED}; color: white; }}
+#pageScaffold QPushButton#activitySearchButton:disabled {{ background: {COLOR_BRAND_SOFT}; color: {COLOR_BRAND}; border-color: {COLOR_BORDER_STRONG}; font-weight: {FONT_WEIGHT_LABEL}; }}
 QPushButton[destructive="true"] {{ color: {COLOR_ERROR}; border-color: {COLOR_ERROR}; }}
 QDialog#task20Dialog {{ background: {COLOR_BACKGROUND}; }}
 QDialog#task20Dialog QLabel[dialogLead="true"] {{ color: {COLOR_TEXT_MUTED}; font-size: {FONT_SIZE_BODY}px; }}

@@ -11,14 +11,14 @@ from desktop_client.app.shared.ui.design_tokens import SPACE_2, SPACE_3, SPACE_4
 from desktop_client.app.shared.ui.filter_popup import FloatingFilterPopup
 from desktop_client.app.shared.ui.management_common import RetryState, confirm_action
 from desktop_client.app.shared.ui.management_workspace import ManagementWorkspace
-from desktop_client.app.shared.ui.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, style_reference_extra_panel
+from desktop_client.app.shared.ui.management_visuals import apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, style_reference_button, style_reference_extra_panel
 from desktop_client.app.shared.ui.foundations import ColumnKind, ColumnPolicy, set_item_text
 
 
 class BookingsView(StatefulWidget):
-    filters_requested=Signal(dict);booking_selected=Signal(str);create_requested=Signal();edit_requested=Signal();confirm_requested=Signal();cancel_requested=Signal();complete_requested=Signal();page_requested=Signal(int,int);assignment_add_requested=Signal(dict);assignment_add_and_confirm_requested=Signal(dict);assignment_replace_requested=Signal(dict,dict);assignment_remove_requested=Signal(dict,dict);queue_requested=Signal(str)
+    filters_requested=Signal(dict);booking_selected=Signal(str);create_requested=Signal();edit_requested=Signal();confirm_requested=Signal();cancel_requested=Signal();complete_requested=Signal();page_requested=Signal(int,int);assignment_add_requested=Signal(dict);assignment_add_and_confirm_requested=Signal(dict);assignment_replace_requested=Signal(dict,dict);assignment_remove_requested=Signal(dict,dict);assignment_request_requested=Signal(dict);assignment_request_approve_requested=Signal(dict,dict);assignment_request_reject_requested=Signal(dict,dict);queue_requested=Signal(str)
     def __init__(self, role):
-        super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False
+        super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False;self._list_context=None
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
         self.workspace=ManagementWorkspace(title="ניהול הזמנות" if role=="manager" else "ההזמנות שלי" if role=="customer" else "האירועים שלי",subtitle="ניהול הזמנות, מועדים, אישורים ושיבוץ מדריכים" if role=="manager" else "מעקב אחר ההזמנות והאירועים שלך" if role=="customer" else "האירועים המשובצים לך ומידע תפעולי",create_text="הזמנה חדשה" if role=="manager" else "בקשת הזמנה חדשה",plural="הזמנות",detail_subtitle="מצב תפעולי ופרטי ההזמנה",search_placeholder="חיפוש ברשימת ההזמנות",sort_options=(("event_at","מיון לפי: מועד, הקרוב ביותר"),("event_at_desc","מיון לפי: מועד, הרחוק ביותר"),("customer_name","מיון לפי: שם לקוח")),headers=("לקוח","פעילות","מועד","מיקום","משתתפים","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,180),ColumnPolicy(ColumnKind.PRIMARY_TEXT,190),ColumnPolicy(ColumnKind.TECHNICAL,160),ColumnPolicy(ColumnKind.SECONDARY_TEXT,170,240),ColumnPolicy(ColumnKind.COMPACT,100),ColumnPolicy(ColumnKind.COMPACT,130)),row_action_position="end")
         root.addWidget(self.workspace)
@@ -29,6 +29,19 @@ class BookingsView(StatefulWidget):
         hero_image={"manager":"bookings-manager-hero.png","instructor":"bookings-instructor-hero.png","customer":"bookings-customer-hero.png"}.get(role,"bookings-manager-hero.png")
         self.hero=install_management_hero(self.workspace,hero_image,"תמונת פעילות למסך הזמנות ואירועים")
         apply_reference_list_layout(self.workspace,extra_toolbar_controls=(self.filter_button,))
+        # Local complete styles avoid global-QSS specificity making primary text white on white.
+        style_reference_button(self.toolbar.search_button, "primary")
+        style_reference_button(self.filter_button, "secondary")
+        style_reference_button(self.toolbar.refresh_button, "secondary")
+        style_reference_button(self.filter_popup.apply_button, "primary")
+        style_reference_button(self.filter_popup.clear_button, "secondary")
+        style_reference_button(self.workspace.empty_action_button, "secondary")
+        self.toolbar.search_button.setMinimumWidth(92)
+        self.filter_button.setMinimumWidth(88)
+        self.toolbar.refresh_button.setMinimumWidth(88)
+        self.filter_popup.apply_button.setMinimumWidth(122)
+        self.filter_popup.clear_button.setMinimumWidth(122)
+        self.workspace.empty_action_button.setMinimumWidth(176)
         back_text="← חזרה לרשימת הזמנות" if role=="manager" else "← חזרה להזמנות שלי" if role=="customer" else "← חזרה לאירועים שלי"
         apply_reference_detail_layout(
             self.workspace,
@@ -42,12 +55,22 @@ class BookingsView(StatefulWidget):
         self.history_table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
         self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.confirm_button.clicked.connect(self.confirm_requested);self.cancel_button.clicked.connect(self.cancel_requested);self.complete_button.clicked.connect(self.complete_requested)
         self.toolbar.search_requested.connect(lambda search,_sort:self._emit_filters(search=search));self.toolbar.sort_combo.currentIndexChanged.connect(lambda _i:self._emit_filters());self.toolbar.refresh_requested.connect(self._reset);self.filter_popup.apply_requested.connect(self._apply_popover_filters);self.filter_popup.clear_requested.connect(self._clear_and_apply_filters);self.filter_button.clicked.connect(self.filter_popup.toggle);self.footer.page_requested.connect(self.page_requested)
-        self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda row,_column:self._request_open(self._row_id(row)));self.table.installEventFilter(self);self.workspace.empty_action_button.clicked.connect(lambda:self._reset() if self._empty_filtered else self.create_requested.emit());self.clear_details()
+        self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda row,_column:self._request_open(self._row_id(row)));self.table.installEventFilter(self);self.workspace.empty_action_button.clicked.connect(self._empty_action);self.clear_details()
+    def _empty_action(self):
+        if self._list_context=="open":self.queue_requested.emit("open")
+        elif self._empty_filtered:self._reset()
+        elif self.role in {"manager","customer"}:self.create_requested.emit()
     def _build_summary(self):
         self.summary_panel=QWidget();layout=QHBoxLayout(self.summary_panel);layout.setDirection(QHBoxLayout.Direction.RightToLeft);layout.setContentsMargins(0,0,0,0);layout.setSpacing(SPACE_3);self.summary_buttons={}
-        for key,title in (("pending","ממתינות לאישור"),("unassigned","ממתינות לשיבוץ מדריך"),("approved","מאושרות")):
-            button=QPushButton(f"{title}\n0");button.setProperty("summaryQueue",key);button.setMinimumHeight(68);button.clicked.connect(lambda _checked=False,value=key:self.queue_requested.emit(value));layout.addWidget(button);self.summary_buttons[key]=button
-        self.list_page.layout().insertWidget(0,self.summary_panel);self.summary_panel.setVisible(self.role=="manager")
+        queues = (("pending","ממתינות לאישור"),("unassigned","ממתינות לשיבוץ מדריך"),("approved","מאושרות")) if self.role == "manager" else (("open","אירועים פתוחים לשיבוץ"),) if self.role == "instructor" else ()
+        for key,title in queues:
+            initial = f"{title}\n0" if self.role == "manager" else title
+            button=QPushButton(initial);button.setProperty("summaryQueue",key);button.setMinimumHeight(52 if self.role == "instructor" else 68);button.clicked.connect(lambda _checked=False,value=key:self.queue_requested.emit(value));style_reference_button(button,"secondary")
+            if self.role == "instructor":
+                button.setMinimumWidth(220);button.setMaximumWidth(300)
+            layout.addWidget(button);self.summary_buttons[key]=button
+        if self.role == "instructor" and queues:layout.addStretch(1)
+        self.list_page.layout().insertWidget(0,self.summary_panel);self.summary_panel.setVisible(bool(queues))
     def _build_filters(self):
         toolbar_layout=self.toolbar.layout();toolbar_layout.removeWidget(self.toolbar.refresh_button);self.filter_button=QPushButton("סינון");toolbar_layout.addWidget(self.filter_button);toolbar_layout.addWidget(self.toolbar.refresh_button)
         toolbar_panel=self.toolbar.parentWidget();self.filter_popup=FloatingFilterPopup(self.filter_button,self.list_page)
@@ -144,6 +167,19 @@ class BookingsView(StatefulWidget):
         if self._selected_id:self._pending_open_id=self._selected_id
         if self._selected_id and self.workspace.detail_title.text():self._pending_open_id=None;self.workspace.show_details()
     def _request_open(self,booking_id):self._pending_open_id=booking_id;self.select_booking(booking_id);self._open()
+    def prepare_list_navigation(self, *, clear_filters=False):
+        """Clear stale detail intent before a list/queue navigation.
+
+        This deliberately does not emit filter signals. The presenter owns the
+        next list request and decides which filters/queue to load.
+        """
+        self._pending_open_id=None;self._selected_id=None
+        blocked=self.table.blockSignals(True);self.table.clearSelection();self.table.blockSignals(blocked)
+        self.filter_popup.hide();self.workspace.show_list();self._clear_forms();self.workspace.detail_title.clear();self._clear_assignment_cards()
+        if clear_filters:
+            self.toolbar.search_input.clear();blocked_sort=self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(blocked_sort);self._clear_filter_choices()
+    def set_list_context(self, context):
+        self._list_context=context
     def _selected_filters(self,group):
         return [key for key,widget in group.items() if widget.isChecked()]
     def _emit_filters(self,search=None):
@@ -179,21 +215,55 @@ class BookingsView(StatefulWidget):
         elif kind=="to":self.to_filter.clear()
         self._emit_filters()
     def _reset(self,emit=True):
-        self.toolbar.search_input.clear();blocked=self.toolbar.sort_combo.blockSignals(True);self.toolbar.sort_combo.setCurrentIndex(0);self.toolbar.sort_combo.blockSignals(blocked);self._clear_filter_choices();self.filter_popup.hide();self.table.clearSelection();self.clear_details()
+        self.prepare_list_navigation(clear_filters=True);self._list_context=None
         if emit:self.filters_requested.emit({"status":None,"activity_id":None,"instructor_id":None,"assignment_state":None,"from_date":None,"to_date":None,"search":None,"order_by":"event_at","limit":25,"offset":0,"_clear_selection":True})
     def reset_to_default(self):
-        self._reset(False)
+        self.prepare_list_navigation(clear_filters=True);self._list_context=None
     def show_summary(self,summary):
         values={"pending":summary.get("pending_count",0),"unassigned":summary.get("unassigned_count",0),"approved":summary.get("confirmed_count",0)}
         titles={"pending":"ממתינות לאישור","unassigned":"ממתינות לשיבוץ מדריך","approved":"מאושרות"}
-        for key,value in values.items():self.summary_buttons[key].setText(f"{titles[key]}\n{value}")
+        for key,value in values.items():
+            if key in self.summary_buttons:
+                self.summary_buttons[key].setText(f"{titles[key]}\n{value}")
     def show_bookings(self,rows,*,offset=0,count=0,limit=25,selected_id=None):
+        open_registration = self.role == "instructor" and self._list_context == "open"
+        action_column = self.workspace.row_action_column
+        sizer = getattr(self.table, "_task20_column_sizer", None)
+        if sizer is not None:
+            policies = list(sizer.policies)
+            policies[action_column] = ColumnPolicy(ColumnKind.ACTION, 156, 156) if open_registration else ColumnPolicy(ColumnKind.ACTION, 52, 52)
+            sizer.policies = tuple(policies)
+            sizer.apply()
+        header = self.table.horizontalHeaderItem(action_column)
+        if header is not None:
+            header.setText("הרשמה" if open_registration else "")
         self.table.setRowCount(len(rows))
         for r,row in enumerate(rows):
-            self.workspace.set_row_open_action(r,row["id"],self._request_open);values=(row.get("customer","—"),row.get("activity","—"),row.get("event_at","—")," · ".join(x for x in (row.get("city"),row.get("venue")) if x and x!="—") or "—",row.get("participants","—"))
+            if open_registration:
+                request_status = str(row.get("my_request_status") or "")
+                label = "בקשה ממתינה" if request_status == "PENDING" else "אושרת לאירוע" if request_status == "APPROVED" else "הירשם שוב" if request_status == "REJECTED" else "הירשם לאירוע"
+                register = QPushButton(label)
+                register.setAccessibleName(f"{label}: {row.get('activity') or 'אירוע'}")
+                register.setMinimumWidth(132)
+                register.setMaximumWidth(144)
+                style_reference_button(register, "secondary" if request_status == "PENDING" else "success" if request_status == "APPROVED" else "primary")
+                register.setEnabled(bool(row.get("booking_activity_id")) and request_status not in {"PENDING", "APPROVED"})
+                register.clicked.connect(lambda _checked=False, value=dict(row): self.assignment_request_requested.emit(value))
+                self.table.setCellWidget(r, action_column, register)
+            else:
+                self.workspace.set_row_open_action(r,row["id"],self._request_open)
+            values=(row.get("customer","—"),row.get("activity","—"),row.get("event_at","—")," · ".join(x for x in (row.get("city"),row.get("venue")) if x and x!="—") or "—",row.get("participants","—"))
             for c,value in enumerate(values,start=0):item=QTableWidgetItem(str(value));item.setTextAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);set_item_text(self.table,r,c,item,tooltip_direction=Qt.LayoutDirection.RightToLeft);item.setData(Qt.ItemDataRole.UserRole,row["id"] if c==0 else item.data(Qt.ItemDataRole.UserRole))
             status=QLabel(str(row.get("status") or "—"));status.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute);status.setContentsMargins(SPACE_3,0,SPACE_3,0);status.setProperty("bookingState",str(row.get("status_code") or ""));self.table.setCellWidget(r,5,status)
-        self.footer.limit=limit;self.footer.set_page(offset=offset,count=count);self._empty_filtered=bool(self.toolbar.search_input.text() or self._selected_filters(self.status_checks) or self._selected_filters(self.activity_checks) or self._selected_filters(self.instructor_checks) or self._selected_filters(self.assignment_checks) or self.from_filter.text() or self.to_filter.text());self.workspace.show_empty_state(empty=not rows,filtered=self._empty_filtered,plural="הזמנות");self.footer.setVisible(bool(rows));self.workspace.results_label.setText(f"הזמנות • {len(rows)}")
+        self.footer.limit=limit;self.footer.set_page(offset=offset,count=count);self._empty_filtered=bool(self.toolbar.search_input.text() or self._selected_filters(self.status_checks) or self._selected_filters(self.activity_checks) or self._selected_filters(self.instructor_checks) or self._selected_filters(self.assignment_checks) or self.from_filter.text() or self.to_filter.text());self.workspace.show_empty_state(empty=not rows,filtered=self._empty_filtered,plural="אירועים" if self.role=="instructor" else "הזמנות");self.footer.setVisible(bool(rows))
+        title="אירועים פתוחים לשיבוץ" if self._list_context=="open" else "ממתינים לשיבוץ מדריך" if self._list_context=="unassigned" else "אירועים" if self.role=="instructor" else "הזמנות"
+        self.workspace.results_label.setText(f"{title} • {len(rows)}")
+        if not rows and self._list_context=="open":
+            self.workspace.empty_title.setText("אין כרגע אירועים פתוחים לשיבוץ")
+            self.workspace.empty_description.setText("הרשימה מתעדכנת מול השרת. אירוע שדורש מדריך ושעדיין לא שובץ יופיע כאן.")
+            self.workspace.empty_action_button.setText("רענון הרשימה")
+        elif not rows and self._empty_filtered:
+            self.workspace.empty_action_button.setText("ניקוי הסינון")
     def show_filter_options(self,customers,activities,instructors):
         while self.activity_layout.count()>1:
             item=self.activity_layout.takeAt(0)
@@ -211,10 +281,16 @@ class BookingsView(StatefulWidget):
         self.instructor_empty.setVisible(not bool(instructors))
     def show_details(self,details,history):
         self._clear_forms();identity="פרטי הזמנה";status=""
+        customer_labels={"לקוח","איש קשר","טלפון לקוח"}
         for label,value in details:
             if label=="לקוח":identity=value
             if label=="סטטוס":status=value
-            content=QLabel(value);content.setWordWrap(True);target=self.customer_details if label=="לקוח" else self.system_details if label in {"מזהה","סטטוס"} else self.booking_details;self.workspace.add_property_row(target,label,content)
+            content=QLabel(value);content.setWordWrap(True)
+            if label=="טלפון לקוח":
+                content.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+                content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            target=self.customer_details if label in customer_labels else self.system_details if label in {"מזהה","סטטוס"} else self.booking_details
+            self.workspace.add_property_row(target,label,content)
         self.workspace.detail_title.setText(identity);self.workspace.detail_status.setText(status);self.workspace.detail_subtitle.setText("מצב תפעולי, שיבוץ והיסטוריית ההזמנה");self.history_table.setRowCount(len(history))
         right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
         for r, event in enumerate(history):
@@ -224,6 +300,11 @@ class BookingsView(StatefulWidget):
                 self.history_table.setItem(r, c, item)
         self.history_table.resizeRowsToContents()
         if self._pending_open_id==self._selected_id:self._pending_open_id=None;self.workspace.show_details()
+
+    def set_open_event_mode(self, active):
+        self.assignment_group.setVisible(self.role == "manager" or (self.role == "instructor" and bool(active)))
+        if self.role == "instructor":
+            self.assignment_hint.setText("אפשר לשלוח בקשת שיבוץ. המנהל יאשר או ידחה אותה." if active else "מצב השיבוץ לפעילויות בהזמנה")
     def _clear_forms(self):
         for form in (self.booking_details,self.customer_details,self.system_details):
             while form.rowCount():form.removeRow(0)
@@ -273,6 +354,30 @@ class BookingsView(StatefulWidget):
         name.setAlignment(right)
         identity.addWidget(name)
 
+        if self.role == "instructor":
+            if not activity.get("assignment_required"):
+                state_text = "כבר שובץ מדריך לפעילות זו"
+            else:
+                request_status = activity.get("my_request_status")
+                state_text = {
+                    "PENDING": "בקשת השיבוץ שלך ממתינה לאישור המנהל",
+                    "APPROVED": "בקשת השיבוץ שלך אושרה",
+                    "REJECTED": "בקשת השיבוץ הקודמת נדחתה",
+                }.get(request_status, "הפעילות פתוחה לבקשות שיבוץ")
+            status = QLabel(state_text)
+            status.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+            status.setAlignment(right)
+            status.setWordWrap(True)
+            identity.addWidget(status)
+            row.addWidget(identity_widget, 1)
+            if activity.get("assignment_required") and activity.get("my_request_status") != "PENDING":
+                request = QPushButton("שליחת בקשת שיבוץ" if activity.get("my_request_status") != "REJECTED" else "שליחת בקשה מחדש")
+                style_reference_button(request, "primary")
+                request.clicked.connect(lambda _checked=False, value=activity: self.assignment_request_requested.emit(value))
+                row.addWidget(request)
+            self.assignment_cards_layout.addWidget(card)
+            return
+
         assignments = activity.get("assignments") or []
         if not activity.get("assignment_required"):
             status = QLabel("לא נדרש מדריך")
@@ -300,22 +405,38 @@ class BookingsView(StatefulWidget):
         if assignment:
             replace = QPushButton("החלפת מדריך")
             remove = QPushButton("הסרת שיבוץ")
-            replace.clicked.connect(
-                lambda _checked=False, a=activity, current=assignment:
-                self.assignment_replace_requested.emit(a, current)
-            )
-            remove.clicked.connect(
-                lambda _checked=False, a=activity, current=assignment:
-                self.assignment_remove_requested.emit(a, current)
-            )
+            replace.clicked.connect(lambda _checked=False, a=activity, current=assignment: self.assignment_replace_requested.emit(a, current))
+            remove.clicked.connect(lambda _checked=False, a=activity, current=assignment: self.assignment_remove_requested.emit(a, current))
             row.addWidget(replace)
             row.addWidget(remove)
         else:
+            requests = activity.get("requests") or []
+            if requests:
+                request_box = QWidget()
+                request_layout = QVBoxLayout(request_box)
+                request_layout.setContentsMargins(0, 0, 0, 0)
+                request_layout.setSpacing(4)
+                for request_model in requests:
+                    request_row = QWidget()
+                    request_row_layout = QHBoxLayout(request_row)
+                    request_row_layout.setDirection(QHBoxLayout.Direction.RightToLeft)
+                    request_row_layout.setContentsMargins(0, 0, 0, 0)
+                    request_label = QLabel(f"{request_model.get('instructor_name') or 'מדריך'} ביקש להשתבץ")
+                    request_label.setAlignment(right)
+                    request_row_layout.addWidget(request_label, 1)
+                    approve = QPushButton("אישור שיבוץ")
+                    reject = QPushButton("דחייה")
+                    style_reference_button(approve, "primary")
+                    style_reference_button(reject, "destructive")
+                    approve.clicked.connect(lambda _checked=False, a=activity, req=request_model: self.assignment_request_approve_requested.emit(a, req))
+                    reject.clicked.connect(lambda _checked=False, a=activity, req=request_model: self.assignment_request_reject_requested.emit(a, req))
+                    request_row_layout.addWidget(approve)
+                    request_row_layout.addWidget(reject)
+                    request_layout.addWidget(request_row)
+                identity.addWidget(request_box)
             assign = QPushButton("שיבוץ מדריך")
-            assign.setProperty("buttonRole", "managementPrimary")
-            assign.clicked.connect(
-                lambda _checked=False, value=activity: self.assignment_add_requested.emit(value)
-            )
+            style_reference_button(assign, "primary")
+            assign.clicked.connect(lambda _checked=False, value=activity: self.assignment_add_requested.emit(value))
             row.addWidget(assign)
 
         self.assignment_cards_layout.addWidget(card)

@@ -324,6 +324,8 @@ class InstructorProfilePresenter:
     def __init__(self, view, service, executor: OperationExecutor | None = None):
         self.view, self.service = view, service
         self._operations = PresenterOperations(executor, "instructor_profile")
+        self.current_profile = None
+        self.submitting = False
 
     def invalidate_requests(self):
         self._operations.invalidate()
@@ -335,6 +337,7 @@ class InstructorProfilePresenter:
 
         def success(value):
             if self._operations.is_current(context):
+                self.current_profile = value
                 self.view.show_profile(instructor_details(value))
 
         def failure(exc):
@@ -346,6 +349,43 @@ class InstructorProfilePresenter:
                 self.view.set_loading(False)
 
         self._operations.executor.submit(context, self.service.my_profile, success, failure, finished)
+
+    def begin_edit(self):
+        if self.current_profile and not self.submitting:
+            self.view.open_form(self.current_profile, self.submit_edit)
+
+    def submit_edit(self, values, form):
+        if self.submitting:
+            return
+        try:
+            payload = validate_instructor(values)
+        except ValueError as exc:
+            form.show_error(str(exc))
+            return
+        payload.pop("email", None)
+        context = self._operations.begin("edit")
+        if context is None:
+            return
+        self.submitting = True
+        form.set_submitting(True)
+
+        def success(value):
+            if self._operations.is_current(context):
+                self.current_profile = value
+                form.close_success()
+                self.view.show_profile(instructor_details(value))
+                self.view.show_success("הפרטים נשמרו בהצלחה.")
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                form.show_error(InstructorsPresenter.message(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self.submitting = False
+                form.set_submitting(False)
+
+        self._operations.executor.submit(context, lambda: self.service.update_my_profile(payload), success, failure, finished)
 
     def retry(self):
         self.load()

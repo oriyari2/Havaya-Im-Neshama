@@ -47,6 +47,11 @@ class _View:
         self.command_status = ""
         self.request_states = []
         self.cleared_errors = 0
+        self.open_event_mode = False
+        self.assignments = []
+        self.assignment_loading = []
+        self.registration_loading = []
+        self.registration_pending = []
 
     def set_loading(self, loading: bool) -> None:
         self.loading.append(loading)
@@ -105,6 +110,21 @@ class _View:
     def set_command_availability(self, status):
         self.command_status = status
 
+    def set_open_event_mode(self, active):
+        self.open_event_mode = bool(active)
+
+    def show_assignments(self, activities):
+        self.assignments = activities
+
+    def set_assignments_loading(self, loading):
+        self.assignment_loading.append(loading)
+
+    def set_registration_loading(self, booking_activity_id, loading):
+        self.registration_loading.append((booking_activity_id, loading))
+
+    def set_registration_pending(self, booking_activity_id):
+        self.registration_pending.append(booking_activity_id)
+
 
 class _Service:
     def __init__(self) -> None:
@@ -130,10 +150,40 @@ class _Service:
         self.calls.append(("mine", limit, offset, order_by))
         return {"items": [BOOKING], "count": 1}
 
+    def invalidate_open_events(self):
+        self.calls.append(("invalidate_open",))
+
     def open_events(self):
         self._check()
         self.calls.append(("open",))
-        return [BOOKING]
+        return [{**BOOKING, "customer_name": "לקוח"}]
+
+    def open_event_detail(self, booking_id):
+        self._check()
+        self.calls.append(("open_detail", booking_id))
+        return {
+            "booking_id": booking_id,
+            "event_at": BOOKING["event_at"],
+            "status": "NEW",
+            "city": "Jerusalem",
+            "venue": "Hall",
+            "version": 1,
+            "customer_name": "לקוח",
+            "customer_contact_name": "איש קשר",
+            "customer_phone": "050-1234567",
+            "activities": [{
+                "booking_activity_id": "ba1",
+                "activity_id": "a1",
+                "activity_name": "פעילות",
+                "assignment_required": True,
+                "my_request_status": None,
+            }],
+        }
+
+    def request_assignment(self, booking_id, booking_activity_id):
+        self._check()
+        self.calls.append(("request_assignment", booking_id, booking_activity_id))
+        return {"request_id": "r1", "status": "PENDING"}
 
     def booking(self, booking_id):
         self._check()
@@ -358,6 +408,29 @@ class PresenterTests(unittest.TestCase):
         customer_calls = []
         DashboardPresenter(_View(), _Service(), "customer", lambda key, filters=None: customer_calls.append((key, filters))).drill_down("pending_count")
         self.assertEqual(customer_calls, [("my_bookings", {"status": "NEW"})])
+        instructor_calls = []
+        DashboardPresenter(_View(), _Service(), "instructor", lambda key, filters=None: instructor_calls.append((key, filters))).drill_down("assigned_count")
+        self.assertEqual(instructor_calls[0][0], "bookings")
+        self.assertEqual(instructor_calls[0][1]["assignment_state"], "assigned")
+        self.assertIn("from_date", instructor_calls[0][1])
+
+    def test_dashboard_instructor_can_request_assignment_directly_from_open_event_row(self) -> None:
+        view = _View()
+        service = _Service()
+        presenter = DashboardPresenter(view, service, "instructor")
+
+        presenter.request_assignment({
+            "id": "booking-open-1",
+            "booking_id": "booking-open-1",
+            "booking_activity_id": "ba-open-1",
+        })
+
+        self.assertIn(("request_assignment", "booking-open-1", "ba-open-1"), service.calls)
+        self.assertIn(("ba-open-1", True), view.registration_loading)
+        self.assertIn(("ba-open-1", False), view.registration_loading)
+        self.assertIn("ba-open-1", view.registration_pending)
+        # No second dashboard fetch is required just to show PENDING.
+        self.assertNotIn(("open",), service.calls)
 
     def test_customer_booking_presenter_uses_my_bookings(self) -> None:
         view = _View()
@@ -386,6 +459,44 @@ class PresenterTests(unittest.TestCase):
         BookingsPresenter(instructor_view, instructor_service, "instructor").select_booking("booking-1")
         self.assertNotIn(("history", "booking-1"), instructor_service.calls)
         self.assertEqual(instructor_view.history, [])
+
+
+    def test_instructor_can_open_unassigned_event_and_request_assignment_without_losing_open_mode(self) -> None:
+        view, service = _View(), _Service()
+        global_refreshes = []
+        presenter = BookingsPresenter(view, service, "instructor", lambda: global_refreshes.append(True))
+
+        presenter.load_queue("open")
+        self.assertTrue(presenter._open_events_mode)
+        self.assertEqual(view.rows[0]["customer"], "לקוח")
+
+        presenter.select_booking("booking-1")
+        self.assertTrue(view.open_event_mode)
+        self.assertEqual(view.assignments[0]["booking_activity_id"], "ba1")
+        self.assertIn(("לקוח", "לקוח"), view.details)
+        self.assertIn(("איש קשר", "איש קשר"), view.details)
+        self.assertIn(("טלפון לקוח", "050-1234567"), view.details)
+
+        presenter.request_assignment(view.assignments[0])
+        self.assertIn(("request_assignment", "booking-1", "ba1"), service.calls)
+        self.assertEqual(global_refreshes, [])
+        self.assertTrue(presenter._open_events_mode)
+        self.assertEqual([call[0] for call in service.calls].count("open_detail"), 1)
+        self.assertGreaterEqual([call[0] for call in service.calls].count("open"), 2)
+        self.assertIsNone(presenter.selected_id)
+        self.assertIn("נשלחה", view.success)
+
+    def test_instructor_can_request_assignment_directly_from_open_event_row(self) -> None:
+        view = FakeBookingView()
+        service = FakeBookingService()
+        presenter = BookingsPresenter(view, service, "instructor", executor=ImmediateOperationExecutor())
+        presenter._open_events_mode = True
+
+        presenter.request_assignment({"booking_id": "booking-row-1", "booking_activity_id": "ba-row-1"})
+
+        self.assertIn(("request_assignment", "booking-row-1", "ba-row-1"), service.calls)
+        self.assertIsNone(presenter.selected_id)
+
 
     def test_create_validation_and_success_refresh(self) -> None:
         with self.assertRaises(FormValidationError):

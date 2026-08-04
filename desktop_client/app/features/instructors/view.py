@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QItemSelectionModel, Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
 
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.shared.ui.account_dialogs import ChangePasswordDialog
@@ -9,7 +9,7 @@ from desktop_client.app.shared.ui.common import StatefulWidget
 from desktop_client.app.features.instructors.dialogs import InstructorDialog
 from desktop_client.app.shared.ui.management_common import ActiveBadge, confirm_action
 from desktop_client.app.shared.ui.management_workspace import ManagementWorkspace
-from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, install_scaffold_hero
+from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, install_scaffold_hero, style_reference_button
 from desktop_client.app.shared.ui.foundations import ColumnKind, ColumnPolicy, PageScaffold, configure_mixed_direction, set_disabled_explanation, set_item_text
 
 
@@ -101,6 +101,7 @@ class InstructorsView(StatefulWidget):
 
 class InstructorProfileView(StatefulWidget):
     retry_requested = Signal()
+    edit_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -114,6 +115,17 @@ class InstructorProfileView(StatefulWidget):
         root.addWidget(self.scaffold)
         self.hero = install_scaffold_hero(self.scaffold, "instructors-hero.png", "תמונת פרופיל מדריך")
         self.scaffold.main_content.addWidget(self.state_label)
+
+        action_row = QWidget()
+        action_row.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        action_layout = QHBoxLayout(action_row)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.addStretch(1)
+        self.edit_button = QPushButton("עריכת הפרטים שלי")
+        style_reference_button(self.edit_button, "primary")
+        self.edit_button.clicked.connect(self.edit_requested.emit)
+        action_layout.addWidget(self.edit_button)
+        self.scaffold.main_content.addWidget(action_row)
 
         body = QWidget()
         body.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
@@ -161,3 +173,11 @@ class InstructorProfileView(StatefulWidget):
 
     def show_error(self, message, *, retriable=False, permission=False):
         self.show_empty(message)
+
+    def open_form(self, initial, submit):
+        self._dialog = InstructorDialog(initial, self)
+        self._dialog.submitted.connect(submit)
+        self._dialog.open()
+
+    def show_success(self, message):
+        self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS, message, "instructor_profile"))

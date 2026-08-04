@@ -77,7 +77,10 @@ def policy_for_path(path: str) -> CachePolicy | None:
     if clean.startswith("/api/rag/sources"):
         return CachePolicy("knowledge", 20)
     if clean.startswith("/bookings/open-events"):
-        return CachePolicy("open_events", 15, stale_while_revalidate=True)
+        # Assignment availability and the signed-in instructor's request state
+        # are operational data that can change in another user's session. Never
+        # serve a stale open-event list/detail from the desktop cache.
+        return None
     if clean.startswith("/bookings") and clean.endswith("/history"):
         return CachePolicy("booking_history", 15)
     if clean.startswith("/bookings") and clean.endswith("/assignments"):
