@@ -320,6 +320,8 @@ Because this is a desktop application, "Microfrontends" will be implemented as m
 
 Each module shall expose a small registration function or navigation descriptor, so the main shell can compose the application without knowing the internal implementation of every screen.
 
+**Final implementation note:** the registration façades live under `desktop_client/app/features/`. The existing, regression-tested MVP classes remain in `app/views`, `app/presenters`, and `app/services`; each feature façade owns their composition and signal wiring. `MainWindow` mounts features through the registry rather than importing business feature internals directly.
+
 ### 11.2 Required Tables and Charts
 
 To satisfy the course requirement for graph/table presentation, the MVP shall include:
