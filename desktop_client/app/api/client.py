@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import socket
 import secrets
+import threading
 from enum import StrEnum
 from typing import Any, Callable
 from urllib.error import HTTPError, URLError
@@ -81,6 +83,13 @@ class ApiClient:
         self.access_token: str | None = None
         self._unauthorized_handler: Callable[[], None] | None = None
         self.performance_cache = performance_cache or SessionPerformanceCache()
+        # AI consultations can legitimately remain open for several minutes.
+        # Keep the underlying HTTP connections so application shutdown can
+        # interrupt a blocked read instead of freezing the Qt UI thread while
+        # the background executor waits for it to finish.
+        self._ai_connections_lock = threading.Lock()
+        self._active_ai_connections: set[http.client.HTTPConnection] = set()
+        self._ai_requests_cancelled = threading.Event()
 
     def set_access_token(self, token: str | None) -> None:
         self.access_token = token
@@ -116,6 +125,31 @@ class ApiClient:
 
     def post_ai(self, path: str, payload: dict[str, object]) -> Any:
         return self._request("POST", path, payload, timeout=self.ai_timeout, ai_request=True)
+
+    def cancel_ai_requests(self) -> int:
+        """Interrupt in-flight AI HTTP reads during application shutdown.
+
+        The regular desktop requests use urllib and have short timeouts.  AI
+        consultations are different: they may wait several minutes for the
+        local RAG/Ollama pipeline.  Closing the underlying socket is the only
+        reliable way to wake the worker immediately before the Qt thread pool
+        is joined.
+        """
+        self._ai_requests_cancelled.set()
+        with self._ai_connections_lock:
+            connections = tuple(self._active_ai_connections)
+        for connection in connections:
+            sock = getattr(connection, "sock", None)
+            if sock is not None:
+                try:
+                    sock.shutdown(socket.SHUT_RDWR)
+                except OSError:
+                    pass
+            try:
+                connection.close()
+            except OSError:
+                pass
+        return len(connections)
 
     def patch(self, path: str, payload: dict[str, object]) -> Any:
         result = self._request("PATCH", path, payload)
@@ -221,6 +255,15 @@ class ApiClient:
         request_token = self.access_token if authenticated else None
         if request_token:
             headers = {**headers, "Authorization": f"Bearer {request_token}"}
+        if ai_request:
+            return self._send_cancellable_ai(
+                method,
+                url,
+                data=data,
+                headers=headers,
+                request_token=request_token,
+                timeout=timeout or self.ai_timeout,
+            )
         request = Request(url, data=data, headers=headers, method=method)
         try:
             with urlopen(request, timeout=timeout or self.timeout) as response:
@@ -253,6 +296,74 @@ class ApiClient:
                 "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע." if ai_request else "לא ניתן להתחבר לשרת. ודאו שה־API פועל.",
                 kind=ApiErrorKind.CONNECTION,
             ) from exc
+
+    def _send_cancellable_ai(
+        self,
+        method: str,
+        url: str,
+        *,
+        data: bytes | None,
+        headers: dict[str, str],
+        request_token: str | None,
+        timeout: float,
+    ) -> Any:
+        parsed = urlparse(url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            raise ApiError("שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.", kind=ApiErrorKind.CONNECTION)
+        if self._ai_requests_cancelled.is_set():
+            raise ApiError("בקשת ה-AI בוטלה.", kind=ApiErrorKind.CONNECTION)
+
+        connection_cls = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+        connection = connection_cls(parsed.hostname, parsed.port, timeout=timeout)
+        target = parsed.path or "/"
+        if parsed.query:
+            target = f"{target}?{parsed.query}"
+
+        with self._ai_connections_lock:
+            self._active_ai_connections.add(connection)
+        try:
+            if self._ai_requests_cancelled.is_set():
+                raise ApiError("בקשת ה-AI בוטלה.", kind=ApiErrorKind.CONNECTION)
+            connection.request(method, target, body=data, headers=headers)
+            response = connection.getresponse()
+            raw_body = response.read().decode("utf-8", errors="replace")
+            if response.status >= 400:
+                message = (
+                    self._ai_error_message(response.status)
+                    if response.status != 401
+                    else self._error_message(raw_body)
+                )
+                if (
+                    response.status == 401
+                    and request_token is not None
+                    and self.access_token == request_token
+                ):
+                    self.access_token = None
+                    if self._unauthorized_handler is not None:
+                        self._unauthorized_handler()
+                raise ApiError(message, status_code=response.status)
+            return json.loads(raw_body) if raw_body else None
+        except ApiError:
+            raise
+        except (TimeoutError, socket.timeout) as exc:
+            raise ApiError(
+                "בקשת ה-AI ארכה יותר מדי זמן. נסו שוב בעוד רגע.",
+                kind=ApiErrorKind.TIMEOUT,
+            ) from exc
+        except (OSError, http.client.HTTPException) as exc:
+            if self._ai_requests_cancelled.is_set():
+                raise ApiError("בקשת ה-AI בוטלה.", kind=ApiErrorKind.CONNECTION) from exc
+            raise ApiError(
+                "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.",
+                kind=ApiErrorKind.CONNECTION,
+            ) from exc
+        finally:
+            with self._ai_connections_lock:
+                self._active_ai_connections.discard(connection)
+            try:
+                connection.close()
+            except OSError:
+                pass
 
     @staticmethod
     def _error_message(raw_body: str) -> str:
