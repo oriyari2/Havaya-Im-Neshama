@@ -72,9 +72,10 @@ class KnowledgeManagementView(QWidget):
         self.scaffold.main_content.addWidget(self.content_scroll, 1)
 
         editor_card = QFrame()
+        self.editor_card = editor_card
         editor_card.setProperty("referenceCard", True)
         editor_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        editor_card.setMinimumHeight(470)
+        editor_card.setMinimumHeight(490)
         editor_layout = QVBoxLayout(editor_card)
         editor_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
         editor_layout.setSpacing(SPACE_2)
@@ -83,6 +84,13 @@ class KnowledgeManagementView(QWidget):
         editor_title.setObjectName("sectionTitle")
         editor_title.setAlignment(_RIGHT)
         editor_layout.addWidget(editor_title)
+
+        self.required_hint = QLabel("* שדה חובה; יש להזין תוכן או לבחור קובץ txt/md")
+        self.required_hint.setProperty("dialogHint", True)
+        self.required_hint.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.required_hint.setAlignment(_RIGHT)
+        self.required_hint.setWordWrap(True)
+        editor_layout.addWidget(self.required_hint)
 
         self.title_input = QLineEdit()
         self.category_input = QLineEdit()
@@ -132,10 +140,10 @@ class KnowledgeManagementView(QWidget):
 
         # Deterministic physical layout: value/control on the left, label on the right.
         # Each row is its own layout, so a taller content editor cannot overlap neighboring rows.
-        self._add_field_row(editor_layout, "כותרת", self.title_input)
-        self._add_field_row(editor_layout, "קטגוריה", self.category_input)
+        self._add_field_row(editor_layout, "כותרת *", self.title_input)
+        self._add_field_row(editor_layout, "קטגוריה *", self.category_input)
         self._add_field_row(editor_layout, "פעילות", self.activity_input)
-        self._add_field_row(editor_layout, "תוכן", self.content_input, top_align=True)
+        self._add_field_row(editor_layout, "תוכן או קובץ *", self.content_input, top_align=True)
         self._add_field_row(editor_layout, "קובץ txt/md", file_host)
         self._add_field_row(editor_layout, "נראות", role_host)
 
@@ -285,6 +293,24 @@ class KnowledgeManagementView(QWidget):
         self.state_label.style().unpolish(self.state_label)
         self.state_label.style().polish(self.state_label)
         self.state_label.setVisible(bool(message))
+
+    def reset_editor(self) -> None:
+        """Return the editor to a clean create-ready state after a successful mutation."""
+        self._selected_source_id = None
+        self.sources_table.clearSelection()
+        self.sources_table.setCurrentCell(-1, -1)
+        self.title_input.clear()
+        self.category_input.clear()
+        self.activity_input.clear()
+        self.content_input.clear()
+        self.file_path_input.clear()
+        self.instructor_checkbox.setChecked(False)
+        self.customer_checkbox.setChecked(False)
+        self.replace_button.setEnabled(False)
+        self.delete_button.setEnabled(False)
+        self.save_button.setEnabled(True)
+        self.content_scroll.verticalScrollBar().setValue(0)
+        self.title_input.setFocus(Qt.FocusReason.OtherFocusReason)
 
     def clear_file_path(self) -> None:
         self.file_path_input.clear()

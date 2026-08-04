@@ -72,6 +72,48 @@ class KnowledgeDesktopTests(unittest.TestCase):
         self.assertEqual(values["allowed_roles"], ["instructor"])
         self.assertEqual(values["content"], "approved text")
 
+
+    def test_required_fields_are_marked_and_editor_resets_after_success(self) -> None:
+        view = KnowledgeManagementView()
+        self.addCleanup(view.close)
+        labels = [label.text() for label in view.findChildren(type(view.required_hint))]
+
+        self.assertIn("* שדה חובה", view.required_hint.text())
+        self.assertIn("כותרת *", labels)
+        self.assertIn("קטגוריה *", labels)
+        self.assertIn("תוכן או קובץ *", labels)
+
+        view.title_input.setText("Guide")
+        view.category_input.setText("general")
+        view.activity_input.setText("Activity")
+        view.content_input.setPlainText("content")
+        view.file_path_input.setText("guide.md")
+        view.instructor_checkbox.setChecked(True)
+        view.customer_checkbox.setChecked(True)
+        view.show_source_detail({
+            "source_id": "source-1",
+            "title": "Guide",
+            "category": "general",
+            "activity_name": "Activity",
+            "content": "content",
+            "allowed_roles": ["instructor", "customer"],
+        })
+
+        view.reset_editor()
+
+        self.assertEqual(view.values(), {
+            "title": "",
+            "category": "",
+            "activity_name": None,
+            "content": "",
+            "file_path": None,
+            "allowed_roles": [],
+        })
+        self.assertIsNone(view._selected_source_id)
+        self.assertFalse(view.replace_button.isEnabled())
+        self.assertFalse(view.delete_button.isEnabled())
+        self.assertTrue(view.save_button.isEnabled())
+
     def test_presenter_uses_pasted_text_and_refreshes(self) -> None:
         view = _View()
         service = _Service()
@@ -148,7 +190,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
         view.content_input.setPlainText("pasted replacement")
         self.assertEqual(view.file_path_input.text(), "")
 
-    def test_presenter_clears_file_path_after_successful_create_or_replace(self) -> None:
+    def test_presenter_resets_editor_after_successful_create_or_replace(self) -> None:
         view = _View()
         service = _Service()
         presenter = KnowledgeManagementPresenter(view, service)
@@ -156,7 +198,19 @@ class KnowledgeDesktopTests(unittest.TestCase):
         presenter.save({"title": "Guide", "category": "general", "content": "text", "allowed_roles": []})
         presenter.replace("source-1", {"title": "Guide", "category": "general", "content": "text", "allowed_roles": []})
 
-        self.assertEqual(view.clear_file_path_count, 2)
+        self.assertEqual(view.reset_editor_count, 2)
+
+    def test_presenter_resets_editor_after_successful_delete(self) -> None:
+        view = _View()
+        service = _Service()
+        presenter = KnowledgeManagementPresenter(view, service)
+
+        presenter.delete("source-1")
+
+        self.assertEqual(service.deleted, "source-1")
+        self.assertEqual(view.reset_editor_count, 1)
+        self.assertEqual(view.message, "מקור הידע נמחק.")
+        self.assertTrue(view.sources_shown)
 
     def test_pasted_replacement_is_not_overridden_by_stale_selected_file(self) -> None:
         view = KnowledgeManagementView()
@@ -204,7 +258,7 @@ class _View:
     def __init__(self) -> None:
         self.sources_shown = False
         self.error = ""
-        self.clear_file_path_count = 0
+        self.reset_editor_count = 0
 
     def show_sources(self, sources):
         self.sources_shown = True
@@ -218,8 +272,8 @@ class _View:
     def show_message(self, message):
         self.message = message
 
-    def clear_file_path(self):
-        self.clear_file_path_count += 1
+    def reset_editor(self):
+        self.reset_editor_count += 1
 
 
 class _Service:
@@ -236,6 +290,10 @@ class _Service:
 
     def replace_source(self, source_id, payload):
         self.replaced = {"source_id": source_id, **payload}
+        return {}
+
+    def delete_source(self, source_id):
+        self.deleted = source_id
         return {}
 
 

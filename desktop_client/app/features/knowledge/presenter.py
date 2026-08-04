@@ -10,7 +10,7 @@ class KnowledgeView(Protocol):
     def show_source_detail(self, source: dict) -> None: ...
     def show_error(self, message: str) -> None: ...
     def show_message(self, message: str) -> None: ...
-    def clear_file_path(self) -> None: ...
+    def reset_editor(self) -> None: ...
 
 
 class KnowledgeManagementPresenter:
@@ -81,7 +81,7 @@ class KnowledgeManagementPresenter:
         def success(_result):
             if not self._operations.is_current(context):
                 return
-            self.view.clear_file_path()
+            self.view.reset_editor()
             self.view.show_message(message)
             self.load()
 
