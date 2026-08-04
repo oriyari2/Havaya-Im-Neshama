@@ -283,8 +283,8 @@ QLabel[feedback="error"], #errorLabel {{ color: {COLOR_ERROR}; background: {COLO
 QLabel[bookingState="NEW"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
 QLabel[bookingState="CONFIRMED"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
 QLabel[bookingState="COMPLETED"], QLabel[bookingState="CANCELLED"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; }}
-QLabel[active="true"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
-QLabel[active="false"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[active="true"], QLabel[statusTone="success"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[active="false"], QLabel[statusTone="neutral"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; border-radius: 9px; padding: 3px 8px; }}
 QFrame#sharedFilterPopup {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: 12px; }}
 QFrame#filterPopupSection, QFrame#filterPopupSectionHeader, QFrame#filterPopupFooter, QScrollArea#filterPopupScroll, QScrollArea#filterPopupScroll > QWidget > QWidget {{ background: transparent; border: none; }}
 QFrame#filterPopupSectionHeader:hover {{ background: {COLOR_SURFACE_ALT}; border-radius: {RADIUS_SMALL}px; }}

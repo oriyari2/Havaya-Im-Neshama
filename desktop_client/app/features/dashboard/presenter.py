@@ -55,7 +55,11 @@ class DashboardPresenter:
         elif target in {"upcoming_count", "assigned_count"}:
             destination = "my_bookings" if self.role == "customer" else "bookings"
             filters = {"from_date": datetime.now(UTC).isoformat()}
-            if self.role == "instructor" and target == "assigned_count":
+            # The assigned dashboard card counts only bookings whose required
+            # activities all have an active instructor. Carry that exact
+            # predicate into the destination list for managers and instructors,
+            # otherwise the card count and the opened list disagree.
+            if target == "assigned_count" and self.role in {"manager", "instructor"}:
                 filters["assignment_state"] = "assigned"
             self.navigate(destination, filters)
         else:

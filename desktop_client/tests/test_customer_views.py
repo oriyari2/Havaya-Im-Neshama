@@ -50,8 +50,8 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.scaffold.header.maximumHeight(), 0)
         self.assertFalse(view.scaffold.header.description.wordWrap())
         for button in (view.edit_button, view.change_password_button, view.deactivate_button, view.reactivate_button):
-            self.assertGreaterEqual(button.minimumWidth(), 124)
-            self.assertLessEqual(button.maximumWidth(), 148)
+            self.assertEqual(button.minimumWidth(), 176)
+            self.assertEqual(button.maximumWidth(), 176)
         for obsolete in ("contacts", "add_contact", "edit_contact", "deactivate_contact", "reactivate_contact"):
             self.assertFalse(hasattr(view, obsolete))
 
@@ -327,6 +327,7 @@ class CustomerViewTests(TestCase):
         view.show_customers([{
             "id": "c1", "name": "לקוח", "customer_type": "עסקי", "city": "חיפה",
             "phone": "050", "email": "a@example.com", "is_active": True,
+            "join_date": "04/08/2026",
         }], offset=0, count=1, filtered=False)
         self.app.processEvents()
 
@@ -342,7 +343,7 @@ class CustomerViewTests(TestCase):
 
         self.assertEqual(view.table.columnCount(), 8)
         policies = view.table._task20_column_sizer.policies
-        self.assertEqual([policy.minimum_width for policy in policies[:7]], [40, 140, 120, 180, 100, 100, 110])
+        self.assertEqual([policy.minimum_width for policy in policies[:7]], [40, 140, 120, 180, 100, 126, 110])
         self.assertGreaterEqual(view.table.columnWidth(0), 40)
         self.assertGreaterEqual(view.table.columnWidth(1), 140)
         self.assertGreaterEqual(view.table.columnWidth(3), 180)
@@ -357,6 +358,7 @@ class CustomerViewTests(TestCase):
         self.assertTrue(view.table.item(0, 3).textAlignment() & Qt.AlignmentFlag.AlignLeft)
         self.assertTrue(view.table.item(0, 4).textAlignment() & Qt.AlignmentFlag.AlignRight)
         self.assertTrue(view.table.item(0, 6).textAlignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertEqual(view.table.item(0, 6).text(), "04/08/2026")
 
         self.assertIsNotNone(view.table.cellWidget(0, 5))
         self.assertIsNotNone(view.table.cellWidget(0, 7))
@@ -412,7 +414,7 @@ class CustomerViewTests(TestCase):
 
     def test_customer_table_semantic_widths_and_scrollbars_at_supported_sizes(self):
         long_name = "שם לקוח ארוך במיוחד שנועד להיחתך בצורה תקינה"
-        minimums = (40, 140, 120, 180, 100, 100, 110)
+        minimums = (40, 140, 120, 180, 100, 126, 110)
 
         for width, height in ((1024, 640), (1200, 760), (1440, 900)):
             shell, view = self._shown_manager_customers(width, height)

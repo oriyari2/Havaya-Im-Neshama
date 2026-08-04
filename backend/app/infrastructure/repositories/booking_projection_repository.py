@@ -205,9 +205,28 @@ def list_bookings(
         states = assignment_state if isinstance(assignment_state, list) else [assignment_state]
         assignment_clauses = []
         if "assigned" in states:
-            assignment_clauses.append("EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true)")
+            # Match the dashboard's assigned bucket exactly: every activity in
+            # an instructor-required booking must have an active instructor.
+            assignment_clauses.append(
+                "(b.requires_instructor = true "
+                "AND EXISTS (SELECT 1 FROM booking_activities ba WHERE ba.booking_id = b.id) "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM booking_activities ba "
+                "WHERE ba.booking_id = b.id "
+                "AND NOT EXISTS (SELECT 1 FROM booking_instructors bi WHERE bi.booking_activity_id = ba.id AND bi.active = true)"
+                "))"
+            )
         if "unassigned" in states:
-            assignment_clauses.append("(b.requires_instructor = true AND NOT EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true))")
+            # A booking belongs to the unassigned bucket when at least one of
+            # its activities is still missing an active instructor, including
+            # partially staffed multi-activity bookings.
+            assignment_clauses.append(
+                "(b.requires_instructor = true AND EXISTS ("
+                "SELECT 1 FROM booking_activities ba "
+                "WHERE ba.booking_id = b.id "
+                "AND NOT EXISTS (SELECT 1 FROM booking_instructors bi WHERE bi.booking_activity_id = ba.id AND bi.active = true)"
+                "))"
+            )
         if assignment_clauses:
             filters.append("AND (" + " OR ".join(assignment_clauses) + ")")
     if from_date is not None:

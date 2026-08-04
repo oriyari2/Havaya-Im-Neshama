@@ -410,6 +410,10 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(calls[0][1]["status"], "CONFIRMED")
         self.assertIn("from_date", calls[0][1])
         self.assertEqual(calls[1], ("bookings", {"queue": "unassigned"}))
+        presenter.drill_down("assigned_count")
+        self.assertEqual(calls[2][0], "bookings")
+        self.assertEqual(calls[2][1]["assignment_state"], "assigned")
+        self.assertIn("from_date", calls[2][1])
         customer_calls = []
         DashboardPresenter(_View(), _Service(), "customer", lambda key, filters=None: customer_calls.append((key, filters))).drill_down("pending_count")
         self.assertEqual(customer_calls[0][0], "my_bookings")

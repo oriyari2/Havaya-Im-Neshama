@@ -73,18 +73,12 @@ class BookingWorkspaceTests(TestCase):
             return host
         return host.findChild(QToolButton)
 
-    def test_summary_counts_and_quick_queues(self):
+    def test_manager_uses_filters_instead_of_duplicate_quick_queues(self):
         view = self._track(BookingsView("manager"))
-        view.show_summary(
-            {"pending_count": 3, "unassigned_count": 2, "confirmed_count": 4}
-        )
-        self.assertIn("3", view.summary_buttons["pending"].text())
-        self.assertIn("4", view.summary_buttons["approved"].text())
-
-        queues = []
-        view.queue_requested.connect(queues.append)
-        view.summary_buttons["unassigned"].click()
-        self.assertEqual(queues, ["unassigned"])
+        self.assertEqual(view.summary_buttons, {})
+        self.assertTrue(view.summary_panel.isHidden())
+        self.assertFalse(view.filter_button.isHidden())
+        self.assertFalse(view.assignment_section.isHidden())
 
 
     def test_instructor_open_event_request_controls_and_customer_contact(self):

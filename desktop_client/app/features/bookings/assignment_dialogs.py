@@ -1,5 +1,5 @@
 from PySide6.QtCore import QTimer, Qt
-from PySide6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout
+from PySide6.QtWidgets import QDialog, QFrame, QHBoxLayout, QLabel, QPushButton, QSizePolicy, QVBoxLayout
 
 from desktop_client.app.shared.ui.design_tokens import SPACE_2, SPACE_3, SPACE_4
 from desktop_client.app.shared.ui.entity_selector import SearchableEntitySelector
@@ -19,8 +19,10 @@ class InstructorSelectorDialog(QDialog):
         self.setWindowTitle(f"בחירת מדריך — {activity['activity_name']}")
         self.setObjectName("task20Dialog")
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        self.setMinimumWidth(640)
-        self.resize(700, 460)
+        self.setMinimumWidth(700)
+        self.setMaximumWidth(840)
+        self.setMinimumHeight(360)
+        self.resize(780, 410)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 18, 20, 18)
@@ -61,7 +63,9 @@ class InstructorSelectorDialog(QDialog):
         self.footer.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.footer.page_requested.connect(self._page)
         card_layout.addWidget(self.footer, alignment=Qt.AlignmentFlag.AlignHCenter)
-        root.addWidget(card, 1)
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        root.addWidget(card)
+        root.addStretch(1)
 
         actions = QHBoxLayout()
         actions.setDirection(QHBoxLayout.Direction.LeftToRight)
@@ -74,6 +78,7 @@ class InstructorSelectorDialog(QDialog):
         actions.addWidget(cancel)
         actions.addWidget(self.choose_button)
         actions.addStretch(1)
+        self.choose_button.setDefault(True)
         root.addLayout(actions)
         self.choose_button.clicked.connect(self._choose)
         cancel.clicked.connect(self.reject)

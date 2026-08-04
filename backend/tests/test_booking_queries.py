@@ -315,6 +315,8 @@ class BookingQueryTests(unittest.TestCase):
         self.assertIn("b.status = ANY(%s)", cursor.executed_sql)
         self.assertIn("bi.instructor_id = ANY(%s)", cursor.executed_sql)
         self.assertIn(" OR ", cursor.executed_sql)
+        self.assertIn("AND NOT EXISTS (SELECT 1 FROM booking_instructors bi", cursor.executed_sql)
+        self.assertIn("AND NOT EXISTS (SELECT 1 FROM booking_activities ba", cursor.executed_sql)
 
     def test_instructor_detail_query_uses_booking_alias(self) -> None:
         cursor = _CaptureCursor()

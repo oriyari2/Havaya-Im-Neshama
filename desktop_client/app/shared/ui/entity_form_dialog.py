@@ -211,8 +211,8 @@ class _BaseFormDialog(QDialog):
         value = str(initial.get(spec.key) or "")
         if spec.kind == "plain":
             widget = QPlainTextEdit(value)
-            widget.setMinimumHeight(120)
-            widget.setMaximumHeight(140)
+            widget.setMinimumHeight(96)
+            widget.setMaximumHeight(128)
             widget.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         elif spec.kind == "static":
             widget = QLabel(spec.static_value or value)
@@ -318,7 +318,15 @@ class _BaseFormDialog(QDialog):
         available_width = available.width() if available is not None else 1280
         available_height = available.height() if available is not None else 800
         target_width = min(780, max(700, available_width - 160))
-        target_height = min(760, max(580, available_height - 140))
+        # Size short forms to their content instead of imposing the previous
+        # 580px minimum, which left large blank regions in password and manager
+        # dialogs. Long create/edit forms still cap at 760px and scroll.
+        section_count = max(1, len(self.section_forms))
+        field_count = len(self.fields)
+        plain_count = sum(isinstance(widget, QPlainTextEdit) for widget in self.fields.values())
+        estimated_height = 210 + section_count * 58 + field_count * 58 + plain_count * 54
+        available_cap = max(380, available_height - 100)
+        target_height = min(760, available_cap, max(390, estimated_height))
         self.resize(target_width, target_height)
 
         order = [*self._tab_order, self.save_button, self.cancel_button]

@@ -450,7 +450,7 @@ class UiFoundationTests(unittest.TestCase):
         shell.show_page("customers")
         shell.show()
 
-        minimums = (40, 140, 120, 180, 100, 100, 110)
+        minimums = (40, 140, 120, 180, 100, 126, 110)
 
         for width, height in ((1024, 640), (1200, 760), (1440, 900)):
             shell.resize(width, height)
@@ -651,6 +651,63 @@ class UiFoundationTests(unittest.TestCase):
         self.assertLessEqual(manager.first_table.maximumHeight(), 280)
         self.assertLessEqual(manager.second_table.maximumHeight(), 280)
         manager.close()
+
+
+    def test_detail_headers_expand_wrapped_identity_text_without_clipping(self) -> None:
+        views = (
+            CustomersView(),
+            InstructorsView(),
+            UsersView(),
+            ActivitiesView("manager"),
+            BookingsView("manager"),
+        )
+        for view in views:
+            self.addCleanup(view.close)
+            workspace = view.workspace
+            workspace.detail_title.setText("שם ארוך לדוגמה שנשאר קריא במלואו")
+            workspace.detail_subtitle.setText(
+                "מידע מלא ופעולות עבור הרשומה שנבחרה, כולל שורה נוספת "
+                "שחייבת להופיע בלי חיתוך או היעלמות."
+            )
+            view.resize(1024, 640)
+            view.show()
+            workspace.show_details()
+            self.app.processEvents()
+
+            header_layout = workspace.detail_header.layout()
+            identity_layout = workspace.identity_container.layout()
+            self.assertIsNotNone(header_layout)
+            self.assertIsNotNone(identity_layout)
+
+            identity_item = next(
+                header_layout.itemAt(index)
+                for index in range(header_layout.count())
+                if header_layout.itemAt(index).widget() is workspace.identity_container
+            )
+            title_item = next(
+                identity_layout.itemAt(index)
+                for index in range(identity_layout.count())
+                if identity_layout.itemAt(index).widget() is workspace.detail_title
+            )
+            subtitle_item = next(
+                identity_layout.itemAt(index)
+                for index in range(identity_layout.count())
+                if identity_layout.itemAt(index).widget() is workspace.detail_subtitle
+            )
+
+            # Layout items expand to the real header width; QLabel alignment
+            # keeps the text physically right-aligned.
+            self.assertEqual(identity_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertEqual(title_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertEqual(subtitle_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertGreaterEqual(
+                workspace.identity_container.width(),
+                int(workspace.detail_header.width() * 0.80),
+            )
+            self.assertGreaterEqual(
+                workspace.detail_subtitle.height(),
+                workspace.detail_subtitle.fontMetrics().lineSpacing() * 2,
+            )
 
     def test_main_window_enforces_supported_minimum(self) -> None:
         class Api:

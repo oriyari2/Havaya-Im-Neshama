@@ -124,8 +124,17 @@ class ActiveBadge(QLabel):
     def set_active(self, active: bool) -> None:
         self.setText("פעיל" if active else "לא פעיל")
         self.setProperty("active", active)
+        self.setProperty("statusTone", "success" if active else "neutral")
         self.setAccessibleName("מצב: פעיל" if active else "מצב: לא פעיל")
         self.setAccessibleDescription(self.text())
+        self.setWordWrap(False)
+        self.setMinimumWidth(82)
+        # Dynamic properties do not always trigger a QSS refresh on Windows.
+        # Re-polish explicitly so an account that was just disabled immediately
+        # switches to the neutral gray state instead of retaining an old tone.
+        self.style().unpolish(self)
+        self.style().polish(self)
+        self.updateGeometry()
 
 
 class RetryState(QWidget):

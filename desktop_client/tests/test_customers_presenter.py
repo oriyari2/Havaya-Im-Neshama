@@ -2,6 +2,7 @@ from unittest import TestCase
 from unittest.mock import Mock, call
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.features.customers.presenter import CustomersPresenter, CustomerProfilePresenter, validate_customer
+from desktop_client.app.features.customers.formatting import customer_row
 
 CONTACT={"id":"ct1","full_name":"Contact","phone":"050","is_primary":True,"is_active":True}
 CUSTOMER={"id":"c1","name":"Task 12B Test Customer","customer_type":"business","city":"Haifa","address":None,"phone":"1","email":"a@b.com","notes":None,"is_active":True,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","contacts":[CONTACT]}
@@ -66,3 +67,12 @@ class CustomersPresenterTests(TestCase):
     def test_unexpected_exception_text_is_not_exposed(self):
         self.service.list_customers.side_effect=RuntimeError("database password leaked"); self.presenter.load()
         message=self.view.show_error.call_args.args[0]; self.assertNotIn("password",message); self.assertEqual(message,"לא ניתן להשלים את הפעולה. נסו שוב.")
+
+
+class CustomerRowFormattingTests(TestCase):
+    def test_customer_row_exposes_formatted_join_date(self):
+        row = customer_row({
+            "id": "c1", "name": "לקוח", "is_active": True,
+            "created_at": "2026-08-04T12:30:00+00:00",
+        })
+        self.assertEqual(row["join_date"], "04/08/2026")

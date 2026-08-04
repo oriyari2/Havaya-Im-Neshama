@@ -62,7 +62,11 @@ class BookingsView(StatefulWidget):
         elif self.role in {"manager","customer"}:self.create_requested.emit()
     def _build_summary(self):
         self.summary_panel=QWidget();layout=QHBoxLayout(self.summary_panel);layout.setDirection(QHBoxLayout.Direction.RightToLeft);layout.setContentsMargins(0,0,0,0);layout.setSpacing(SPACE_3);self.summary_buttons={}
-        queues = (("pending","ממתינות לאישור"),("unassigned","ממתינות לשיבוץ מדריך"),("approved","מאושרות")) if self.role == "manager" else (("open","אירועים פתוחים לשיבוץ"),) if self.role == "instructor" else ()
+        # Managers already have the same states in the filter popup, so the
+        # duplicate quick-queue row only consumes space and creates two ways
+        # to express the same query. Keep the instructor's open-events entry,
+        # which is a distinct workflow rather than a normal filter.
+        queues = (("open", "אירועים פתוחים לשיבוץ"),) if self.role == "instructor" else ()
         for key,title in queues:
             initial = f"{title}\n0" if self.role == "manager" else title
             button=QPushButton(initial);button.setProperty("summaryQueue",key);button.setMinimumHeight(52 if self.role == "instructor" else 68);button.clicked.connect(lambda _checked=False,value=key:self.queue_requested.emit(value));style_reference_button(button,"secondary")
@@ -300,13 +304,13 @@ class BookingsView(StatefulWidget):
         for label,value in details:
             if label=="לקוח":identity=value
             if label=="סטטוס":status=value
-            content=QLabel(value);content.setWordWrap(True)
+            content=QLabel(value);content.setWordWrap(True);content.setToolTip(value);content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             if label=="טלפון לקוח":
                 content.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
                 content.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
             target=self.customer_details if label in customer_labels else self.system_details if label in {"מזהה","סטטוס"} else self.booking_details
             self.workspace.add_property_row(target,label,content)
-        self.workspace.detail_title.setText(identity);self.workspace.detail_status.setText(status);self.workspace.detail_subtitle.setText("מצב תפעולי, שיבוץ והיסטוריית ההזמנה");self.history_table.setRowCount(len(history))
+        self.workspace.detail_title.setText(identity);self.workspace.detail_title.setToolTip(identity);self.workspace.detail_status.setText(status);self.workspace.detail_subtitle.setText("מצב תפעולי, שיבוץ והיסטוריית ההזמנה");self.history_table.setRowCount(len(history))
         right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
         for r, event in enumerate(history):
             for c, key in enumerate(("event_type", "summary", "occurred_at", "actor")):
@@ -367,6 +371,8 @@ class BookingsView(StatefulWidget):
         name.setObjectName("sectionTitle")
         name.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         name.setAlignment(right)
+        name.setWordWrap(True)
+        name.setToolTip(activity["activity_name"])
         identity.addWidget(name)
 
         if self.role == "instructor":
@@ -414,12 +420,18 @@ class BookingsView(StatefulWidget):
         description = QLabel(assignment.get("instructor_name") if assignment else "לא שובץ מדריך")
         description.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         description.setAlignment(right)
+        description.setWordWrap(True)
+        description.setToolTip(description.text())
         identity.addWidget(description)
         row.addWidget(identity_widget, 1)
 
         if assignment:
             replace = QPushButton("החלפת מדריך")
             remove = QPushButton("הסרת שיבוץ")
+            style_reference_button(replace, "secondary")
+            style_reference_button(remove, "destructive")
+            replace.setMinimumWidth(126)
+            remove.setMinimumWidth(126)
             replace.clicked.connect(lambda _checked=False, a=activity, current=assignment: self.assignment_replace_requested.emit(a, current))
             remove.clicked.connect(lambda _checked=False, a=activity, current=assignment: self.assignment_remove_requested.emit(a, current))
             row.addWidget(replace)
@@ -438,6 +450,7 @@ class BookingsView(StatefulWidget):
                     request_row_layout.setContentsMargins(0, 0, 0, 0)
                     request_label = QLabel(f"{request_model.get('instructor_name') or 'מדריך'} ביקש להשתבץ")
                     request_label.setAlignment(right)
+                    request_label.setWordWrap(True)
                     request_row_layout.addWidget(request_label, 1)
                     approve = QPushButton("אישור שיבוץ")
                     reject = QPushButton("דחייה")
