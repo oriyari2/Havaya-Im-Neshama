@@ -337,11 +337,16 @@ class DashboardView(StatefulWidget):
             # generous padding, so this dashboard-only override uses tighter
             # padding and a slightly taller control that still fits inside the
             # standard dashboard table row.
-            button.setFixedHeight(34)
             button.setStyleSheet(
                 "font-size: 12px; font-weight: 600; "
-                "padding: 0 4px; min-height: 0px;"
+                "padding: 0 4px;"
             )
+            # Apply the fixed geometry after the local stylesheet. Qt can
+            # otherwise recalculate the minimum height from QSS and report a
+            # 2px minimum before layout, even though the rendered control is
+            # taller. Keeping the explicit 34px contract here makes the
+            # dashboard action readable and deterministic in tests.
+            button.setFixedHeight(34)
             button.setCursor(Qt.CursorShape.PointingHandCursor)
 
             if not booking_activity_id:

@@ -9,11 +9,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from desktop_client.app.main import MainWindow
-from desktop_client.app.models.session import Session
 from desktop_client.app.features.knowledge.presenter import KnowledgeManagementPresenter
 from desktop_client.app.features.knowledge.service import MAX_KNOWLEDGE_SOURCE_CONTENT_CHARS, KnowledgeService, read_supported_knowledge_file
 from desktop_client.app.features.knowledge.view import KnowledgeManagementView
+from desktop_client.app.features.registry import FEATURES
+from desktop_client.app.shared.navigation import navigation_for_role
 
 
 class KnowledgeDesktopTests(unittest.TestCase):
@@ -22,46 +22,18 @@ class KnowledgeDesktopTests(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication([])
 
     def test_manager_only_navigation_contains_knowledge_screen(self) -> None:
-        class Api:
-            def set_unauthorized_handler(self, handler):
-                self.handler = handler
+        knowledge_feature = next(feature for feature in FEATURES if feature.name == "knowledge")
 
-            def set_access_token(self, token):
-                pass
-
-        class Service:
-            def dashboard(self):
-                return {}
-
-            def list_bookings(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_customers(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_activities(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_instructors(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def open_events(self):
-                return []
+        self.assertEqual(knowledge_feature.roles, frozenset({"manager"}))
+        self.assertEqual(knowledge_feature.page_keys, ("knowledge",))
 
         for role in ("manager", "instructor", "customer"):
-            window = MainWindow(Api())
-            window.booking_service = Service()
-            window.customer_service = Service()
-            window.activity_service = Service()
-            window.instructor_service = Service()
-            window.knowledge_service = Service()
-            window._show_workspace(Session("token", "id", f"{role}@example.com", role))
-            self.assertEqual("knowledge" in window.shell.pages, role == "manager")
-            self.assertEqual("knowledge" in window.shell.navigation_buttons, role == "manager")
-            window.close()
+            navigation_keys = {key for key, _label in navigation_for_role(role)}
+            self.assertEqual("knowledge" in navigation_keys, role == "manager")
 
     def test_view_values_include_selected_visibility(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         view.title_input.setText("Guide")
         view.category_input.setText("equipment")
         view.content_input.setPlainText("approved text")
@@ -173,6 +145,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
 
     def test_view_clears_selected_file_when_source_or_text_changes(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         view.file_path_input.setText("stale.md")
 
         view.show_source_detail(
@@ -214,6 +187,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
 
     def test_pasted_replacement_is_not_overridden_by_stale_selected_file(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         service = _Service()
         presenter = KnowledgeManagementPresenter(view, service)
         view.show_source_detail(
@@ -252,6 +226,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
         self.assertEqual(api.last_put[0], "/api/rag/sources/source-1")
         self.assertEqual(api.last_put[1]["source_uri"], "replacement.txt")
         self.assertEqual(api.last_put[1]["content"], "replacement file text")
+
 
 
 class _View:

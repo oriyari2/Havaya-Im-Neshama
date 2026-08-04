@@ -5,6 +5,7 @@ import unittest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication
 
 from desktop_client.app.shared.ui.management_common import ActiveBadge, PaginationFooter, RetryState, SearchToolbar
@@ -39,6 +40,8 @@ class ManagementCommonTests(unittest.TestCase):
         badge = ActiveBadge()
         badge.set_active(False)
         self.assertEqual(badge.text(), "לא פעיל")
+        self.assertTrue(badge.alignment() & Qt.AlignmentFlag.AlignRight)
+        self.assertTrue(badge.alignment() & Qt.AlignmentFlag.AlignVCenter)
         retry = RetryState()
         retried = []
         retry.retry_requested.connect(lambda: retried.append(True))

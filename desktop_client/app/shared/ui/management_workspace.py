@@ -184,7 +184,7 @@ class ManagementWorkspace(QWidget):
 
     @staticmethod
     def configure_status_badge(badge: ActiveBadge) -> None:
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        badge.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
         badge.setContentsMargins(SPACE_2, 0, SPACE_2, 0)
         badge.setMinimumWidth(88)
         badge.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)

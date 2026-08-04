@@ -18,7 +18,7 @@ from desktop_client.app.shared.ui.foundations import ColumnKind, ColumnPolicy, s
 class BookingsView(StatefulWidget):
     filters_requested=Signal(dict);booking_selected=Signal(str);create_requested=Signal();edit_requested=Signal();confirm_requested=Signal();cancel_requested=Signal();complete_requested=Signal();page_requested=Signal(int,int);assignment_add_requested=Signal(dict);assignment_add_and_confirm_requested=Signal(dict);assignment_replace_requested=Signal(dict,dict);assignment_remove_requested=Signal(dict,dict);assignment_request_requested=Signal(dict);assignment_request_approve_requested=Signal(dict,dict);assignment_request_reject_requested=Signal(dict,dict);queue_requested=Signal(str)
     def __init__(self, role):
-        super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False;self._list_context=None
+        super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False;self._list_context=None;self._registration_buttons={}
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
         self.workspace=ManagementWorkspace(title="ניהול הזמנות" if role=="manager" else "ההזמנות שלי" if role=="customer" else "האירועים שלי",subtitle="ניהול הזמנות, מועדים, אישורים ושיבוץ מדריכים" if role=="manager" else "מעקב אחר ההזמנות והאירועים שלך" if role=="customer" else "האירועים המשובצים לך ומידע תפעולי",create_text="הזמנה חדשה" if role=="manager" else "בקשת הזמנה חדשה",plural="הזמנות",detail_subtitle="מצב תפעולי ופרטי ההזמנה",search_placeholder="חיפוש ברשימת ההזמנות",sort_options=(("event_at","מיון לפי: מועד, הקרוב ביותר"),("event_at_desc","מיון לפי: מועד, הרחוק ביותר"),("customer_name","מיון לפי: שם לקוח")),headers=("לקוח","פעילות","מועד","מיקום","משתתפים","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,180),ColumnPolicy(ColumnKind.PRIMARY_TEXT,190),ColumnPolicy(ColumnKind.TECHNICAL,160),ColumnPolicy(ColumnKind.SECONDARY_TEXT,170,240),ColumnPolicy(ColumnKind.COMPACT,100),ColumnPolicy(ColumnKind.COMPACT,130)),row_action_position="end")
         root.addWidget(self.workspace)
@@ -245,6 +245,7 @@ class BookingsView(StatefulWidget):
             if key in self.summary_buttons:
                 self.summary_buttons[key].setText(f"{titles[key]}\n{value}")
     def show_bookings(self,rows,*,offset=0,count=0,limit=25,selected_id=None):
+        self._registration_buttons.clear()
         open_registration = self.role == "instructor" and self._list_context == "open"
         action_column = self.workspace.row_action_column
         sizer = getattr(self.table, "_task20_column_sizer", None)
@@ -266,9 +267,15 @@ class BookingsView(StatefulWidget):
                 register.setMinimumWidth(132)
                 register.setMaximumWidth(144)
                 style_reference_button(register, "secondary" if request_status == "PENDING" else "success" if request_status == "APPROVED" else "primary")
-                register.setEnabled(bool(row.get("booking_activity_id")) and request_status not in {"PENDING", "APPROVED"})
+                enabled = bool(row.get("booking_activity_id")) and request_status not in {"PENDING", "APPROVED"}
+                register.setEnabled(enabled)
+                register.setProperty("idleText", label)
+                register.setProperty("idleEnabled", enabled)
                 register.clicked.connect(lambda _checked=False, value=dict(row): self.assignment_request_requested.emit(value))
                 self.table.setCellWidget(r, action_column, register)
+                booking_activity_id = str(row.get("booking_activity_id") or "")
+                if booking_activity_id:
+                    self._registration_buttons[booking_activity_id] = register
             else:
                 self.workspace.set_row_open_action(r,row["id"],self._request_open)
             values=(row.get("customer","—"),row.get("activity","—"),row.get("event_at","—")," · ".join(x for x in (row.get("city"),row.get("venue")) if x and x!="—") or "—",row.get("participants","—"))
@@ -283,6 +290,27 @@ class BookingsView(StatefulWidget):
             self.workspace.empty_action_button.setText("רענון הרשימה")
         elif not rows and self._empty_filtered:
             self.workspace.empty_action_button.setText("ניקוי הסינון")
+    def set_registration_pending(self, booking_activity_id):
+        button = self._registration_buttons.get(str(booking_activity_id))
+        if button is None:
+            return
+        button.setProperty("idleText", "בקשה ממתינה")
+        button.setProperty("idleEnabled", False)
+        button.setText("בקשה ממתינה")
+        button.setEnabled(False)
+        style_reference_button(button, "secondary")
+
+    def set_registration_loading(self, booking_activity_id, loading):
+        button = self._registration_buttons.get(str(booking_activity_id))
+        if button is None:
+            return
+        if loading:
+            button.setText("שולח...")
+            button.setEnabled(False)
+            return
+        button.setText(str(button.property("idleText") or "הירשם לאירוע"))
+        button.setEnabled(bool(button.property("idleEnabled")))
+
     def show_filter_options(self,customers,activities,instructors):
         while self.activity_layout.count()>1:
             item=self.activity_layout.takeAt(0)

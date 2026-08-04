@@ -128,6 +128,7 @@ class ActiveBadge(QLabel):
         self.setAccessibleName("מצב: פעיל" if active else "מצב: לא פעיל")
         self.setAccessibleDescription(self.text())
         self.setWordWrap(False)
+        self.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         self.setMinimumWidth(82)
         # Dynamic properties do not always trigger a QSS refresh on Windows.
         # Re-polish explicitly so an account that was just disabled immediately

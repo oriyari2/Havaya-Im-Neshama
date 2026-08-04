@@ -500,12 +500,50 @@ class UiFoundationTests(unittest.TestCase):
         self.assertTrue(customers.back_button.isVisibleTo(customers))
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
+        previous_style = self.app.styleSheet()
         self.app.setStyleSheet(APP_STYLE)
-        excluded = (DashboardView(), InstructorProfileView(), BookingsView("manager"), KnowledgeManagementView(), AIChatView())
-        for view in excluded:
-            view.show(); self.app.processEvents(); self.assertTrue(view.isVisible()); view.close()
-        activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()
-        pilot = CustomersView(); pilot.show(); self.app.processEvents(); self.assertTrue(pilot.table.property("task20Table")); self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32); pilot.close()
+        try:
+            excluded_factories = (
+                DashboardView,
+                InstructorProfileView,
+                lambda: BookingsView("manager"),
+                KnowledgeManagementView,
+                AIChatView,
+            )
+            for factory in excluded_factories:
+                view = factory()
+                try:
+                    view.show()
+                    self.app.processEvents()
+                    self.assertTrue(view.isVisible())
+                finally:
+                    view.close()
+                    view.deleteLater()
+                    self.app.processEvents()
+
+            activity = ActivitiesView("manager")
+            try:
+                activity.show()
+                self.app.processEvents()
+                self.assertTrue(activity.table.property("task20Table"))
+            finally:
+                activity.close()
+                activity.deleteLater()
+                self.app.processEvents()
+
+            pilot = CustomersView()
+            try:
+                pilot.show()
+                self.app.processEvents()
+                self.assertTrue(pilot.table.property("task20Table"))
+                self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32)
+            finally:
+                pilot.close()
+                pilot.deleteLater()
+                self.app.processEvents()
+        finally:
+            self.app.setStyleSheet(previous_style)
+            self.app.processEvents()
 
 
     def test_dashboard_phase_two_uses_branded_sections_without_group_boxes(self) -> None:
@@ -609,7 +647,8 @@ class UiFoundationTests(unittest.TestCase):
         self.assertGreaterEqual(button.width(), 94)
         self.assertLessEqual(button.width(), 128)
         self.assertGreaterEqual(button.width() - 8, button.fontMetrics().horizontalAdvance(button.text()))
-        self.assertEqual(button.height(), 34)
+        self.assertEqual(button.minimumHeight(), 34)
+        self.assertEqual(button.maximumHeight(), 34)
         header = instructor.second_table.horizontalHeader()
         self.assertEqual(header.sectionResizeMode(5), QHeaderView.ResizeMode.Fixed)
         self.assertEqual(header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)

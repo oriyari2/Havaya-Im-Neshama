@@ -341,9 +341,15 @@ class BookingsPresenter:
             return
         self._submitting = True
         self.view.set_assignments_loading(True)
+        set_registration_loading = getattr(self.view, "set_registration_loading", None)
+        if callable(set_registration_loading):
+            set_registration_loading(booking_activity_id, True)
 
         def success(_request):
             if self._operations.is_current(context):
+                set_registration_pending = getattr(self.view, "set_registration_pending", None)
+                if callable(set_registration_pending):
+                    set_registration_pending(booking_activity_id)
                 self.view.show_success("בקשת השיבוץ נשלחה למנהל.")
                 # A successful request is a list-level workflow completion. Return
                 # to the fresh open-events list instead of reopening the booking
@@ -358,6 +364,9 @@ class BookingsPresenter:
             if self._operations.finish(context):
                 self._submitting = False
                 self.view.set_assignments_loading(False)
+                set_registration_loading = getattr(self.view, "set_registration_loading", None)
+                if callable(set_registration_loading):
+                    set_registration_loading(booking_activity_id, False)
 
         self._operations.executor.submit(
             context,

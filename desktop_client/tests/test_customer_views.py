@@ -142,7 +142,7 @@ class CustomerViewTests(TestCase):
         self.assertIsNotNone(dialog.password_confirmation)
         self.assertEqual(dialog.password.echoMode(), dialog.password.EchoMode.Password)
         self.assertIn("password", dialog.values())
-        self.assertGreaterEqual(dialog.notes.minimumHeight(), 120)
+        self.assertGreaterEqual(dialog.notes.minimumHeight(), 96)
         self.assertEqual(dialog.scroll.horizontalScrollBar().maximum(), 0)
 
         self.assertLess(

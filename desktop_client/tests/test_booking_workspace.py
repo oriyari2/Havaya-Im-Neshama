@@ -141,6 +141,14 @@ class BookingWorkspaceTests(TestCase):
         self.assertEqual(emitted[0]["booking_id"], "b1")
         self.assertEqual(emitted[0]["booking_activity_id"], "ba-open-1")
 
+        view.set_registration_loading("ba-open-1", True)
+        self.assertEqual(button.text(), "שולח...")
+        self.assertFalse(button.isEnabled())
+        view.set_registration_pending("ba-open-1")
+        view.set_registration_loading("ba-open-1", False)
+        self.assertEqual(button.text(), "בקשה ממתינה")
+        self.assertFalse(button.isEnabled())
+
         pending = booking_row({
             **BOOKING,
             "booking_activity_id": "ba-open-1",

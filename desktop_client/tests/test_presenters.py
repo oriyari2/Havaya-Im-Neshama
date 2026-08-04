@@ -506,15 +506,16 @@ class PresenterTests(unittest.TestCase):
         self.assertIn("נשלחה", view.success)
 
     def test_instructor_can_request_assignment_directly_from_open_event_row(self) -> None:
-        view = FakeBookingView()
-        service = FakeBookingService()
-        presenter = BookingsPresenter(view, service, "instructor", executor=ImmediateOperationExecutor())
+        view = _View()
+        service = _Service()
+        presenter = BookingsPresenter(view, service, "instructor")
         presenter._open_events_mode = True
 
         presenter.request_assignment({"booking_id": "booking-row-1", "booking_activity_id": "ba-row-1"})
 
         self.assertIn(("request_assignment", "booking-row-1", "ba-row-1"), service.calls)
         self.assertIsNone(presenter.selected_id)
+        self.assertIn("ba-row-1", view.registration_pending)
 
 
     def test_create_validation_and_success_refresh(self) -> None:
