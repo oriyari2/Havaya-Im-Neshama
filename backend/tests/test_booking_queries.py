@@ -270,7 +270,10 @@ class BookingQueryTests(unittest.TestCase):
             now=now,
         )
 
-        self.assertEqual(cursor.params, [now])
+        self.assertEqual(cursor.params, [instructor_id, now])
+        self.assertIn("bar.instructor_id = %s", cursor.executed_sql)
+        self.assertIn("booking_activity_id", cursor.executed_sql)
+        self.assertIn("my_request_status", cursor.executed_sql)
         self.assertNotIn("bi.instructor_id = %s", cursor.executed_sql)
         self.assertIn("status IN ('NEW', 'CONFIRMED')", cursor.executed_sql)
         self.assertIn("requires_instructor = true", cursor.executed_sql)
@@ -312,6 +315,8 @@ class BookingQueryTests(unittest.TestCase):
         self.assertIn("b.status = ANY(%s)", cursor.executed_sql)
         self.assertIn("bi.instructor_id = ANY(%s)", cursor.executed_sql)
         self.assertIn(" OR ", cursor.executed_sql)
+        self.assertIn("AND NOT EXISTS (SELECT 1 FROM booking_instructors bi", cursor.executed_sql)
+        self.assertIn("AND NOT EXISTS (SELECT 1 FROM booking_activities ba", cursor.executed_sql)
 
     def test_instructor_detail_query_uses_booking_alias(self) -> None:
         cursor = _CaptureCursor()
@@ -366,16 +371,31 @@ class BookingQueryTests(unittest.TestCase):
         self.assertNotIn("notes", serialized)
         self.assertEqual(serialized["participant_count"], payload["participant_count"])
         self.assertIn("activity_name", serialized)
+        self.assertIn("customer_name", serialized)
+        self.assertIn("customer_contact_name", serialized)
+        self.assertIn("customer_phone", serialized)
 
-    def test_booking_query_joins_readable_names_without_exposing_customer_to_instructor_schema(self) -> None:
+    def test_booking_query_exposes_only_operational_customer_contact_to_instructor_schema(self) -> None:
         cursor = _CaptureCursor()
         booking_projection_repository.list_bookings(cursor, role="manager", limit=25, offset=0)
         self.assertIn("c.name AS customer_name", cursor.executed_sql)
+        self.assertIn("customer_contact_name", cursor.executed_sql)
+        self.assertIn("customer_phone", cursor.executed_sql)
         self.assertIn("a.name AS activity_name", cursor.executed_sql)
-        payload = {**self._booking_payload(), "customer_name": "Customer", "activity_name": "Activity"}
+        payload = {
+            **self._booking_payload(),
+            "customer_name": "Customer",
+            "customer_contact_name": "Contact",
+            "customer_phone": "050-1234567",
+            "activity_name": "Activity",
+        }
         safe = InstructorBookingResponse(**payload).model_dump()
         self.assertEqual(safe["activity_name"], "Activity")
-        self.assertNotIn("customer_name", safe)
+        self.assertEqual(safe["customer_name"], "Customer")
+        self.assertEqual(safe["customer_contact_name"], "Contact")
+        self.assertEqual(safe["customer_phone"], "050-1234567")
+        for protected in ("customer_id", "agreed_price", "notes"):
+            self.assertNotIn(protected, safe)
 
     def test_manager_and_customer_full_booking_schema_remains_unchanged(self) -> None:
         payload = self._booking_payload()

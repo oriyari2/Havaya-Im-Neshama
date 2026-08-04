@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QGroupBox, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QWidget
+from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QGroupBox, QHeaderView, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QWidget
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
@@ -222,6 +222,14 @@ class UiFoundationTests(unittest.TestCase):
         modules = (CustomersView(), InstructorsView(), UsersView(), ActivitiesView("manager"))
         buttons = [button for view in modules for button in (view.create_button, view.toolbar.search_button)]
         self.assertEqual({button.property("buttonRole") for button in buttons}, {"managementPrimary"})
+
+    def test_activity_search_button_keeps_branded_readable_style(self) -> None:
+        view = ActivitiesView("instructor")
+        self.addCleanup(view.close)
+        button = view.toolbar.search_button
+        self.assertEqual(button.objectName(), "activitySearchButton")
+        self.assertGreaterEqual(button.minimumWidth(), 88)
+        self.assertEqual(button.property("buttonRole"), "managementPrimary")
 
     def test_table_policy_sets_accessibility_density_and_elision(self) -> None:
         table = QTableWidget(0, 3); configure_data_table(table, "בדיקה", (
@@ -442,7 +450,7 @@ class UiFoundationTests(unittest.TestCase):
         shell.show_page("customers")
         shell.show()
 
-        minimums = (40, 140, 120, 180, 100, 100, 110)
+        minimums = (40, 140, 120, 180, 100, 126, 110)
 
         for width, height in ((1024, 640), (1200, 760), (1440, 900)):
             shell.resize(width, height)
@@ -492,12 +500,50 @@ class UiFoundationTests(unittest.TestCase):
         self.assertTrue(customers.back_button.isVisibleTo(customers))
 
     def test_global_theme_does_not_force_pilot_geometry_on_excluded_modules(self) -> None:
+        previous_style = self.app.styleSheet()
         self.app.setStyleSheet(APP_STYLE)
-        excluded = (DashboardView(), InstructorProfileView(), BookingsView("manager"), KnowledgeManagementView(), AIChatView())
-        for view in excluded:
-            view.show(); self.app.processEvents(); self.assertTrue(view.isVisible()); view.close()
-        activity = ActivitiesView("manager"); activity.show(); self.app.processEvents(); self.assertTrue(activity.table.property("task20Table")); activity.close()
-        pilot = CustomersView(); pilot.show(); self.app.processEvents(); self.assertTrue(pilot.table.property("task20Table")); self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32); pilot.close()
+        try:
+            excluded_factories = (
+                DashboardView,
+                InstructorProfileView,
+                lambda: BookingsView("manager"),
+                KnowledgeManagementView,
+                AIChatView,
+            )
+            for factory in excluded_factories:
+                view = factory()
+                try:
+                    view.show()
+                    self.app.processEvents()
+                    self.assertTrue(view.isVisible())
+                finally:
+                    view.close()
+                    view.deleteLater()
+                    self.app.processEvents()
+
+            activity = ActivitiesView("manager")
+            try:
+                activity.show()
+                self.app.processEvents()
+                self.assertTrue(activity.table.property("task20Table"))
+            finally:
+                activity.close()
+                activity.deleteLater()
+                self.app.processEvents()
+
+            pilot = CustomersView()
+            try:
+                pilot.show()
+                self.app.processEvents()
+                self.assertTrue(pilot.table.property("task20Table"))
+                self.assertGreaterEqual(pilot.create_button.sizeHint().height(), 32)
+            finally:
+                pilot.close()
+                pilot.deleteLater()
+                self.app.processEvents()
+        finally:
+            self.app.setStyleSheet(previous_style)
+            self.app.processEvents()
 
 
     def test_dashboard_phase_two_uses_branded_sections_without_group_boxes(self) -> None:
@@ -555,10 +601,75 @@ class UiFoundationTests(unittest.TestCase):
             manager.first_table.horizontalHeader().defaultAlignment() & Qt.AlignmentFlag.AlignRight,
             Qt.AlignmentFlag.AlignRight,
         )
+        for column in range(manager.first_table.columnCount()):
+            self.assertEqual(
+                manager.first_table.horizontalHeader().sectionResizeMode(column),
+                QHeaderView.ResizeMode.Stretch,
+            )
+        self.assertEqual(
+            manager.first_table.horizontalScrollBarPolicy(),
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
+        )
         self.assertEqual(
             manager.first_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignRight,
             Qt.AlignmentFlag.AlignRight,
         )
+
+    def test_instructor_dashboard_open_events_have_direct_registration_action(self) -> None:
+        instructor = DashboardView("instructor")
+        self.addCleanup(instructor.close)
+        emitted = []
+        instructor.assignment_request_requested.connect(emitted.append)
+
+        open_row = {
+            "id": "booking-open-1",
+            "booking_id": "booking-open-1",
+            "booking_activity_id": "ba-open-1",
+            "my_request_status": None,
+            "activity": "פעילות פתוחה",
+            "event_at": "15/08/2026 11:00",
+            "status": "מאושר",
+            "city": "ירושלים",
+            "venue": "בית הספר",
+            "participants": "95",
+        }
+        instructor.show_sections("אירועים משויכים", [], "אירועים פתוחים", [open_row])
+
+        self.assertEqual(instructor.second_table.columnCount(), 7)
+        self.assertEqual(instructor.second_table.horizontalHeaderItem(6).text(), "הרשמה")
+        action_host = instructor.second_table.cellWidget(0, 6)
+        self.assertIsInstance(action_host, QWidget)
+        button = action_host.findChild(QPushButton, "dashboardOpenEventRegisterButton")
+        self.assertIsInstance(button, QPushButton)
+        self.assertEqual(button.text(), "הירשם לאירוע")
+        self.assertTrue(button.isEnabled())
+        self.assertEqual(button.property("buttonRole"), "managementPrimary")
+        self.assertGreaterEqual(button.width(), 94)
+        self.assertLessEqual(button.width(), 128)
+        self.assertGreaterEqual(button.width() - 8, button.fontMetrics().horizontalAdvance(button.text()))
+        self.assertEqual(button.minimumHeight(), 34)
+        self.assertEqual(button.maximumHeight(), 34)
+        header = instructor.second_table.horizontalHeader()
+        self.assertEqual(header.sectionResizeMode(5), QHeaderView.ResizeMode.Fixed)
+        self.assertEqual(header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
+        self.assertEqual(instructor.second_table.columnWidth(5), 78)
+        self.assertEqual(instructor.second_table.columnWidth(6), 145)
+        button.click()
+        self.assertEqual(emitted[0]["booking_activity_id"], "ba-open-1")
+
+        instructor.set_registration_loading("ba-open-1", True)
+        self.assertEqual(button.text(), "שולח...")
+        instructor.set_registration_pending("ba-open-1")
+        instructor.set_registration_loading("ba-open-1", False)
+        self.assertEqual(button.text(), "בקשה ממתינה")
+        self.assertFalse(button.isEnabled())
+
+        pending = dict(open_row, my_request_status="PENDING")
+        instructor.show_sections("אירועים משויכים", [], "אירועים פתוחים", [pending])
+        pending_host = instructor.second_table.cellWidget(0, 6)
+        pending_button = pending_host.findChild(QPushButton, "dashboardOpenEventRegisterButton")
+        self.assertEqual(pending_button.text(), "בקשה ממתינה")
+        self.assertFalse(pending_button.isEnabled())
 
     def test_dashboard_content_scrolls_without_clipping_manager_layout(self) -> None:
         manager = DashboardView("manager")
@@ -579,6 +690,63 @@ class UiFoundationTests(unittest.TestCase):
         self.assertLessEqual(manager.first_table.maximumHeight(), 280)
         self.assertLessEqual(manager.second_table.maximumHeight(), 280)
         manager.close()
+
+
+    def test_detail_headers_expand_wrapped_identity_text_without_clipping(self) -> None:
+        views = (
+            CustomersView(),
+            InstructorsView(),
+            UsersView(),
+            ActivitiesView("manager"),
+            BookingsView("manager"),
+        )
+        for view in views:
+            self.addCleanup(view.close)
+            workspace = view.workspace
+            workspace.detail_title.setText("שם ארוך לדוגמה שנשאר קריא במלואו")
+            workspace.detail_subtitle.setText(
+                "מידע מלא ופעולות עבור הרשומה שנבחרה, כולל שורה נוספת "
+                "שחייבת להופיע בלי חיתוך או היעלמות."
+            )
+            view.resize(1024, 640)
+            view.show()
+            workspace.show_details()
+            self.app.processEvents()
+
+            header_layout = workspace.detail_header.layout()
+            identity_layout = workspace.identity_container.layout()
+            self.assertIsNotNone(header_layout)
+            self.assertIsNotNone(identity_layout)
+
+            identity_item = next(
+                header_layout.itemAt(index)
+                for index in range(header_layout.count())
+                if header_layout.itemAt(index).widget() is workspace.identity_container
+            )
+            title_item = next(
+                identity_layout.itemAt(index)
+                for index in range(identity_layout.count())
+                if identity_layout.itemAt(index).widget() is workspace.detail_title
+            )
+            subtitle_item = next(
+                identity_layout.itemAt(index)
+                for index in range(identity_layout.count())
+                if identity_layout.itemAt(index).widget() is workspace.detail_subtitle
+            )
+
+            # Layout items expand to the real header width; QLabel alignment
+            # keeps the text physically right-aligned.
+            self.assertEqual(identity_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertEqual(title_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertEqual(subtitle_item.alignment(), Qt.AlignmentFlag(0))
+            self.assertGreaterEqual(
+                workspace.identity_container.width(),
+                int(workspace.detail_header.width() * 0.80),
+            )
+            self.assertGreaterEqual(
+                workspace.detail_subtitle.height(),
+                workspace.detail_subtitle.fontMetrics().lineSpacing() * 2,
+            )
 
     def test_main_window_enforces_supported_minimum(self) -> None:
         class Api:

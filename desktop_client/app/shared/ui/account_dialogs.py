@@ -27,3 +27,5 @@ class ChangePasswordDialog(EntityFormDialog):
         self.password = self.fields["password"]
         self.confirmation = self.fields["password_confirmation"]
         self.save_button.setText("שמור")
+        self.setMinimumHeight(0)
+        self.resize(self.width(), min(self.height(), 470))

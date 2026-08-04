@@ -15,6 +15,7 @@ from backend.app.schemas.customer import (
     CustomerCreate,
     CustomerListResponse,
     CustomerResponse,
+    CustomerSelfUpdate,
     CustomerUpdate,
 )
 from backend.app.schemas.user_admin import PasswordResetRequest
@@ -73,6 +74,22 @@ def list_customers(
         items=[_customer_response(customer) for customer in customers],
         count=len(customers),
     )
+
+
+@router.put("/customers/me", response_model=CustomerResponse)
+def update_my_profile(
+    payload: CustomerSelfUpdate,
+    current_user: dict = Depends(get_current_user),
+) -> CustomerResponse:
+    try:
+        customer, contacts = customer_service.update_my_profile(payload, current_user)
+    except customer_service.CustomerAccessDeniedError as exc:
+        _raise_access_denied(exc)
+    except customer_service.CustomerNotFoundError as exc:
+        _raise_not_found(exc)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Could not update customer profile") from exc
+    return _customer_response(customer, contacts)
 
 
 @router.get("/customers/{customer_id}", response_model=CustomerResponse)

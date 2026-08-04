@@ -22,6 +22,9 @@ class CustomerService:
     def update_customer(self, customer_id: str, payload: dict[str, object]) -> dict:
         return self.api_client.put(f"/customers/{customer_id}", payload)
 
+    def update_my_profile(self, payload: dict[str, object]) -> dict:
+        return self.api_client.put("/customers/me", payload)
+
     def activate(self, customer_id: str) -> dict:
         return self.api_client.post(f"/customers/{customer_id}/activate", {})
 

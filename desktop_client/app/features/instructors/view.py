@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QEvent, QItemSelectionModel, Qt, Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QTableWidgetItem, QVBoxLayout, QWidget
 
 from desktop_client.app.models.request_state import RequestPhase, RequestState
 from desktop_client.app.shared.ui.account_dialogs import ChangePasswordDialog
@@ -9,7 +9,7 @@ from desktop_client.app.shared.ui.common import StatefulWidget
 from desktop_client.app.features.instructors.dialogs import InstructorDialog
 from desktop_client.app.shared.ui.management_common import ActiveBadge, confirm_action
 from desktop_client.app.shared.ui.management_workspace import ManagementWorkspace
-from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, install_scaffold_hero
+from desktop_client.app.shared.ui.management_visuals import ReadOnlyProfileCard, apply_reference_detail_layout, apply_reference_list_layout, install_management_hero, install_scaffold_hero, style_reference_button
 from desktop_client.app.shared.ui.foundations import ColumnKind, ColumnPolicy, PageScaffold, configure_mixed_direction, set_disabled_explanation, set_item_text
 
 
@@ -17,7 +17,7 @@ class InstructorsView(StatefulWidget):
     filters_requested=Signal(dict);page_requested=Signal(int,int);instructor_selected=Signal(str);retry_requested=Signal();create_requested=Signal();edit_requested=Signal();deactivate_requested=Signal();reactivate_requested=Signal();change_password_requested=Signal()
     def __init__(self):
         super().__init__();root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
-        self.workspace=ManagementWorkspace(title="מדריכים",subtitle="ניהול מדריכים ופרטי התקשרות",create_text="מדריך חדש",plural="מדריכים",detail_subtitle="מידע מלא ופעולות עבור המדריך שנבחר",search_placeholder="חיפוש לפי שם, דוא״ל, טלפון או עיר",sort_options=(("full_name","מיון לפי: שם"),("created_at","מיון לפי: תאריך יצירה"),("is_active","מיון לפי: מצב")),headers=("שם מדריך","עיר","טלפון","דוא״ל","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,200),ColumnPolicy(ColumnKind.SECONDARY_TEXT,150,230),ColumnPolicy(ColumnKind.TECHNICAL,140),ColumnPolicy(ColumnKind.TECHNICAL,210),ColumnPolicy(ColumnKind.COMPACT,110)),row_action_position="end")
+        self.workspace=ManagementWorkspace(title="מדריכים",subtitle="ניהול מדריכים ופרטי התקשרות",create_text="מדריך חדש",plural="מדריכים",detail_subtitle="מידע מלא ופעולות עבור המדריך שנבחר",search_placeholder="חיפוש לפי שם, דוא״ל, טלפון או עיר",sort_options=(("full_name","מיון לפי: שם"),("created_at","מיון לפי: תאריך יצירה"),("is_active","מיון לפי: מצב")),headers=("שם מדריך","עיר","טלפון","דוא״ל","מצב"),policies=(ColumnPolicy(ColumnKind.PRIMARY_TEXT,200),ColumnPolicy(ColumnKind.SECONDARY_TEXT,150,230),ColumnPolicy(ColumnKind.TECHNICAL,140),ColumnPolicy(ColumnKind.TECHNICAL,210),ColumnPolicy(ColumnKind.COMPACT,126)),row_action_position="end")
         root.addWidget(self.workspace);self.scaffold=self.workspace.scaffold;self.toolbar=self.workspace.toolbar;self.table=self.workspace.table;self.footer=self.workspace.footer;self.create_button=self.workspace.create_button;self.pages=self.workspace.pages;self.list_page=self.workspace.list_page;self.details_page=self.workspace.details_page;self.back_button=self.workspace.back_button;self._selected_id=None;self._pending_open_id=None
         self.edit_button,self.change_password_button,self.deactivate_button,self.reactivate_button=self.workspace.add_lifecycle_actions(edit="עריכת מדריך",password="שינוי סיסמה",deactivate="השבתת מדריך",reactivate="הפעלת מדריך מחדש")
         self.profile_details=self.workspace.add_card("פרטי מדריך");self.contact_details=self.workspace.add_card("פרטי קשר");self.system_details=self.workspace.add_card("מידע מערכת")
@@ -101,6 +101,7 @@ class InstructorsView(StatefulWidget):
 
 class InstructorProfileView(StatefulWidget):
     retry_requested = Signal()
+    edit_requested = Signal()
 
     def __init__(self):
         super().__init__()
@@ -114,6 +115,17 @@ class InstructorProfileView(StatefulWidget):
         root.addWidget(self.scaffold)
         self.hero = install_scaffold_hero(self.scaffold, "instructors-hero.png", "תמונת פרופיל מדריך")
         self.scaffold.main_content.addWidget(self.state_label)
+
+        action_row = QWidget()
+        action_row.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        action_layout = QHBoxLayout(action_row)
+        action_layout.setContentsMargins(0, 0, 0, 0)
+        action_layout.addStretch(1)
+        self.edit_button = QPushButton("עריכת הפרטים שלי")
+        style_reference_button(self.edit_button, "primary")
+        self.edit_button.clicked.connect(self.edit_requested.emit)
+        action_layout.addWidget(self.edit_button)
+        self.scaffold.main_content.addWidget(action_row)
 
         body = QWidget()
         body.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
@@ -161,3 +173,11 @@ class InstructorProfileView(StatefulWidget):
 
     def show_error(self, message, *, retriable=False, permission=False):
         self.show_empty(message)
+
+    def open_form(self, initial, submit):
+        self._dialog = InstructorDialog(initial, self)
+        self._dialog.submitted.connect(submit)
+        self._dialog.open()
+
+    def show_success(self, message):
+        self.scaffold.feedback.render(RequestState(RequestPhase.SUCCESS, message, "instructor_profile"))

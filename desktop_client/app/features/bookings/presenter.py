@@ -96,6 +96,7 @@ class BookingsPresenter:
         self._operations = PresenterOperations(executor, "bookings")
         self._last_list_render = None
         self._create_activity_id = None
+        self._open_events_mode = False
         self.assign_after_creation = lambda _booking, _instructor_id: None
 
     def invalidate_requests(self):
@@ -103,11 +104,29 @@ class BookingsPresenter:
         self._loading = False
         self.view.set_loading(False)
 
+    def _cancel_detail_intent(self, *, clear_view_filters: bool = False) -> None:
+        """Return deterministically to list mode and stale any in-flight detail load.
+
+        List navigation (filters, dashboard drill-downs and assignment queues) must
+        never be overwritten by a late detail response from a previously selected
+        row.  Cancelling the worker alone is not sufficient because a callback may
+        already be queued on the Qt thread, so remove the current detail identity as
+        well.
+        """
+        self._operations.executor.cancel_operation(self._operations.owner, "detail")
+        self._operations.current.pop("detail", None)
+        self.selected_id = None
+        self.current_booking = None
+        if hasattr(self.view, "prepare_list_navigation"):
+            self.view.prepare_list_navigation(clear_filters=clear_view_filters)
+
     def _normalize_filters(self, filters):
         if filters is None:
             return True
+        filters = dict(filters)
+        filters.pop("_clear_selection", None)
         cleaned = {key: value for key, value in filters.items() if value not in (None, "", [])}
-        for key in ("status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date"):
+        for key in ("search", "status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date"):
             if key in filters and filters[key] in (None, "", []):
                 self.filters.pop(key, None)
         for key, suffix in (("from_date", "T00:00:00+00:00"), ("to_date", "T23:59:59.999999+00:00")):
@@ -129,9 +148,16 @@ class BookingsPresenter:
         return True
 
     def load(self, filters=None):
-        if filters and filters.get("queue") == "unassigned":
-            self.load_queue("unassigned")
+        if filters and filters.get("queue") in {"unassigned", "open"}:
+            self.load_queue(str(filters["queue"]))
             return
+        if filters is not None:
+            self._cancel_detail_intent(clear_view_filters=False)
+        self._open_events_mode = False
+        if hasattr(self.view, "set_open_event_mode"):
+            self.view.set_open_event_mode(False)
+        if hasattr(self.view, "set_list_context"):
+            self.view.set_list_context(None)
         if not self._normalize_filters(filters):
             return
         context = self._operations.replace("list")
@@ -146,16 +172,26 @@ class BookingsPresenter:
 
         def operation():
             options = None
-            if self.role == "manager" and not self._filter_options_loaded and all((self.customer_service, self.activity_service, self.instructor_service)):
-                options = (
-                    self.customer_service.list_customers({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
-                    self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
-                    self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
-                )
+            if not self._filter_options_loaded:
+                if self.role == "manager" and all((self.customer_service, self.activity_service, self.instructor_service)):
+                    options = (
+                        self.customer_service.list_customers({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        self.instructor_service.list_instructors({"is_active": True, "order_by": "full_name", "limit": 100, "offset": 0})["items"],
+                    )
+                elif self.role == "customer" and self.activity_service is not None:
+                    # Customer filters only need customer-visible dimensions.
+                    # Supplying activity options keeps that useful filter while
+                    # avoiding manager-only customer/instructor directory calls.
+                    options = (
+                        [],
+                        self.activity_service.list_activities({"is_active": True, "order_by": "name", "limit": 100, "offset": 0})["items"],
+                        [],
+                    )
             limit, offset = int(snapshot.get("limit", 25)), max(0, int(snapshot.get("offset", 0)))
             api_snapshot = {key: value for key, value in snapshot.items() if key in {"status", "customer_id", "activity_id", "instructor_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
             if self.role == "customer":
-                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "assignment_state", "from_date", "to_date", "order_by", "limit", "offset"}}
+                scoped = {key: value for key, value in snapshot.items() if key in {"status", "activity_id", "from_date", "to_date", "order_by", "limit", "offset"}}
                 payload = self.service.list_bookings(scoped) if any(key in scoped for key in {"status", "activity_id", "from_date", "to_date"}) else self.service.my_bookings(limit=limit, offset=offset, order_by=str(snapshot.get("order_by") or "event_at"))
             else:
                 scoped = dict(api_snapshot)
@@ -209,16 +245,40 @@ class BookingsPresenter:
         self.load({**self.filters, "offset": max(0, offset), "limit": limit})
 
     def reset_to_default(self):
-        self.filters={"limit":25,"offset":0};self.selected_id=self.current_booking=None;self._last_list_render=None;self.view.reset_to_default()
+        self._cancel_detail_intent(clear_view_filters=True)
+        self.filters={"limit":25,"offset":0};self._last_list_render=None;self._open_events_mode=False
+        if hasattr(self.view, "set_open_event_mode"):
+            self.view.set_open_event_mode(False)
+        if hasattr(self.view, "set_list_context"):
+            self.view.set_list_context(None)
 
     def load_queue(self, queue):
         if queue == "pending": self.load({"status":"NEW","from_date":datetime.now(UTC).isoformat(),"limit":25,"offset":0}); return
         if queue == "approved": self.load({"status":"CONFIRMED","from_date":datetime.now(UTC).isoformat(),"limit":25,"offset":0}); return
-        if queue in {"unassigned","attention"}:
+        if queue in {"unassigned","attention","open"}:
+            # Queue navigation is a list-level action. Clear stale filter chips,
+            # row selection and any pending detail callback before loading it.
+            self._cancel_detail_intent(clear_view_filters=True)
             context=self._operations.replace("list");self.view.set_loading(True)
+            self._open_events_mode = self.role == "instructor" and queue == "open"
+            if hasattr(self.view, "set_open_event_mode"):
+                self.view.set_open_event_mode(False)
+            if hasattr(self.view, "set_list_context"):
+                self.view.set_list_context("open" if self._open_events_mode else "unassigned")
+            # Availability changes when another user assigns/removes an instructor.
+            # Always make an explicit queue load fresh instead of accepting a stale
+            # session cache entry.
+            invalidate = getattr(self.service, "invalidate_open_events", None)
+            if callable(invalidate):
+                invalidate()
             def success(items):
-                if self._operations.is_current(context):self.filters={"queue":"unassigned","limit":25,"offset":0};self.view.show_bookings([booking_row(item) for item in items],offset=0,count=len(items),limit=25,selected_id=None)
-            self._operations.executor.submit(context,self.service.open_events,success,lambda _exc:self.view.show_error("לא ניתן לטעון הזמנות הממתינות לשיבוץ."),lambda:self.view.set_loading(False))
+                if self._operations.is_current(context):
+                    self.filters={"queue":"open" if self._open_events_mode else "unassigned","limit":25,"offset":0}
+                    self.selected_id=self.current_booking=None
+                    self._last_list_render=None
+                    self.view.show_bookings([booking_row(item) for item in items],offset=0,count=len(items),limit=25,selected_id=None)
+            message = "לא ניתן לטעון אירועים פתוחים לשיבוץ." if self._open_events_mode else "לא ניתן לטעון הזמנות הממתינות לשיבוץ."
+            self._operations.executor.submit(context,self.service.open_events,success,lambda _exc:self.view.show_error(message),lambda:self.view.set_loading(False))
 
     def select_booking(self, booking_id):
         self.selected_id = booking_id
@@ -226,15 +286,36 @@ class BookingsPresenter:
         self.view.set_loading(True)
 
         def operation():
+            if self._open_events_mode and self.role == "instructor":
+                return self.service.open_event_detail(booking_id), []
             return self.service.booking(booking_id), self.service.history(booking_id) if self.role == "manager" else []
 
         def success(result):
             if not self._operations.is_current(context) or self.selected_id != booking_id:
                 return
             booking, history = result
+            if self._open_events_mode and self.role == "instructor":
+                activities = booking.get("activities") or []
+                detail_model = {
+                    "id": booking.get("booking_id"),
+                    "customer_name": booking.get("customer_name"),
+                    "customer_contact_name": booking.get("customer_contact_name"),
+                    "customer_phone": booking.get("customer_phone"),
+                    "activity_name": ", ".join(str(a.get("activity_name") or "") for a in activities if a.get("activity_name")) or None,
+                    "event_at": booking.get("event_at"),
+                    "status": booking.get("status"),
+                    "city": booking.get("city"),
+                    "venue": booking.get("venue"),
+                }
+                self.current_booking = booking
+                self.view.set_open_event_mode(True)
+                self.view.show_details(booking_details(detail_model), [])
+                self.view.show_assignments(activities)
+                return
             self.current_booking = booking
             if self.role == "manager":
                 self.view.set_command_availability(str(booking.get("status", "")))
+            self.view.set_open_event_mode(False)
             self.view.show_details(booking_details(booking), history_rows(history))
 
         def failure(_exc):
@@ -246,6 +327,52 @@ class BookingsPresenter:
                 self.view.set_loading(False)
 
         self._operations.executor.submit(context, operation, success, failure, finished)
+
+    def request_assignment(self, activity):
+        booking_id = str(activity.get("booking_id") or self.selected_id or "")
+        if self.role != "instructor" or not self._open_events_mode or self._submitting or not booking_id:
+            return
+        booking_activity_id = str(activity.get("booking_activity_id") or "")
+        if not booking_activity_id:
+            self.view.show_error("לא ניתן לזהות את הפעילות לבקשת השיבוץ.")
+            return
+        context = self._operations.begin("assignment_request")
+        if context is None:
+            return
+        self._submitting = True
+        self.view.set_assignments_loading(True)
+        set_registration_loading = getattr(self.view, "set_registration_loading", None)
+        if callable(set_registration_loading):
+            set_registration_loading(booking_activity_id, True)
+
+        def success(_request):
+            if self._operations.is_current(context):
+                set_registration_pending = getattr(self.view, "set_registration_pending", None)
+                if callable(set_registration_pending):
+                    set_registration_pending(booking_activity_id)
+                self.view.show_success("בקשת השיבוץ נשלחה למנהל.")
+                # A successful request is a list-level workflow completion. Return
+                # to the fresh open-events list instead of reopening the booking
+                # detail because a late detail refresh feels like random navigation.
+                self.load_queue("open")
+
+        def failure(exc):
+            if self._operations.is_current(context):
+                self.view.show_error(self._command_error(exc))
+
+        def finished():
+            if self._operations.finish(context):
+                self._submitting = False
+                self.view.set_assignments_loading(False)
+                set_registration_loading = getattr(self.view, "set_registration_loading", None)
+                if callable(set_registration_loading):
+                    set_registration_loading(booking_activity_id, False)
+
+        self._operations.executor.submit(
+            context,
+            lambda: self.service.request_assignment(booking_id, booking_activity_id),
+            success, failure, finished,
+        )
 
     def begin_create(self, activity_id=None):
         if self.role not in {"manager", "customer"} or self._submitting:

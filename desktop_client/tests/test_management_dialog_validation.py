@@ -50,6 +50,7 @@ class ManagementDialogValidationTests(TestCase):
 
     def test_password_dialog_validates_on_click_and_disables_only_during_request(self):
         dialog = ChangePasswordDialog(); submitted = []; dialog.submitted.connect(lambda values, form: submitted.append(values))
+        self.assertLess(dialog.height(), 520)
         self.assertTrue(dialog.save_button.isEnabled())
         dialog.password.setText("password1"); dialog.confirmation.setText("different"); dialog.save_button.click(); self.app.processEvents()
         self.assertEqual(submitted, []); self.assertIn("אינן תואמות", dialog.field_errors["password_confirmation"].text()); self.assertIs(dialog.focusWidget(), dialog.confirmation)

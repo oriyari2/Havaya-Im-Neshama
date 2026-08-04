@@ -193,7 +193,7 @@ class CustomersView(StatefulWidget):
                 ColumnPolicy(ColumnKind.SECONDARY_TEXT, 120),  # טלפון
                 ColumnPolicy(ColumnKind.SECONDARY_TEXT, 180),  # אימייל
                 ColumnPolicy(ColumnKind.SECONDARY_TEXT, 100),  # עיר
-                ColumnPolicy(ColumnKind.COMPACT, 100),         # סטטוס
+                ColumnPolicy(ColumnKind.COMPACT, 126),         # סטטוס
                 ColumnPolicy(ColumnKind.SECONDARY_TEXT, 110),  # תאריך הצטרפות
             ),
             row_action_position="end",
@@ -420,8 +420,8 @@ class CustomersView(StatefulWidget):
 
         self.workspace.identity_container.setObjectName("customerDetailIdentity")
         self.workspace.identity_container.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        self.workspace.identity_container.setMinimumWidth(420)
-        self.workspace.identity_container.setMaximumWidth(560)
+        self.workspace.identity_container.setMinimumWidth(0)
+        self.workspace.identity_container.setMaximumWidth(16777215)
         self.workspace.identity_container.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
@@ -430,6 +430,11 @@ class CustomersView(StatefulWidget):
         self.workspace.detail_title.setObjectName("customerDetailTitle")
         self.workspace.detail_title.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.workspace.detail_title.setAlignment(_RIGHT_TEXT_ALIGNMENT)
+        self.workspace.detail_title.setWordWrap(True)
+        self.workspace.detail_title.setMinimumHeight(
+            max(42, self.workspace.detail_title.fontMetrics().lineSpacing() * 2)
+        )
+        self.workspace.detail_title.setMaximumHeight(16777215)
         self.workspace.detail_title.setSizePolicy(
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Preferred,
@@ -444,8 +449,11 @@ class CustomersView(StatefulWidget):
         self.workspace.detail_subtitle.setObjectName("customerDetailSubtitle")
         self.workspace.detail_subtitle.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.workspace.detail_subtitle.setAlignment(_RIGHT_TEXT_ALIGNMENT)
-        self.workspace.detail_subtitle.setMaximumWidth(540)
-        self.workspace.detail_subtitle.setMinimumHeight(40)
+        self.workspace.detail_subtitle.setMaximumWidth(16777215)
+        self.workspace.detail_subtitle.setMinimumHeight(
+            self.workspace.detail_subtitle.fontMetrics().lineSpacing() * 2 + SPACE_1
+        )
+        self.workspace.detail_subtitle.setMaximumHeight(16777215)
         self.workspace.detail_subtitle.setWordWrap(True)
         self.workspace.detail_subtitle.setSizePolicy(
             QSizePolicy.Policy.Expanding,
@@ -453,52 +461,55 @@ class CustomersView(StatefulWidget):
         )
 
         if identity_layout is not None:
-            identity_layout.addWidget(
-                self.workspace.detail_title,
-                0,
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
-            )
+            # Keep text right-aligned at QLabel level, but allow the layout
+            # items to expand to the full header width. Constraining the items
+            # with AlignRight caused wrapped subtitles to use a narrow size hint
+            # and clip their final line.
+            identity_layout.addWidget(self.workspace.detail_title)
             identity_layout.addWidget(
                 self.workspace.detail_status,
                 0,
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
             )
-            identity_layout.addWidget(
-                self.workspace.detail_subtitle,
-                0,
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
-            )
+            identity_layout.addWidget(self.workspace.detail_subtitle)
 
         # Put actions on the physical left and identity on the physical right.
         header = self.workspace.detail_header
         header.setObjectName("customerDetailHeader")
         header.setProperty("customerDetailHeader", True)
         header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-        header.setMinimumHeight(156)
+        header.setMinimumHeight(216)
+        header.setMaximumHeight(16777215)
+        header.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Preferred,
+        )
         header_layout = header.layout()
         if header_layout is not None:
             while header_layout.count():
                 header_layout.takeAt(0)
-            header_layout.setDirection(QBoxLayout.Direction.LeftToRight)
+            # Keep the customer identity and lifecycle actions on separate
+            # vertical regions. This preserves the approved right/left visual
+            # balance while preventing long names, statuses and action labels
+            # from clipping at supported window sizes.
+            header_layout.setDirection(QBoxLayout.Direction.TopToBottom)
             header_layout.setContentsMargins(SPACE_6, SPACE_4, SPACE_6, SPACE_4)
-            header_layout.setSpacing(SPACE_4)
+            header_layout.setSpacing(SPACE_3)
+            # The identity block must occupy the complete header width so the
+            # title and subtitle wrap according to the real available space.
+            header_layout.addWidget(self.workspace.identity_container)
+            header_layout.addStretch(1)
             header_layout.addWidget(
                 self.workspace.actions_container,
                 0,
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignAbsolute,
             )
-            header_layout.addStretch(1)
-            header_layout.addWidget(
-                self.workspace.identity_container,
-                0,
-                Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignAbsolute,
-            )
 
         self.workspace.actions_container.setObjectName("customerDetailActions")
         self.workspace.actions_container.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.workspace.actions_container.setSizePolicy(
-            QSizePolicy.Policy.Maximum,
-            QSizePolicy.Policy.Fixed,
+            QSizePolicy.Policy.Preferred,
+            QSizePolicy.Policy.Preferred,
         )
         actions_layout = self.workspace.actions
         while actions_layout.count():
@@ -560,8 +571,8 @@ class CustomersView(StatefulWidget):
     @staticmethod
     def _style_customer_action_button(button: QPushButton, role: str) -> None:
         button.setObjectName(f"customerDetailAction_{role}")
-        button.setMinimumWidth(124)
-        button.setMaximumWidth(148)
+        button.setMinimumWidth(176)
+        button.setMaximumWidth(176)
         button.setMinimumHeight(42)
         button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
 

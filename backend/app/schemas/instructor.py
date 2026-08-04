@@ -50,6 +50,28 @@ class InstructorUpdate(BaseModel):
         if value and not EMAIL_PATTERN.match(value):raise ValueError("email must be a valid email address")
         return value.lower() if value else None
 
+
+class InstructorSelfUpdate(BaseModel):
+    full_name: str | None = None
+    phone: str | None = None
+    city: str | None = None
+    notes: str | None = None
+
+    @field_validator("full_name")
+    @classmethod
+    def name_valid(cls, value):
+        if value is None:
+            return None
+        value = value.strip()
+        if not value:
+            raise ValueError("full_name must not be empty")
+        return value
+
+    @field_validator("phone", "city", "notes")
+    @classmethod
+    def clean_text(cls, value):
+        return clean(value)
+
 class InstructorResponse(InstructorBase):
     model_config=ConfigDict(from_attributes=True)
     id: UUID; full_name: str; created_at: datetime; updated_at: datetime

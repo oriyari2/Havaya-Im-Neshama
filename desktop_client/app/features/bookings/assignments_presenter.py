@@ -137,6 +137,25 @@ class BookingAssignmentsPresenter:
         if self.view.confirm_assignment_removal(assignment["instructor_name"], activity["activity_name"]):
             self._command(lambda: self.assignment_service.remove(self.booking_id, activity["booking_activity_id"], assignment["instructor_id"], self.model["version"]), "שיוך המדריך הוסר. היסטוריית האירועים נשמרה.")
 
+    def approve_request(self, activity, request):
+        if self.submitting or not self.model or not self.booking_id:
+            return
+        self._command(
+            lambda: self.assignment_service.approve_request(
+                self.booking_id, request["request_id"], self.model["version"]
+            ),
+            f"{request.get('instructor_name') or 'המדריך'} שובץ בהצלחה.",
+        )
+
+    def reject_request(self, activity, request):
+        del activity
+        if self.submitting or not self.model or not self.booking_id:
+            return
+        self._command(
+            lambda: self.assignment_service.reject_request(self.booking_id, request["request_id"]),
+            "בקשת השיבוץ נדחתה.",
+        )
+
     def _command(self, operation, message, on_success=None):
         if self.submitting:
             return

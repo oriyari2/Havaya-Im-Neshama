@@ -2,6 +2,7 @@ from unittest import TestCase
 from unittest.mock import Mock, call
 from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.features.customers.presenter import CustomersPresenter, CustomerProfilePresenter, validate_customer
+from desktop_client.app.features.customers.formatting import customer_row
 
 CONTACT={"id":"ct1","full_name":"Contact","phone":"050","is_primary":True,"is_active":True}
 CUSTOMER={"id":"c1","name":"Task 12B Test Customer","customer_type":"business","city":"Haifa","address":None,"phone":"1","email":"a@b.com","notes":None,"is_active":True,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","contacts":[CONTACT]}
@@ -36,6 +37,17 @@ class CustomersPresenterTests(TestCase):
         with self.assertRaises(ValueError): validate_customer({"name":"A","contact_name":"","contact_phone":"050"})
     def test_profile_is_owned_id_only(self):
         profile=CustomerProfilePresenter(self.view,self.service,"owned"); profile.load(); self.service.customer.assert_called_with("owned"); self.view.show_profile.assert_called()
+
+    def test_customer_profile_can_edit_own_safe_fields(self):
+        profile=CustomerProfilePresenter(self.view,self.service,"owned")
+        self.service.customer.return_value=CUSTOMER
+        self.service.update_my_profile.return_value={**CUSTOMER,"name":"Updated","city":"Jerusalem"}
+        profile.load(); profile.begin_edit(); self.view.open_form.assert_called_once()
+        form=Mock()
+        profile.submit_edit({"name":"Updated","email":"a@b.com","city":"Jerusalem","contact_name":"Contact","contact_phone":"050"},form)
+        payload=self.service.update_my_profile.call_args.args[0]
+        self.assertEqual(payload["name"],"Updated"); self.assertEqual(payload["city"],"Jerusalem"); self.assertNotIn("email",payload)
+        form.close_success.assert_called_once(); self.view.show_success.assert_called_with("הפרטים נשמרו בהצלחה.")
     def test_stale_detail_does_not_render_or_reset_newer_detail_state(self):
         second={**CUSTOMER,"id":"c2","name":"Second"}; calls=iter([None])
         def nested(customer_id):
@@ -55,3 +67,12 @@ class CustomersPresenterTests(TestCase):
     def test_unexpected_exception_text_is_not_exposed(self):
         self.service.list_customers.side_effect=RuntimeError("database password leaked"); self.presenter.load()
         message=self.view.show_error.call_args.args[0]; self.assertNotIn("password",message); self.assertEqual(message,"לא ניתן להשלים את הפעולה. נסו שוב.")
+
+
+class CustomerRowFormattingTests(TestCase):
+    def test_customer_row_exposes_formatted_join_date(self):
+        row = customer_row({
+            "id": "c1", "name": "לקוח", "is_active": True,
+            "created_at": "2026-08-04T12:30:00+00:00",
+        })
+        self.assertEqual(row["join_date"], "04/08/2026")

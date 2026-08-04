@@ -4,7 +4,7 @@ from fastapi import APIRouter,Depends,HTTPException,Query,Response
 from backend.app.application.services import instructor_service as service
 from backend.app.application.services import user_admin_service
 from backend.app.core.auth import get_current_user,require_roles
-from backend.app.schemas.instructor import InstructorCreate,InstructorListResponse,InstructorResponse,InstructorUpdate
+from backend.app.schemas.instructor import InstructorCreate,InstructorListResponse,InstructorResponse,InstructorSelfUpdate,InstructorUpdate
 from backend.app.schemas.user_admin import PasswordResetRequest
 
 router=APIRouter(tags=["instructors"]); Manager=Depends(require_roles("manager"))
@@ -25,6 +25,10 @@ def list_items(search:str|None=None,city:str|None=None,is_active:bool|None=None,
 @router.get("/instructors/me",response_model=InstructorResponse)
 def me(current_user:dict=Depends(get_current_user)):
     try:return service.get_my_profile(current_user)
+    except Exception as exc:errors(exc)
+@router.put("/instructors/me",response_model=InstructorResponse)
+def update_me(payload:InstructorSelfUpdate,current_user:dict=Depends(get_current_user)):
+    try:return service.update_my_profile(payload,current_user)
     except Exception as exc:errors(exc)
 @router.get("/instructors/{instructor_id}",response_model=InstructorResponse)
 def detail(instructor_id:UUID,_user:dict=Manager):

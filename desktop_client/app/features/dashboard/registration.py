@@ -16,4 +16,5 @@ def register(context: FeatureContext) -> None:
     )
     view.drill_down_requested.connect(presenter.drill_down)
     view.shortcut_requested.connect(presenter.drill_down)
+    view.assignment_request_requested.connect(presenter.request_assignment)
     context.add_page("dashboard", view, presenter)

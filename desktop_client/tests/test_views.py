@@ -237,7 +237,58 @@ class ViewTests(unittest.TestCase):
         for operation in ("logout", "expiry"):
             window = MainWindow(Api()); presenter = Mock(spec=["invalidate_requests"]); window._presenters = {"customers": presenter}
             window._logout() if operation == "logout" else window._complete_session_expiry()
+            if operation == "logout":
+                self.app.processEvents()
             presenter.invalidate_requests.assert_called_once_with(); window.close()
+
+    def test_login_success_defers_workspace_transition_until_callback_returns(self) -> None:
+        class Api:
+            def set_unauthorized_handler(self, handler): self.handler = handler
+
+        window = MainWindow(Api())
+        session = Session("token", "id", "manager@example.com", "manager")
+        show_workspace = Mock()
+        window._show_workspace = show_workspace
+
+        window.login_presenter.on_authenticated(session)
+
+        # Authentication success must not replace/destroy the login feature
+        # while the executor callback is still being dispatched.
+        show_workspace.assert_not_called()
+        self.assertIs(window._pending_workspace_session, session)
+
+        self.app.processEvents()
+
+        show_workspace.assert_called_once_with(session)
+        self.assertIsNone(window._pending_workspace_session)
+        window.close()
+
+    def test_logout_button_defers_shell_replacement_until_signal_returns(self) -> None:
+        class Api:
+            def set_unauthorized_handler(self, handler): self.handler = handler
+            def set_access_token(self, token): self.token = token
+
+        api = Api()
+        window = MainWindow(api)
+        window._show_workspace(Session("token", "id", "manager@example.com", "manager"))
+        window.show()
+        self.app.processEvents()
+
+        shell = window.shell
+        shell.logout_button.click()
+
+        # The ShellView must still exist while QPushButton.clicked is being
+        # dispatched; replacing it synchronously is the native-crash hazard.
+        self.assertIs(window.centralWidget(), shell)
+        self.assertTrue(window._logout_pending)
+        self.assertFalse(shell.logout_button.isEnabled())
+
+        self.app.processEvents()
+
+        self.assertIs(window.centralWidget(), window.login_view)
+        self.assertFalse(window._logout_pending)
+        self.assertIsNone(api.token)
+        window.close()
 
 
 if __name__ == "__main__":

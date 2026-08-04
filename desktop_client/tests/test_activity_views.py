@@ -242,7 +242,12 @@ class ActivityViewTests(TestCase):
             window = self._track(MainWindow(Api()))
             owner = Mock()
             window._presenters = {"activities": owner}
-            window._logout() if operation == "logout" else window._complete_session_expiry()
+            if operation == "logout":
+                window._logout()
+                self.app.processEvents()
+                self.assertFalse(window._logout_pending)
+            else:
+                window._complete_session_expiry()
             owner.clear_preview_cache.assert_called_once()
 
     def test_application_preview_path_has_no_disk_persistence(self):

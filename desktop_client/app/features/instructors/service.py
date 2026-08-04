@@ -4,6 +4,7 @@ class InstructorService:
     def list_instructors(self,filters):return self.api_client.get("/instructors",filters)
     def instructor(self,instructor_id):return self.api_client.get(f"/instructors/{instructor_id}")
     def my_profile(self):return self.api_client.get("/instructors/me")
+    def update_my_profile(self,payload):return self.api_client.put("/instructors/me",payload)
     def create_instructor(self,payload):return self.api_client.post("/instructors",payload)
     def update_instructor(self,instructor_id,payload):return self.api_client.put(f"/instructors/{instructor_id}",payload)
     def activate(self,instructor_id):return self.api_client.post(f"/instructors/{instructor_id}/activate",{})

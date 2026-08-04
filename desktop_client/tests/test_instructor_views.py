@@ -48,7 +48,7 @@ class InstructorViewTests(TestCase):
         )
 
         policies = view.table._task20_column_sizer.policies
-        self.assertEqual([p.minimum_width for p in policies[:5]], [200, 150, 140, 210, 110])
+        self.assertEqual([p.minimum_width for p in policies[:5]], [200, 150, 140, 210, 126])
 
         details = [("שם", "מדריכה"), ("דוא״ל", "guide@example.com"), ("מצב", "פעיל")]
         view.instructor_selected.connect(lambda _id: view.show_details(details, ROW))
@@ -91,6 +91,7 @@ class InstructorViewTests(TestCase):
             view.reactivate_button,
         )}
         self.assertEqual(len(widths), 1)
+        self.assertGreaterEqual(view.reactivate_button.width(), view.reactivate_button.fontMetrics().horizontalAdvance(view.reactivate_button.text()) + 24)
         self.assertFalse(view.deactivate_button.isHidden())
         self.assertTrue(view.reactivate_button.isHidden())
 
@@ -137,7 +138,9 @@ class InstructorViewTests(TestCase):
         self.assertIsNone(edit.password)
         self.assertTrue(edit.fields["email"].isReadOnly())
         self.assertNotIn("password", edit.values())
-        self.assertFalse(hasattr(profile, "edit_button"))
+        self.assertTrue(hasattr(profile, "edit_button"))
+        self.assertEqual(profile.edit_button.text(), "עריכת הפרטים שלי")
+        self.assertTrue(profile.edit_button.isEnabled())
 
     def test_create_and_edit_render_section_and_notes_label_in_rtl_geometry(self):
         for dialog in (InstructorDialog(), InstructorDialog(ROW)):
@@ -179,7 +182,7 @@ class InstructorViewTests(TestCase):
         view.show()
         self.app.processEvents()
 
-        minimums = [200, 150, 140, 210, 110]
+        minimums = [200, 150, 140, 210, 126]
         for column, minimum in enumerate(minimums):
             self.assertGreaterEqual(view.table.columnWidth(column), minimum)
 

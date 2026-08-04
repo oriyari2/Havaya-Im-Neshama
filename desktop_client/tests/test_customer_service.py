@@ -9,6 +9,7 @@ class CustomerServiceTests(TestCase):
         self.service.customer("c1"); self.api.get.assert_called_with("/customers/c1")
         self.service.create_customer({"name":"A"}); self.api.post.assert_called_with("/customers", {"name":"A"})
         self.service.update_customer("c1", {"name":"B"}); self.api.put.assert_called_with("/customers/c1", {"name":"B"})
+        self.service.update_my_profile({"name":"Mine"}); self.api.put.assert_called_with("/customers/me", {"name":"Mine"})
         self.service.deactivate("c1"); self.api.post.assert_called_with("/customers/c1/deactivate", {})
         self.service.activate("c1"); self.api.post.assert_called_with("/customers/c1/activate", {})
         self.assertFalse(hasattr(self.service, "delete_customer"))

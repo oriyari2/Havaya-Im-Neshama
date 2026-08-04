@@ -12,6 +12,8 @@ class DashboardViewPort(Protocol):
     def show_error(self, message: str) -> None: ...
     def show_summary(self, summary: dict[str, int]) -> None: ...
     def show_sections(self, first_title: str, first_rows: list[dict[str, str]], second_title: str, second_rows: list[dict[str, str]]) -> None: ...
+    def set_registration_loading(self, booking_activity_id: str, loading: bool) -> None: ...
+    def set_registration_pending(self, booking_activity_id: str) -> None: ...
 
 
 class DashboardServicePort(Protocol):
@@ -19,6 +21,7 @@ class DashboardServicePort(Protocol):
     def list_bookings(self, filters: dict[str, object] | None = None) -> dict: ...
     def my_bookings(self, *, limit: int = 50, offset: int = 0) -> dict: ...
     def open_events(self) -> list[dict]: ...
+    def request_assignment(self, booking_id: str, booking_activity_id: str) -> dict: ...
 
 
 class DashboardPresenter:
@@ -30,6 +33,7 @@ class DashboardPresenter:
         self.create_booking = create_booking
         self._operations = PresenterOperations(executor, "dashboard")
         self._has_rendered = False
+        self._assignment_submitting = False
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
@@ -38,14 +42,68 @@ class DashboardPresenter:
     def drill_down(self, target: str) -> None:
         status_filters = {"pending_count": "NEW", "confirmed_count": "CONFIRMED", "cancelled_count": "CANCELLED"}
         if target in status_filters:
-            self.navigate("my_bookings" if self.role == "customer" else "bookings", {"status": status_filters[target]})
+            # Dashboard status counters are defined only over upcoming bookings.
+            # Carry the same time boundary into the destination list so opening
+            # a card cannot show historical rows that were not included in the
+            # number displayed on the card.
+            self.navigate(
+                "my_bookings" if self.role == "customer" else "bookings",
+                {"status": status_filters[target], "from_date": datetime.now(UTC).isoformat()},
+            )
         elif target == "unassigned_count":
             self.navigate("bookings", {"queue": "unassigned"})
         elif target in {"upcoming_count", "assigned_count"}:
             destination = "my_bookings" if self.role == "customer" else "bookings"
-            self.navigate(destination, {"from_date": datetime.now(UTC).isoformat()})
+            filters = {"from_date": datetime.now(UTC).isoformat()}
+            # The assigned dashboard card counts only bookings whose required
+            # activities all have an active instructor. Carry that exact
+            # predicate into the destination list for managers and instructors,
+            # otherwise the card count and the opened list disagree.
+            if target == "assigned_count" and self.role in {"manager", "instructor"}:
+                filters["assignment_state"] = "assigned"
+            self.navigate(destination, filters)
         else:
             self.navigate(target, None)
+
+
+    def request_assignment(self, row: dict) -> None:
+        if self.role != "instructor" or self._assignment_submitting:
+            return
+        booking_id = str(row.get("booking_id") or row.get("id") or "")
+        booking_activity_id = str(row.get("booking_activity_id") or "")
+        if not booking_id or not booking_activity_id:
+            self.view.show_error("לא ניתן לזהות את האירוע לבקשת השיבוץ.")
+            return
+
+        context = self._operations.begin("assignment_request")
+        if context is None:
+            return
+        self._assignment_submitting = True
+        self.view.set_registration_loading(booking_activity_id, True)
+
+        def succeeded(_request) -> None:
+            if self._operations.is_current(context):
+                # The POST already returned success, so reflect the new state
+                # immediately instead of waiting for a second dashboard fetch.
+                # This also prevents a brief flash back to "הירשם לאירוע".
+                self.view.set_registration_pending(booking_activity_id)
+
+        def failed(_exc: Exception) -> None:
+            if self._operations.is_current(context):
+                self.view.show_error("לא ניתן לשלוח את בקשת השיבוץ. נסו שוב.")
+
+        def finished() -> None:
+            if self._operations.finish(context):
+                self._assignment_submitting = False
+                self.view.set_registration_loading(booking_activity_id, False)
+
+        self._operations.executor.submit(
+            context,
+            lambda: self.service.request_assignment(booking_id, booking_activity_id),
+            succeeded,
+            failed,
+            finished,
+        )
 
     def load(self) -> None:
         context = self._operations.replace("load")
@@ -64,14 +122,28 @@ class DashboardPresenter:
                 errors.append("לא ניתן לטעון את נתוני הסיכום.")
             try:
                 if self.role == "customer":
-                    first = self.service.my_bookings(limit=10, offset=0)["items"]
+                    # Keep the dashboard table aligned with upcoming_count.  The
+                    # previous my_bookings call also returned historical rows,
+                    # which made the card totals and the visible list disagree.
+                    first = self.service.list_bookings({
+                        "limit": 10,
+                        "offset": 0,
+                        "from_date": datetime.now(UTC).isoformat(),
+                        "order_by": "event_at",
+                    })["items"]
                     first_title = "ההזמנות הקרובות שלי"
                 elif self.role == "instructor":
                     first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
+                    invalidate = getattr(self.service, "invalidate_open_events", None)
+                    if callable(invalidate):
+                        invalidate()
                     second = self.service.open_events()
                     first_title, second_title = "אירועים משויכים", "אירועים פתוחים"
                 else:
                     first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
+                    invalidate = getattr(self.service, "invalidate_open_events", None)
+                    if callable(invalidate):
+                        invalidate()
                     second = self.service.open_events()
                     first_title, second_title = "הזמנות קרובות", "דורשים שיבוץ"
             except Exception:

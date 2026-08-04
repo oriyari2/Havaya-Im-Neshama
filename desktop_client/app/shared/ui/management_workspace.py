@@ -185,7 +185,9 @@ class ManagementWorkspace(QWidget):
     @staticmethod
     def configure_status_badge(badge: ActiveBadge) -> None:
         badge.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute)
-        badge.setContentsMargins(SPACE_3, 0, SPACE_3, 0)
+        badge.setContentsMargins(SPACE_2, 0, SPACE_2, 0)
+        badge.setMinimumWidth(88)
+        badge.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
     def resizeEvent(self, event) -> None:  # noqa: N802 - Qt API
         self.cards.setDirection(QBoxLayout.Direction.RightToLeft if event.size().width() >= 880 else QBoxLayout.Direction.TopToBottom)

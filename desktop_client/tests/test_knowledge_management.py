@@ -9,11 +9,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from desktop_client.app.main import MainWindow
-from desktop_client.app.models.session import Session
 from desktop_client.app.features.knowledge.presenter import KnowledgeManagementPresenter
 from desktop_client.app.features.knowledge.service import MAX_KNOWLEDGE_SOURCE_CONTENT_CHARS, KnowledgeService, read_supported_knowledge_file
 from desktop_client.app.features.knowledge.view import KnowledgeManagementView
+from desktop_client.app.features.registry import FEATURES
+from desktop_client.app.shared.navigation import navigation_for_role
 
 
 class KnowledgeDesktopTests(unittest.TestCase):
@@ -22,46 +22,18 @@ class KnowledgeDesktopTests(unittest.TestCase):
         cls.app = QApplication.instance() or QApplication([])
 
     def test_manager_only_navigation_contains_knowledge_screen(self) -> None:
-        class Api:
-            def set_unauthorized_handler(self, handler):
-                self.handler = handler
+        knowledge_feature = next(feature for feature in FEATURES if feature.name == "knowledge")
 
-            def set_access_token(self, token):
-                pass
-
-        class Service:
-            def dashboard(self):
-                return {}
-
-            def list_bookings(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_customers(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_activities(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def list_instructors(self, filters=None):
-                return {"items": [], "count": 0}
-
-            def open_events(self):
-                return []
+        self.assertEqual(knowledge_feature.roles, frozenset({"manager"}))
+        self.assertEqual(knowledge_feature.page_keys, ("knowledge",))
 
         for role in ("manager", "instructor", "customer"):
-            window = MainWindow(Api())
-            window.booking_service = Service()
-            window.customer_service = Service()
-            window.activity_service = Service()
-            window.instructor_service = Service()
-            window.knowledge_service = Service()
-            window._show_workspace(Session("token", "id", f"{role}@example.com", role))
-            self.assertEqual("knowledge" in window.shell.pages, role == "manager")
-            self.assertEqual("knowledge" in window.shell.navigation_buttons, role == "manager")
-            window.close()
+            navigation_keys = {key for key, _label in navigation_for_role(role)}
+            self.assertEqual("knowledge" in navigation_keys, role == "manager")
 
     def test_view_values_include_selected_visibility(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         view.title_input.setText("Guide")
         view.category_input.setText("equipment")
         view.content_input.setPlainText("approved text")
@@ -71,6 +43,48 @@ class KnowledgeDesktopTests(unittest.TestCase):
 
         self.assertEqual(values["allowed_roles"], ["instructor"])
         self.assertEqual(values["content"], "approved text")
+
+
+    def test_required_fields_are_marked_and_editor_resets_after_success(self) -> None:
+        view = KnowledgeManagementView()
+        self.addCleanup(view.close)
+        labels = [label.text() for label in view.findChildren(type(view.required_hint))]
+
+        self.assertIn("* שדה חובה", view.required_hint.text())
+        self.assertIn("כותרת *", labels)
+        self.assertIn("קטגוריה *", labels)
+        self.assertIn("תוכן או קובץ *", labels)
+
+        view.title_input.setText("Guide")
+        view.category_input.setText("general")
+        view.activity_input.setText("Activity")
+        view.content_input.setPlainText("content")
+        view.file_path_input.setText("guide.md")
+        view.instructor_checkbox.setChecked(True)
+        view.customer_checkbox.setChecked(True)
+        view.show_source_detail({
+            "source_id": "source-1",
+            "title": "Guide",
+            "category": "general",
+            "activity_name": "Activity",
+            "content": "content",
+            "allowed_roles": ["instructor", "customer"],
+        })
+
+        view.reset_editor()
+
+        self.assertEqual(view.values(), {
+            "title": "",
+            "category": "",
+            "activity_name": None,
+            "content": "",
+            "file_path": None,
+            "allowed_roles": [],
+        })
+        self.assertIsNone(view._selected_source_id)
+        self.assertFalse(view.replace_button.isEnabled())
+        self.assertFalse(view.delete_button.isEnabled())
+        self.assertTrue(view.save_button.isEnabled())
 
     def test_presenter_uses_pasted_text_and_refreshes(self) -> None:
         view = _View()
@@ -131,6 +145,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
 
     def test_view_clears_selected_file_when_source_or_text_changes(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         view.file_path_input.setText("stale.md")
 
         view.show_source_detail(
@@ -148,7 +163,7 @@ class KnowledgeDesktopTests(unittest.TestCase):
         view.content_input.setPlainText("pasted replacement")
         self.assertEqual(view.file_path_input.text(), "")
 
-    def test_presenter_clears_file_path_after_successful_create_or_replace(self) -> None:
+    def test_presenter_resets_editor_after_successful_create_or_replace(self) -> None:
         view = _View()
         service = _Service()
         presenter = KnowledgeManagementPresenter(view, service)
@@ -156,10 +171,23 @@ class KnowledgeDesktopTests(unittest.TestCase):
         presenter.save({"title": "Guide", "category": "general", "content": "text", "allowed_roles": []})
         presenter.replace("source-1", {"title": "Guide", "category": "general", "content": "text", "allowed_roles": []})
 
-        self.assertEqual(view.clear_file_path_count, 2)
+        self.assertEqual(view.reset_editor_count, 2)
+
+    def test_presenter_resets_editor_after_successful_delete(self) -> None:
+        view = _View()
+        service = _Service()
+        presenter = KnowledgeManagementPresenter(view, service)
+
+        presenter.delete("source-1")
+
+        self.assertEqual(service.deleted, "source-1")
+        self.assertEqual(view.reset_editor_count, 1)
+        self.assertEqual(view.message, "מקור הידע נמחק.")
+        self.assertTrue(view.sources_shown)
 
     def test_pasted_replacement_is_not_overridden_by_stale_selected_file(self) -> None:
         view = KnowledgeManagementView()
+        self.addCleanup(view.close)
         service = _Service()
         presenter = KnowledgeManagementPresenter(view, service)
         view.show_source_detail(
@@ -200,11 +228,12 @@ class KnowledgeDesktopTests(unittest.TestCase):
         self.assertEqual(api.last_put[1]["content"], "replacement file text")
 
 
+
 class _View:
     def __init__(self) -> None:
         self.sources_shown = False
         self.error = ""
-        self.clear_file_path_count = 0
+        self.reset_editor_count = 0
 
     def show_sources(self, sources):
         self.sources_shown = True
@@ -218,8 +247,8 @@ class _View:
     def show_message(self, message):
         self.message = message
 
-    def clear_file_path(self):
-        self.clear_file_path_count += 1
+    def reset_editor(self):
+        self.reset_editor_count += 1
 
 
 class _Service:
@@ -236,6 +265,10 @@ class _Service:
 
     def replace_source(self, source_id, payload):
         self.replaced = {"source_id": source_id, **payload}
+        return {}
+
+    def delete_source(self, source_id):
+        self.deleted = source_id
         return {}
 
 

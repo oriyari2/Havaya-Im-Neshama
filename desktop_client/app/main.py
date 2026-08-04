@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QTimer
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox
 
 from desktop_client.app.api.client import ApiClient
@@ -51,16 +51,38 @@ class MainWindow(QMainWindow):
         self.user_service = feature_services.user
         self._presenters: dict[str, object] = {}
         self._active_page: str | None = None
+        self._logout_pending = False
+        self._pending_workspace_session: Session | None = None
         self._show_login()
 
     def _show_login(self, message: str | None = None) -> None:
         self._active_page = None
-        feature = build_login_feature(self.auth_service, self._show_workspace, self.operation_executor)
+        if hasattr(self, "_pending_workspace_session"):
+            self._pending_workspace_session = None
+        feature = build_login_feature(self.auth_service, self._schedule_workspace, self.operation_executor)
         self.login_view = feature.view
         self.login_presenter = feature.presenter
         self.setCentralWidget(self.login_view)
         if message:
             self.login_view.show_error(message)
+
+    def _schedule_workspace(self, session: Session) -> None:
+        """Defer login -> workspace replacement until the current Qt callback returns.
+
+        Login success is delivered through the Qt operation executor. Replacing the
+        login view synchronously from that callback can destroy widgets/presenters
+        that are still participating in signal delivery on Windows. Queue the actual
+        workspace composition for the next event-loop turn instead.
+        """
+        self._pending_workspace_session = session
+        QTimer.singleShot(0, self._complete_workspace_transition)
+
+    def _complete_workspace_transition(self) -> None:
+        session = self._pending_workspace_session
+        self._pending_workspace_session = None
+        if session is None:
+            return
+        self._show_workspace(session)
 
     def _handle_unauthorized(self) -> None:
         self.auth_service.expire_session()
@@ -150,6 +172,12 @@ class MainWindow(QMainWindow):
         self._active_page = key
         self.shell.show_page(key)
         presenter = self._presenters[key]
+        # Dashboard drill-downs are new list intents, not continuations of the
+        # previous booking selection. Reset the feature UI first so stale chips
+        # or an in-flight detail response cannot reopen a specific booking.
+        reset = getattr(presenter, "reset_to_default", None)
+        if reset is not None and key in {"customers", "instructors", "users", "activities", "bookings", "my_bookings"}:
+            reset()
         presenter.load(filters) if filters is not None else presenter.load()
 
     def _refresh_booking_related(self)->None:
@@ -158,12 +186,35 @@ class MainWindow(QMainWindow):
             if presenter is not None:presenter.load()
 
     def _logout(self) -> None:
-        self._invalidate_presenter_requests()
-        self.operation_executor.invalidate_session()
-        self._clear_preview_caches()
-        self.auth_service.logout()
-        self._presenters.clear()
-        self._show_login()
+        """Schedule logout after the current Qt signal finishes dispatching.
+
+        The logout request originates from a QPushButton that lives inside the
+        current ShellView. Replacing the QMainWindow central widget directly
+        from that button's ``clicked`` signal can destroy the sender while Qt
+        is still dispatching the native mouse event. On Windows this can abort
+        the process without a Python traceback. Deferring the central-widget
+        swap by one event-loop turn keeps the sender alive until signal
+        dispatch has completed.
+        """
+        if self._logout_pending:
+            return
+        self._logout_pending = True
+        shell = getattr(self, "shell", None)
+        logout_button = getattr(shell, "logout_button", None)
+        if logout_button is not None:
+            logout_button.setEnabled(False)
+        QTimer.singleShot(0, self._complete_logout)
+
+    def _complete_logout(self) -> None:
+        try:
+            self._invalidate_presenter_requests()
+            self.operation_executor.invalidate_session()
+            self._clear_preview_caches()
+            self.auth_service.logout()
+            self._presenters.clear()
+            self._show_login()
+        finally:
+            self._logout_pending = False
 
     def _invalidate_page(self, key: str | None, *, unless: str) -> None:
         if key is None or key == unless:

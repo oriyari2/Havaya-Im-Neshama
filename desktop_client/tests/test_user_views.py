@@ -153,6 +153,8 @@ class UserViewTests(TestCase):
 
         self.assertEqual(reset.password.echoMode(), QLineEdit.EchoMode.Password)
         self.assertEqual(set(reset.values()), {"password", "password_confirmation"})
+        self.assertLess(reset.height(), 520)
+        self.assertLess(edit.height(), 620)
 
     def test_manager_create_dialog_renders_labels_to_the_right_of_aligned_fields(self):
         dialog = CreateUserDialog()
@@ -199,8 +201,8 @@ class UserViewTests(TestCase):
         self.app.processEvents()
 
         policies = view.table._task20_column_sizer.policies
-        self.assertEqual([p.minimum_width for p in policies[:4]], [210, 240, 110, 170])
-        for column, minimum in enumerate((210, 240, 110, 170)):
+        self.assertEqual([p.minimum_width for p in policies[:4]], [210, 240, 126, 170])
+        for column, minimum in enumerate((210, 240, 126, 170)):
             self.assertGreaterEqual(view.table.columnWidth(column), minimum)
         self.assertEqual(view.table.columnCount(), 5)
 

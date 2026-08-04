@@ -14,7 +14,14 @@ BOOKING_QUERY_COLUMNS = (
     "b.id, b.customer_id, b.activity_id, b.event_at, b.city, b.venue, "
     "b.participant_count, b.agreed_price, b.status, b.requires_instructor, "
     "b.notes, b.version, b.created_at, b.updated_at, "
-    "c.name AS customer_name, a.name AS activity_name"
+    "c.name AS customer_name, "
+    "(SELECT cc.full_name FROM customer_contacts cc "
+    " WHERE cc.customer_id = c.id AND cc.is_active = true "
+    " ORDER BY cc.is_primary DESC, cc.created_at ASC, cc.id ASC LIMIT 1) AS customer_contact_name, "
+    "COALESCE((SELECT cc.phone FROM customer_contacts cc "
+    " WHERE cc.customer_id = c.id AND cc.is_active = true "
+    " ORDER BY cc.is_primary DESC, cc.created_at ASC, cc.id ASC LIMIT 1), c.phone) AS customer_phone, "
+    "a.name AS activity_name"
 )
 
 
@@ -198,9 +205,28 @@ def list_bookings(
         states = assignment_state if isinstance(assignment_state, list) else [assignment_state]
         assignment_clauses = []
         if "assigned" in states:
-            assignment_clauses.append("EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true)")
+            # Match the dashboard's assigned bucket exactly: every activity in
+            # an instructor-required booking must have an active instructor.
+            assignment_clauses.append(
+                "(b.requires_instructor = true "
+                "AND EXISTS (SELECT 1 FROM booking_activities ba WHERE ba.booking_id = b.id) "
+                "AND NOT EXISTS ("
+                "SELECT 1 FROM booking_activities ba "
+                "WHERE ba.booking_id = b.id "
+                "AND NOT EXISTS (SELECT 1 FROM booking_instructors bi WHERE bi.booking_activity_id = ba.id AND bi.active = true)"
+                "))"
+            )
         if "unassigned" in states:
-            assignment_clauses.append("(b.requires_instructor = true AND NOT EXISTS (SELECT 1 FROM booking_activities ba JOIN booking_instructors bi ON bi.booking_activity_id = ba.id WHERE ba.booking_id = b.id AND bi.active = true))")
+            # A booking belongs to the unassigned bucket when at least one of
+            # its activities is still missing an active instructor, including
+            # partially staffed multi-activity bookings.
+            assignment_clauses.append(
+                "(b.requires_instructor = true AND EXISTS ("
+                "SELECT 1 FROM booking_activities ba "
+                "WHERE ba.booking_id = b.id "
+                "AND NOT EXISTS (SELECT 1 FROM booking_instructors bi WHERE bi.booking_activity_id = ba.id AND bi.active = true)"
+                "))"
+            )
         if assignment_clauses:
             filters.append("AND (" + " OR ".join(assignment_clauses) + ")")
     if from_date is not None:
@@ -300,19 +326,16 @@ def get_dashboard_summary(cur, *, role: str, customer_id: UUID | None, instructo
 def get_open_events(cur, *, role: str, customer_id: UUID | None, instructor_id: UUID | None, now: object) -> list[dict]:
     if role not in {"manager", "instructor"}:
         return []
-    params: list[object] = [now]
+    params: list[object] = [instructor_id, now]
     cur.execute(
         f"""
         SELECT
             b.id,
-            COALESCE(
-                (SELECT ba.activity_id FROM booking_activities ba WHERE ba.booking_id = b.id ORDER BY ba.created_at ASC LIMIT 1),
-                b.activity_id
-            ) AS activity_id,
-            COALESCE(
-                (SELECT a.name FROM booking_activities ba JOIN activities a ON a.id = ba.activity_id WHERE ba.booking_id = b.id ORDER BY ba.created_at ASC LIMIT 1),
-                (SELECT a.name FROM activities a WHERE a.id = b.activity_id)
-            ) AS activity_name,
+            c.name AS customer_name,
+            open_activity.activity_id,
+            open_activity.booking_activity_id,
+            open_activity.my_request_status,
+            open_activity.activity_name,
             b.event_at,
             b.city,
             b.venue,
@@ -322,13 +345,18 @@ def get_open_events(cur, *, role: str, customer_id: UUID | None, instructor_id: 
             b.created_at,
             b.updated_at
         FROM bookings b
-        WHERE 1 = 1
-        AND b.event_at >= %s
-        AND b.status IN ('NEW', 'CONFIRMED')
-        AND b.requires_instructor = true
-        AND EXISTS (
-            SELECT 1
+        JOIN customers c ON c.id = b.customer_id
+        JOIN LATERAL (
+            SELECT
+                ba.id AS booking_activity_id,
+                ba.activity_id,
+                a.name AS activity_name,
+                bar.status AS my_request_status
             FROM booking_activities ba
+            JOIN activities a ON a.id = ba.activity_id
+            LEFT JOIN booking_assignment_requests bar
+              ON bar.booking_activity_id = ba.id
+             AND bar.instructor_id = %s
             WHERE ba.booking_id = b.id
               AND NOT EXISTS (
                   SELECT 1
@@ -336,7 +364,13 @@ def get_open_events(cur, *, role: str, customer_id: UUID | None, instructor_id: 
                   WHERE bi.booking_activity_id = ba.id
                     AND bi.active = true
               )
-        )
+            ORDER BY ba.sort_order, ba.created_at, ba.id
+            LIMIT 1
+        ) open_activity ON true
+        WHERE 1 = 1
+        AND b.event_at >= %s
+        AND b.status IN ('NEW', 'CONFIRMED')
+        AND b.requires_instructor = true
         ORDER BY b.event_at ASC, b.created_at ASC;
         """,
         params,

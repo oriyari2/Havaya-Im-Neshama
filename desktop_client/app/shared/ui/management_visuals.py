@@ -260,6 +260,12 @@ def apply_reference_list_layout(workspace, *, extra_toolbar_controls: tuple[QWid
     workspace.toolbar.search_input.setAlignment(_RIGHT)
     workspace.toolbar.sort_combo.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     workspace.toolbar.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+    # Complete local styles prevent the global QSS disabled/loading state from
+    # turning button text white on a pale background in Instructors/Managers.
+    style_reference_button(workspace.toolbar.search_button, "primary")
+    style_reference_button(workspace.toolbar.refresh_button, "secondary")
+    workspace.toolbar.search_button.setMinimumWidth(92)
+    workspace.toolbar.refresh_button.setMinimumWidth(88)
 
     toolbar_layout = workspace.toolbar.layout()
     if toolbar_layout is not None:
@@ -342,13 +348,16 @@ def apply_reference_detail_layout(
 
     workspace.identity_container.setObjectName("managementDetailIdentity")
     workspace.identity_container.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-    workspace.identity_container.setMinimumWidth(500)
-    workspace.identity_container.setMaximumWidth(640)
+    workspace.identity_container.setMinimumWidth(0)
+    workspace.identity_container.setMaximumWidth(16777215)
     workspace.identity_container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
     workspace.detail_title.setObjectName("managementDetailTitle")
     workspace.detail_title.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
     workspace.detail_title.setAlignment(_RIGHT)
+    workspace.detail_title.setWordWrap(True)
+    workspace.detail_title.setMinimumHeight(max(42, workspace.detail_title.fontMetrics().lineSpacing() * 2))
+    workspace.detail_title.setMaximumHeight(16777215)
     workspace.detail_title.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
     workspace.detail_status.setObjectName("managementDetailStatus")
@@ -361,44 +370,61 @@ def apply_reference_detail_layout(
     workspace.detail_subtitle.setObjectName("managementDetailSubtitle")
     workspace.detail_subtitle.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     workspace.detail_subtitle.setAlignment(_RIGHT)
-    workspace.detail_subtitle.setMaximumWidth(620)
-    workspace.detail_subtitle.setMinimumHeight(52)
-    workspace.detail_subtitle.setMaximumHeight(58)
+    workspace.detail_subtitle.setMaximumWidth(16777215)
+    # Reserve at least two complete text lines. QLabel word-wrap can otherwise
+    # report a one-line size hint before the final width is known, which clips
+    # the second line in detail headers on Windows/Qt.
+    workspace.detail_subtitle.setMinimumHeight(
+        workspace.detail_subtitle.fontMetrics().lineSpacing() * 2 + SPACE_1
+    )
+    workspace.detail_subtitle.setMaximumHeight(16777215)
     workspace.detail_subtitle.setWordWrap(True)
     workspace.detail_subtitle.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
 
     if identity_layout is not None:
-        identity_layout.addWidget(workspace.detail_title, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute)
-        identity_layout.addWidget(workspace.detail_status, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute)
-        identity_layout.addWidget(workspace.detail_subtitle, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute)
+        # Do not attach horizontal layout alignment to the text labels. An
+        # aligned QLayoutItem is constrained to its size hint instead of using
+        # the full header width, which made wrapped subtitles appear clipped.
+        # The QLabel alignment itself still keeps all text physically right-aligned.
+        identity_layout.addWidget(workspace.detail_title)
+        identity_layout.addWidget(
+            workspace.detail_status,
+            0,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignAbsolute,
+        )
+        identity_layout.addWidget(workspace.detail_subtitle)
 
     header = workspace.detail_header
     header.setObjectName("managementDetailHeader")
     header.setProperty("managementDetailHeader", True)
     header.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-    header.setMinimumHeight(168)
+    header.setMinimumHeight(216)
+    header.setMaximumHeight(16777215)
+    header.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
     header_layout = header.layout()
     if header_layout is not None:
         while header_layout.count():
             header_layout.takeAt(0)
-        header_layout.setDirection(QBoxLayout.Direction.LeftToRight)
+        # Two vertical regions preserve the approved right-aligned identity and
+        # bottom-left actions without forcing them to compete for one horizontal
+        # line. Long names, statuses and subtitles therefore remain readable.
+        header_layout.setDirection(QBoxLayout.Direction.TopToBottom)
         header_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
-        header_layout.setSpacing(SPACE_4)
+        header_layout.setSpacing(SPACE_3)
+        # Let the identity region consume the full available width. The labels
+        # inside it perform their own right alignment, while the expanded width
+        # gives wrapped title/subtitle text enough room to render completely.
+        header_layout.addWidget(workspace.identity_container)
+        header_layout.addStretch(1)
         header_layout.addWidget(
             workspace.actions_container,
             0,
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignAbsolute,
         )
-        header_layout.addStretch(1)
-        header_layout.addWidget(
-            workspace.identity_container,
-            0,
-            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignAbsolute,
-        )
 
     workspace.actions_container.setObjectName("managementDetailActions")
     workspace.actions_container.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
-    workspace.actions_container.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Preferred)
+    workspace.actions_container.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
     action_layout = workspace.actions
     while action_layout.count():
         action_layout.takeAt(0)
@@ -535,8 +561,10 @@ def style_reference_form(form: QFormLayout, *, label_width: int = 136) -> None:
 
 def _style_action_button(button: QPushButton, role: str) -> None:
     button.setProperty("managementDetailAction", role)
-    button.setMinimumWidth(124)
-    button.setMaximumWidth(152)
+    # Use one generous width for lifecycle actions. It keeps the visual rhythm
+    # consistent and fits labels such as "הפעלת מדריך מחדש" in full.
+    button.setMinimumWidth(176)
+    button.setMaximumWidth(176)
     button.setMinimumHeight(42)
     button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
 

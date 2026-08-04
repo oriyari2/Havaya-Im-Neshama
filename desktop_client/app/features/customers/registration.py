@@ -37,4 +37,5 @@ def register(context: FeatureContext) -> None:
             context.executor,
         )
         view.retry_requested.connect(presenter.retry)
+        view.edit_requested.connect(presenter.begin_edit)
         context.add_page("my_profile", view, presenter)

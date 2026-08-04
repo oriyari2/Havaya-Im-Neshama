@@ -117,6 +117,12 @@ def get_customer_for_user(customer_id: UUID, current_user: dict) -> tuple[dict, 
     return customer, contacts
 
 
+def update_my_profile(payload, current_user: dict) -> tuple[dict, list[dict]]:
+    if current_user.get("role") != "customer" or current_user.get("customer_id") is None:
+        raise CustomerAccessDeniedError
+    return update_customer(UUID(str(current_user["customer_id"])), payload)
+
+
 def create_customer(payload: CustomerCreate) -> tuple[dict, list[dict]]:
     data = payload.model_dump()
     contact_name = data.pop("contact_name")

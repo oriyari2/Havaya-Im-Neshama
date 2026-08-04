@@ -98,6 +98,10 @@ QPushButton[buttonRole="managementPrimary"] {{ min-height: {CONTROL_HEIGHT_COMPA
 QPushButton[buttonRole="managementPrimary"]:hover {{ background: {COLOR_BRAND_HOVER}; border-color: {COLOR_BRAND_HOVER}; }}
 QPushButton[buttonRole="managementPrimary"]:pressed {{ background: {COLOR_BRAND_PRESSED}; border-color: {COLOR_BRAND_PRESSED}; }}
 QPushButton[buttonRole="managementPrimary"]:disabled {{ background: {COLOR_DISABLED_BACKGROUND}; color: {COLOR_DISABLED_TEXT}; border-color: {COLOR_BORDER}; }}
+#pageScaffold QPushButton#activitySearchButton {{ min-width: 88px; padding: 0 {SPACE_3}px; background: {COLOR_BRAND}; color: white; border-color: {COLOR_BRAND}; font-weight: {FONT_WEIGHT_LABEL}; }}
+#pageScaffold QPushButton#activitySearchButton:hover {{ background: {COLOR_BRAND_HOVER}; border-color: {COLOR_BRAND_HOVER}; color: white; }}
+#pageScaffold QPushButton#activitySearchButton:pressed {{ background: {COLOR_BRAND_PRESSED}; border-color: {COLOR_BRAND_PRESSED}; color: white; }}
+#pageScaffold QPushButton#activitySearchButton:disabled {{ background: {COLOR_BRAND_SOFT}; color: {COLOR_BRAND}; border-color: {COLOR_BORDER_STRONG}; font-weight: {FONT_WEIGHT_LABEL}; }}
 QPushButton[destructive="true"] {{ color: {COLOR_ERROR}; border-color: {COLOR_ERROR}; }}
 QDialog#task20Dialog {{ background: {COLOR_BACKGROUND}; }}
 QDialog#task20Dialog QLabel[dialogLead="true"] {{ color: {COLOR_TEXT_MUTED}; font-size: {FONT_SIZE_BODY}px; }}
@@ -279,8 +283,8 @@ QLabel[feedback="error"], #errorLabel {{ color: {COLOR_ERROR}; background: {COLO
 QLabel[bookingState="NEW"] {{ color: {COLOR_WARNING}; background: {COLOR_WARNING_BACKGROUND}; }}
 QLabel[bookingState="CONFIRMED"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; }}
 QLabel[bookingState="COMPLETED"], QLabel[bookingState="CANCELLED"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; }}
-QLabel[active="true"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
-QLabel[active="false"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[active="true"], QLabel[statusTone="success"] {{ color: {COLOR_SUCCESS}; background: {COLOR_SUCCESS_BACKGROUND}; border-radius: 9px; padding: 3px 8px; }}
+QLabel[active="false"], QLabel[statusTone="neutral"] {{ color: {COLOR_TEXT_MUTED}; background: {COLOR_SURFACE_ALT}; border-radius: 9px; padding: 3px 8px; }}
 QFrame#sharedFilterPopup {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: 12px; }}
 QFrame#filterPopupSection, QFrame#filterPopupSectionHeader, QFrame#filterPopupFooter, QScrollArea#filterPopupScroll, QScrollArea#filterPopupScroll > QWidget > QWidget {{ background: transparent; border: none; }}
 QFrame#filterPopupSectionHeader:hover {{ background: {COLOR_SURFACE_ALT}; border-radius: {RADIUS_SMALL}px; }}

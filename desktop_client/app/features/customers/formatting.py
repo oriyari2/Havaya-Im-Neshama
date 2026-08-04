@@ -12,6 +12,15 @@ def _date(value: str | None) -> str:
         return value
 
 
+def _date_only(value: str | None) -> str:
+    if not value:
+        return "—"
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).astimezone().strftime("%d/%m/%Y")
+    except ValueError:
+        return value
+
+
 def customer_row(item: dict) -> dict[str, str | bool]:
     return {
         "id": str(item["id"]),
@@ -21,6 +30,10 @@ def customer_row(item: dict) -> dict[str, str | bool]:
         "phone": item.get("phone") or "—",
         "email": item.get("email") or "—",
         "is_active": bool(item.get("is_active")),
+        # The list API already returns created_at. Preserve it in the row
+        # model so the Customers table can render the join date instead of a
+        # permanent em dash.
+        "join_date": _date_only(item.get("created_at")),
     }
 
 
