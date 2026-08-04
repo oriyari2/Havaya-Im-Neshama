@@ -172,22 +172,15 @@ Compilation is validated with:
 
 ## Screenshots
 
-- [Before redesign](../screenshots/task-25-1-customers-before.png)
-- [List before final polish](../screenshots/task-25-1-customers-list-before-final-polish.png)
-- [Customer Details before final polish](../screenshots/task-25-1-customer-details-before-final-polish.png)
-- [Create dialog before final polish](../screenshots/task-25-1-customer-create-before-final-polish.png)
-- [Edit dialog before final polish](../screenshots/task-25-1-customer-edit-before-final-polish.png)
-- [Customer list finalized](../screenshots/task-25-1-customers-list-after.png)
-- [Optional filters finalized](../screenshots/task-25-1-customers-filters-after.png)
-- [Customer Details finalized](../screenshots/task-25-1-customer-details-after.png)
-- [Create dialog finalized](../screenshots/task-25-1-customer-create-after.png)
-- [Edit dialog finalized](../screenshots/task-25-1-customer-edit-after.png)
-- [List before final UX polish](../screenshots/task-25-1-customers-list-before-final-ux-polish.png)
-- [Details before final UX polish](../screenshots/task-25-1-customer-details-before-final-ux-polish.png)
-- [Create dialog before final UX polish](../screenshots/task-25-1-customer-create-before-final-ux-polish.png)
-- [Edit dialog before final UX polish](../screenshots/task-25-1-customer-edit-before-final-ux-polish.png)
-- [First-use empty state finalized](../screenshots/task-25-1-customers-empty-after.png)
-- [Filtered no-results state finalized](../screenshots/task-25-1-customers-no-results-after.png)
+Historical Task 25.1 screenshot names referenced by earlier iterations are not
+present in the supplied repository. Current Customer visual evidence is stored
+under `docs/screenshots/` and comes from the later branded consolidation:
+
+- [Manager shell](../screenshots/task-25-5-customers-manager-shell.png)
+- [Manager shell at 1024](../screenshots/task-25-5-customers-manager-shell-1024.png)
+- [RTL alignment](../screenshots/task-25-5-customers-rtl-alignment.png)
+- [RTL alignment in shell](../screenshots/task-25-5-customers-rtl-alignment-shell.png)
+- [Final header composition](../screenshots/task-25-5-customers-header-rtl-composition.png)
 
 ## Final completion amendment
 
@@ -281,3 +274,27 @@ Current focused Customer view tests still expose unrelated existing contract
 drift around the Customer table column count/hidden action column and the prior
 144 px hero-height expectation. Those table/legacy-size expectations were not
 changed as part of this alignment-only amendment.
+
+## Final-state supersession note — August 2026
+
+The historical sections above document intermediate Task 25.1 iterations. The
+final branded Customer implementation supersedes several earlier geometry and
+column statements:
+
+- the current Customer list is an eight-column table: serial number, name,
+  phone, email, city, status, join date, and the trailing row action;
+- the Customer hero is fixed at 180 px and owns the existing title/subtitle and
+  `לקוח חדש` action;
+- `PageScaffold.header` remains as the shared object but is reduced to zero
+  height after its visible widgets are moved into the hero;
+- row actions live at the end of the table rather than in a leading
+  "open" column;
+- current entity dialogs use the shared `EntityFormDialog` composition with a
+  700 px minimum width and 840 px maximum width, section/field label properties,
+  scrollable content, and actions outside the scroll area;
+- Customer Details uses shared card/property-row primitives and the current
+  single-contact product boundary.
+
+Final regression updated stale tests to these contracts without changing
+production behavior. `test_customer_views.py` passes 16/16 in the final
+validation session. See `docs/piv/final-validation.md`.

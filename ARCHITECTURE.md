@@ -3,22 +3,14 @@
 The PRD remains the source of truth. The desktop implementation uses explicit
 MVP and API boundaries:
 
-## Planning sequence after Task 21
+## Current implementation baseline
 
-The authoritative execution order is defined by `docs/PROJECT-ROADMAP.md`:
-
-1. completed architecture/backend/desktop/CQRS/Event Sourcing/User
-   Administration foundation (Tasks 01–21);
-2. background execution, API/screen performance, refresh reduction, bounded
-   caching, reliability, security, and responsiveness (Tasks 22–24);
-3. Desktop visual design, UI consistency, UX, accessibility, and responsive
-   layout (Tasks 25–28);
-4. remaining Ollama/RAG/semantic-search/AI experience work (Tasks 29–30);
-5. stabilization, performance verification, regression, packaging, and final
-   release audit (Tasks 31–33).
-
-This ordering changes scheduling, not architectural ownership. Historical Task
-and PIV references to old future-task numbers are superseded by the roadmap.
+The authoritative product scope is `docs/PRD.md`; current submission sequencing
+is in `docs/PROJECT-ROADMAP.md`. Tasks 01–25.x are historical development
+increments, not an instruction to add more features. The current source tree
+already contains the performance/background-execution foundation, branded
+Desktop system, grounded RAG consultation and AI runtime readiness. Remaining
+work is release/submission verification.
 
 ```text
 desktop_client/app/
@@ -105,11 +97,9 @@ loading, success, empty, validation, authorization, connection/server, stale,
 and session-expiry behavior without importing PySide6. Passive shared widgets
 render that state and emit intent; they do not classify errors, access
 services, or decide authorization. The bounded pilot is Login, Shell,
-Customers, Customer/Contact dialogs, and shared state components. Temporary
-neutral tokens are structural only; Task 25 owns the next visual-system design
-and Tasks 26–28 apply it across the desktop. Task 20 does not implement
-production-wide background threading; Task 22 owns the reusable
-long-running-operation pattern.
+Customers, Customer/Contact dialogs, and shared state components. Task 20 introduced the neutral structural foundation. The later Task 25.x
+work now applies the branded visual system across the current Desktop modules.
+Task 22 owns the reusable long-running-operation pattern.
 
 The View foundation standardizes an ordered `PageScaffold` composition
 (`PageHeader`, optional feedback/actions/filters, stretching main content with an
@@ -229,3 +219,22 @@ Presenter identity are invalidated so its result/error cannot render. Mutation
 keys remain non-cancellable after dispatch and retain duplicate guards until
 authoritative completion. Views remain passive, Presenters Qt-free, and workers
 widget-free.
+
+## Final presentation and AI runtime boundaries
+
+The final Desktop visual system remains a View-layer concern. Shared tokens,
+QSS roles, `ManagementWorkspace`, management heroes and reference list/detail
+helpers style the application without moving business rules out of Presenters or
+the backend. Login, Dashboard, Customers, Instructors, Managers, Activities,
+Bookings, Knowledge Management and AI consultation are all composed within the
+same role-aware executable while retaining feature-specific Presenter/Service
+boundaries.
+
+AI runtime startup opens the bounded PostgreSQL connection pool and performs a
+non-fatal Ollama generation-model warm-up. Manager-only `/api/ai/readiness`
+reports database-pool availability, Ollama reachability, generation/embedding
+model availability and warm generation state. Current defaults are `llama3.1`,
+`nomic-embed-text-v2-moe`, a 600-second generation timeout, `num_predict=2000`,
+`keep_alive=30m`, and a database pool bounded to five connections.
+
+Final regression evidence is documented in `docs/piv/final-validation.md`.

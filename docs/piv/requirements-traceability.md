@@ -1,879 +1,178 @@
-Requirements Traceability and Next Tasks
-
-Purpose
-
-This file maps the PRD requirements to implementation tasks so the project stays aligned with the academic MVP requirements.
-
-The goal is not to add features randomly. Each development task should clearly answer:
-
-Which PRD requirement does this satisfy?
-
-Which files or modules implement it?
-
-How can it be validated?
-
-What evidence can be shown in the final project submission?
-
-Current Status
-
-Area
-
-PRD requirements
-
-Current status
-
-Notes
-
-Project skeleton
-
-Architecture, Git workflow, PIV artifacts
-
-Started
-
-Task 01 exists
-
-Supabase PostgreSQL
-
-Cloud database, schema, persistence
-
-Started / partly implemented
-
-Task 02 and DB schema exist
-
-Hebrew demo data
-
-Seed data, no private real data
-
-Implemented
-
-Task 03 completed
-
-Customer API
-
-FR-CUS-01, FR-CUS-02, FR-CUS-03
-
-Backend API implemented
-
-Task 04 completed at API level
-
-Customer UI
-
-FR-CUS-01, FR-CUS-02, FR-CUS-03
-
-Task 12 Milestone 12B implemented
-
-Manager customer/contact management and customer-owned read-only profile are
-implemented through `CustomerService`, role-specific presenters, and passive
-PySide6 views. Contacts remain nested in Customer Details. Manager customer
-Delete is physical only for profiles without booking/event/user dependencies;
-protected references return 409 and owned contacts alone cascade.
-
-Authentication and RBAC
-
-FR-AUTH-01, FR-AUTH-02
-
-Backend implemented and hardened
-
-Task 05 adds login, current-user retrieval, hashed demo users, PyJWT bearer tokens, environment-backed AUTH_SECRET_KEY configuration, reusable auth helpers, manager-only customer/contact mutations, authenticated customer/contact reads, customer-owned customer/contact reads, instructor read denial until a clear relationship exists, and local-only guarded /system/init-db. Task 09 implements booking ownership and Task 10 implements role-based desktop navigation and authenticated API sessions for `FR-AUTH-03` and `FR-AUTH-04`.
-
-Manager User and Role Administration
-
-PRD manager user/role permission, User Administration screen, `FR-AUTH-01`,
-`FR-AUTH-02`, `FR-AUTH-03`, `NFR-02`, `NFR-04`, `NFR-05`, `NFR-07`,
-`NFR-09`, `NFR-10`
-
-Implemented, approved, committed, and pushed
-
-Task 21 implements lean manager-created user administration on the Task 20
-desktop foundation. It covers list/search/role-status filters, immediate account
-creation for the three existing roles, safe detail, email-only edit, activate/
-deactivate, direct Manager password reset, case-insensitive email uniqueness,
-atomic creation of a new Customer plus primary Contact or a new Instructor with
-the same email used as the linked User login, one-to-one links, inactive-login
-rejection, backend Manager authorization, and secret non-exposure. Role and
-profile link are immutable after creation, and existing profiles are never
-selected or reused during normal creation. Public registration, verification,
-MFA/OTP, first-login change, reset delivery/tokens, `auth_version`, forced
-session invalidation, audit/event systems, optimistic versioning, complex role/
-profile transitions, and physical deletion are explicitly excluded. Manager-
-only FastAPI authorization, safe schemas, application/repository persistence,
-the Task 20-based passive desktop View and Qt-free Presenter, and focused/full
-regression tests provide implementation evidence.
-
-The product-consistency amendment keeps User as an internal identity concept:
-Customers owns atomic Customer + Customer User creation, Instructors owns
-atomic Instructor + Instructor User creation, and the former generic Desktop
-screen is a Manager-only module scoped permanently to Manager accounts. All
-three entry points reuse the same manager-authorized `/users` transaction and
-existing authentication/password rules. Profile names and credentials are
-required; other Customer/Instructor business fields are optional. Task 21 is
-closed; the broader project is not complete.
-
-Activity catalog
-
-FR-ACT-01, FR-ACT-02, FR-ACT-04
-
-Backend and Task 12 desktop workflows implemented
-
-Task 06 adds authenticated activity list/search/detail/create/update/soft-delete API, additive PostgreSQL persistence fields for target audience, duration, recommended capacity, pricing rule, required equipment, preparation notes, season, and tags, manager-only mutations, active-only instructor/customer reads, Hebrew search validation, and PIV documentation. Task 12 Milestone 12C adds manager textual management and the active-only instructor/customer desktop catalog with search, filters, pagination, details, and role-safe controls.
-
-Activity image Gateway
-
-FR-ACT-03, Gateway course requirement
-
-Backend API and desktop workflow implemented
-
-Task 07 adds activity image persistence, manager-only upload/delete endpoints,
-customer/instructor read visibility for active activities, activity response
-image URLs, and a Cloudinary adapter behind an application-owned Gateway
-abstraction. Task 19 completes the desktop slice: manager upload/delete is
-embedded in Activities, instructor/customer active-activity previews are
-read-only, public preview downloads omit the bearer token, and a bounded
-memory-only cache never writes preview images to disk.
-
-Booking Event Sourcing
-
-FR-BKG-01 to FR-BKG-06
-
-Backend core and manager desktop command workflows implemented
-
-Task 08 adds booking-only Event Sourcing and CQRS core: `booking_events` append-only event store, `bookings` projection, `booking_instructors` activity-scoped current-assignment projection keyed by `booking_activity_id` and `instructor_id`, booking aggregate replay, manager command handlers, projection-based query handlers, optimistic concurrency, chronological history API, and replay API. Implemented events are `BookingCreated`, `BookingStatusChanged`, `BookingDateChanged`, `BookingPriceChanged`, `BookingLocationChanged`, `BookingParticipantCountChanged`, `BookingNotesUpdated`, `BookingInstructorAssigned`, and `BookingInstructorRemoved`. Dashboard/open-event queries are deferred to Task 09. Activity images and activities are not event-sourced.
-
-Task 11 connects the desktop manager workflow to creation, status, schedule,
-price, location, participant-count, and notes command endpoints. Each update
-sends the current projection version and refreshes the query views afterward.
-
-Instructor management
-
-FR-INS-01 to FR-INS-04
-
-Instructor CRUD/profile, assigned/open booking backend, and role UI implemented
-
-Task 12D implements `FR-INS-01` manager instructor profile CRUD and the
-instructor-owned read-only profile. Manager Delete is physical only when no
-user, active/removed assignment, or immutable event references the profile;
-protected references return 409. `FR-INS-02` and `FR-INS-03` are visible in
-Task 10. Task 08 implements assignment/removal commands for `FR-INS-04`; its
-manager desktop assignment UI and focused role-safe read models are implemented
-in Task 12 Milestone 12E using the existing event-sourced commands.
-Task 12 Milestone 12F adds paged/filtered role-scoped desktop booking lists,
-readable projection names, manager completion through the existing status
-event, operational dashboard drill-down, local Open Events search, and
-role-synchronized navigation without weakening server authorization.
-
-Dashboard
-
-FR-DASH-01 to FR-DASH-03
-
-Backend API and Task 10 desktop presentation implemented
-
-Task 09 adds role-aware upcoming status and assignment counts, assigned-booking
-views, eligible instructor open events, and customer-owned compact booking
-summaries. Task 10 presents these through role-specific PySide6 dashboard,
-booking, open-event, detail, and my-bookings screens.
-
-RAG AI assistant
-
-FR-AI-01 to FR-AI-06
-
-Infrastructure started
-
-Task 13 adds local Ollama connection infrastructure: `OLLAMA_URL` configuration
-defaulting to `http://localhost:11434`, an importable `rag` package, an
-application-facing `LLMClient` interface, and an `OllamaLLMClient` that posts
-non-streaming generation requests to `/api/generate`. Retrieval, role-filtered
-knowledge access, citations, API endpoints, and desktop UI remain future tasks.
-Task 14 adds authenticated `POST /api/ai/consult`, injects the `LLMClient`
-through an AI consultation service, and adds a PySide6 MVP chat screen available
-from manager, instructor, and customer navigation. The assistant remains
-read-only and currently answers from the base model only; approved-knowledge
-retrieval, role-filtered citations, and abstention behavior remain future work.
-Task 15 adds the approved-knowledge ingestion foundation for `FR-AI-07`: a
-PostgreSQL `knowledge_chunks` table using pgvector, an Ollama embedding client,
-a manager-only `POST /api/rag/knowledge` endpoint, chunking and hashing in an
-application service, and repository-layer persistence tests. Retrieval,
-role-filtered similarity search, citations, and insufficient-context abstention
-remain future work.
-Task 16 implements standalone role-aware semantic retrieval for `FR-AI-02`,
-`FR-AI-05`, and `FR-AI-07`: authenticated `POST /api/rag/search` embeds the
-query with the existing Ollama embedding client, searches `knowledge_chunks`
-with pgvector cosine distance, filters by embedding model/dimensions and
-authenticated role inside the repository SQL, excludes weak matches using the
-code-level cosine-distance threshold constant in
-`backend/app/core/environment.py`, and returns ordered approved chunks without
-exposing embeddings. The request schema rejects unexpected authorization fields,
-and temporary Task 16 live-validation rows must be cleaned up after validation.
-Focused Task 16 tests passed at 14 tests and the full backend suite passed at
-141 tests. Hebrew unrelated-query validation showed very low cosine distances
-for unrelated text, so Task 16 is completed retrieval infrastructure rather than
-proof of reliable Hebrew semantic retrieval. A controlled diagnostic verified
-that the two Hebrew paraphrase queries produce different outgoing request text
-and different vectors through both `OllamaEmbeddingClient` and direct
-`POST /api/embed`; the earlier identical-vector observation is classified as a
-validation-script/input-encoding defect. Retrieved context is not yet integrated
-into the AI consultation prompt, so AI citations and abstention during answer
-generation remain future work. Continue Task 16 rather than creating a new task:
-investigate Hebrew retrieval quality and mitigation before Task 17. Task 17
-remains blocked until Hebrew retrieval quality is understood or corrected, or an
-evidence-based mitigation is selected.
-
-Task 16 continuation activates the selected production embedding strategy:
-ingestion embeds enriched document text through
-`format_document_embedding_input` while preserving original chunk content and
-metadata in `knowledge_chunks`; retrieval embeds queries through
-`format_query_embedding_input`. The active defaults are
-`nomic-embed-text-v2-moe`, `RAG_MAX_COSINE_DISTANCE = 0.58`, and
-`RAG_RETRIEVAL_TOP_K = 5`. The repeatable
-`rag/reset_task16_demo_knowledge.py` procedure deletes only disposable
-`knowledge_chunks` rows, reingests the approved demo knowledge, verifies 768
-dimensions, runs Hebrew relevant/unsupported probes, checks fail-closed
-authorization, and compares unrelated table counts before and after reset. Live
-validation deleted 8 rows, recreated 8 rows, confirmed all rows use
-`nomic-embed-text-v2-moe` with 768 dimensions, retrieved expected Hebrew demo
-sources, returned no unsupported-query results at threshold `0.58`, and left
-`users`, `customers`, `activities`, `bookings`, and `booking_events` counts
-unchanged.
-
-Task 17 connects the existing role-aware retrieval service to authenticated
-`POST /api/ai/consult` for `FR-AI-01` through `FR-AI-06`. The AI consultation
-service now retrieves approved chunks using only the authenticated role before
-calling the LLM. Empty retrieval results return the fixed no-information answer
-with `answer_basis="none"` and skip generation. Retrieved chunks are numbered
-inside a strict prompt that forbids general knowledge, web knowledge, guessing,
-and unsupported details, requires inline `[n]` citations, and requires the exact
-`INSUFFICIENT_CONTEXT` sentinel when evidence is insufficient. Sentinel
-responses and uncited answers are treated as no answer. Successful RAG answers
-return `answer_basis="rag"` and only the cited source records used by the
-answer. The desktop chat minimally displays returned source titles and URIs
-under RAG answers. No AI endpoint mutates operational data.
-
-Task 18 implements manager-only approved knowledge-source management for
-`FR-AI-07`. Managers can create pasted-text sources, upload UTF-8 `.txt` and
-`.md` documents up to the shared `50,000` character source content limit, list
-logical sources, view original content, replace a source, and delete a source.
-A stable `metadata.source_id` groups all
-chunks for one document while preserving the existing `knowledge_chunks`
-retrieval path. Source metadata includes title, optional file/source URI,
-category, optional activity name, original content, and configurable
-`allowed_roles`; unknown roles are rejected and `manager` is always retained.
-Replacement and deletion target only chunks with the selected source ID.
-Management APIs are manager-only, do not expose embeddings, and do not weaken
-Task 16 role-aware retrieval or Task 17 RAG-only consultation. A minimal
-manager-only PySide6 MVP screen was added for this workflow. Task 18 final
-hardening adds a one-time cleanup for known disposable Task 16 demo rows without
-a valid managed `metadata.source_id`, preserves newly managed and non-demo
-legacy sources, and ensures
-desktop replacement reads selected `.txt`/`.md` file content and filename
-through shared validation before replacing the selected source.
-
-Required course/PRD concept
-
-Docker/Ollama
-
-Docker, AI service
-
-Ollama client configuration implemented
-
-Docker setup and model download were handled manually outside this task. Task
-13 connects backend Python infrastructure to the expected local Ollama service
-at `http://localhost:11434`.
-
-PySide6 desktop MVP
-
-Desktop GUI, MVP pattern, modular UI
-
-Booking/dashboard read and manager command slices implemented
-
-Task 10 adds FastAPI-backed sign-in, Hebrew RTL role navigation, passive views,
-UI-independent presenters, dashboard summaries, assigned/my booking lists,
-booking details, manager history, eligible open events, and standard loading,
-empty, and error states. Task 11 adds manager-only create, confirm, cancel, and
-supported field-edit workflows while keeping instructor/customer views
-read-only. Customer/activity management and instructor assignment UI remain
-future desktop work.
-
-Recommended Task Order From Now
-
-Task 05 - Backend Structure Alignment
-
-Status: Implemented as a small structure cleanup after Task 04.
-
-Before adding more modules, align the backend structure with the PRD architecture:
-
-backend/app/schemas for Pydantic request/response models.
-
-backend/app/api/v1/routers for FastAPI routers.
-
-backend/app/application for services, commands, and queries.
-
-backend/app/infrastructure/repositories for DB access.
-
-backend/app/domain for domain rules and booking aggregate later.
-
-Do not rewrite everything if the current code works. Make a small, practical cleanup so future modules do not become messy.
-
-Validation:
-
-Existing customer/contact API behavior still works.
-
-compileall passes.
-
-Documentation notes the chosen structure.
-
-Task 05 - Authentication and RBAC
-
-Status: Implemented and hardened.
-
-Implemented:
-
-Users table.
-
-Hashed demo users for manager, instructor, and customer.
-
-POST /auth/login.
-
-GET /auth/me.
-
-Reusable current-user and require-role helpers.
-
-Manager-only customer/contact mutation routes.
-
-Authenticated customer/contact read routes.
-
-Resource-aware customer read rules for manager and customer roles.
-
-Local/development/test-only `/system/init-db`, additionally gated by `INIT_DB_ENABLED=true`.
-
-Validation:
-
-compileall passes.
-
-HTTP/database-backed manual checks passed for login, current-user behavior, invalid password 401, missing/invalid token 401 on customer/contact reads, non-manager mutation 403, customer cross-resource read 403, customer own-resource read 200, manager customer/contact read and mutation access, and disabled `/system/init-db` 403.
-
-Task 06 - Activities CRUD API
-
-Status: Implemented at backend API level.
-
-This should come before role-specific UI and before booking/customer ownership behavior.
-
-Required by FR-ACT-01 and FR-ACT-02.
-
-Implemented:
-
-Create/list/search/detail/update/deactivate activities.
-
-Include equipment and preparation notes.
-
-Keep image upload out of this task unless the Gateway is already ready.
-
-Validation:
-
-Hebrew activity data can be searched.
-
-Activity catalog can be read by non-manager roles where permitted.
-
-Mutations are restricted by role after RBAC exists.
-
-FR-ACT-01 is implemented end to end for textual activity management. FR-ACT-02
-includes textual catalog data and Task 19 desktop image display. FR-ACT-04 is
-implemented for backend authorization and role-safe read-only desktop media.
-FR-ACT-03 is implemented end to end by Task 07 backend/Gateway/API support and
-Task 19 manager desktop upload/delete.
-
-Task 07 - Cloudinary Gateway and Activity Images
-
-Required by FR-ACT-03 and the course Gateway requirement.
-
-Status: Implemented at backend/Gateway/API level.
-
-Implemented:
-
-Gateway interface for activity image upload.
-
-Cloudinary implementation behind the Gateway.
-
-API endpoints for upload, list, and delete.
-
-Store external asset metadata in activity_images.
-
-Activity list/detail image metadata for display.
-
-Safe controlled errors when upload/delete fails.
-
-Validation:
-
-Business logic does not import Cloudinary directly.
-
-Image upload returns asset_id and secure_url.
-
-Activity details can display the saved image URL.
-
-FR-ACT-02 includes textual catalog data, image URL exposure, and Task 19 desktop
-display. FR-ACT-03 is complete through the Task 07 Gateway/API and Task 19
-manager desktop workflow. FR-ACT-04 includes read-only active-activity image
-visibility for customers and instructors in both API and desktop catalog.
-
-Task 08 - Booking Event Sourcing and CQRS Core
-
-This is the most important architecture task for the grade.
-
-Required by FR-BKG-01 to FR-BKG-06.
-
-Status: Implemented at backend core/API level for booking creation, supported updates, booking-activity instructor assignment/removal, history, replay, projection reads, optimistic concurrency, and role-aware booking read authorization. Managers can see all bookings, customers see only their own bookings, and instructors see only bookings where they are an active assignment.
-
-Task 09 - Dashboard and Booking Queries
-
-Required by FR-DASH-01 to FR-DASH-03 and FR-BKG-07.
-
-Status: Implemented at backend/API level for filtered booking lists, dashboard
-summaries at `GET /bookings/dashboard`, eligible instructor open-event queries at
-`GET /bookings/open-events`, and customer-owned compact summaries at
-`GET /bookings/my-bookings`. The dashboard exposes upcoming status counts plus
-mutually exclusive `assigned_count` and `unassigned_count` booking counts.
-Instructor list/detail responses exclude customer ID, agreed price, and notes;
-open-event responses additionally omit participant count.
-
-Implement:
-
-Booking aggregate.
-
-Booking command handlers.
-
-Append-only booking_events.
-
-Rebuildable bookings projection.
-
-Versioning and optimistic concurrency.
-
-Replay function.
-
-Tests proving replay reconstructs projection.
-
-Assign/remove instructor for a booking activity through booking events.
-
-Validation:
-
-Creating a booking appends BookingCreated.
-
-Each supported update appends the correct event.
-
-Projection matches replayed state.
-
-Stale expected version is rejected.
-
-Application API does not update/delete event rows.
-
-Task 09 - Booking Queries, History, Instructor Assignment, Dashboard API
-
-Required by booking, instructor, and dashboard requirements.
-
-Implement:
-
-Booking list filters.
-
-Booking details.
-
-Booking history.
-
-Assign/remove instructor through booking events.
-
-Open events requiring instructor.
-
-Dashboard summary counts.
-
-Validation:
-
-Manager sees all relevant data.
-
-Instructor sees assigned and eligible open events only.
-
-Customer ownership rules work after auth is connected.
-
-Task 10 - Desktop Booking and Dashboard UI
-
-Status: Implemented.
-
-Implement:
-
-FastAPI-backed login and bearer-token session.
-
-Role-based shell/navigation.
-
-Dashboard, bookings, details/history, open events, and my-bookings packages
-using MVP boundaries.
-
-Role-safe booking presentation plus loading, empty, and error states.
-
-Validation:
-
-Desktop starts on Windows.
-
-Hebrew RTL layout is readable.
-
-All operational data flows through FastAPI, not direct database access.
-
-Task 11 - Desktop Booking Command Workflows
-
-Status: Implemented.
-
-Implemented:
-
-- Manager booking creation using active customer/activity selectors.
-- Confirm, cancel with confirmation, and supported granular field edits.
-- Optimistic version propagation, duplicate-submit prevention, projection
-  refresh, and command error states.
-
-Deferred after Task 11: instructor assignment UI and customer/activity
-management. Customer management is now implemented in Task 12B and activity
-management/catalog in Task 12C.
-
-Task 12 - Complete Desktop Functional Management Coverage
-
-Status: Complete with documented limitations.
-
-Implemented across Milestones 12A-12G:
-
-- customer/contact, activity, and instructor profile management
-- role-scoped catalogs, profiles, booking lists, dashboards, and Open Events
-- event-sourced booking create/edit/status and instructor assignment/removal
-- named filters, sorting where supported, real offset pagination, retry/error
-  states, authorization-safe navigation, and final OpenAPI coverage
-- final hardening: SQL removed from system routers, raw history made
-  manager-only, customer directory made manager-only, and both terminal booking
-  statuses made immutable for operational commands
-- superseded Task 12 lifecycle: protected physical-delete endpoints remain for
-  maintenance, while Task 25.2 removes them from Desktop and supplies atomic
-  profile/account deactivate-reactivate; activity behavior remains unchanged
-
-Evidence: `tasks/12-desktop-functional-management-coverage.md`,
-`docs/piv/12-desktop-functional-management-coverage.md`, and
-`docs/manual-testing-task-12.md`.
-
-Task 13 - Ollama RAG Infrastructure
-
-Status: Implemented for Python backend infrastructure.
-
-Implemented:
-
-- `OLLAMA_URL` configuration in backend environment loading and env examples.
-- `rag.LLMClient` abstraction for future RAG orchestration.
-- `rag.OllamaLLMClient` using `httpx` against local `/api/generate`.
-- Optional context injection for future approved-knowledge snippets.
-- Focused mocked HTTP tests and PIV documentation.
-
-Deferred:
-
-- Retrieval, embeddings, approved knowledge ingestion, citations, FastAPI AI
-  endpoints, and desktop AI screens.
-
-Task 20 - Neutral Desktop UX, Accessibility, and Request-State Foundations
-
-Status: Implemented, approved, committed, and pushed.
-
-Implemented requirement coverage:
-
-- `NFR-01`: shared Hebrew/RTL layout, validation, and readable loading, empty,
-  error, success, and feedback conventions.
-- `NFR-03`: semantic request-state and request-identity contracts, including
-  duplicate guards and stale Customer-detail rejection. Task 22 implements a
-  bounded background-execution pilot for Login, Dashboard, Customers,
-  Instructors, profiles, and User Administration, with UI-thread result
-  dispatch and session/page invalidation. Wider request optimization remains
-  Task 23; remaining AI cancellation/runtime work follows in Tasks 29–30.
-- `NFR-07`: explicit passive component and Qt-independent presenter/View state
-  interfaces with focused automated tests.
-- `NFR-09`: accessible labels/names/descriptions, logical focus order, visible
-  focus, measured contrast, disabled explanations, and usable errors.
-- `NFR-10`: evidence-based 1024x640 minimum Windows window (checked against
-  Shell, Dashboard, and Customers), plus resize, wrapping, scroll, table
-  overflow, tooltip, splitter, and dialog behavior.
-- Course PySide6/MVP/modular-UI evidence: a bounded pilot for Login, Shell,
-  Customers, Customer/Contact dialogs, and shared state components.
-- Shared UI implementation defines an authoritative `PageScaffold` hierarchy, complete
-  neutral token categories, one dialog standard, and one feedback-mechanism
-  decision matrix. Dashboard compatibility is assessed without adding Dashboard
-  to the implementation pilot.
-- Implemented styling bounds prevent pilot control/table geometry from being
-  imposed on excluded modules. Focused tests cover presenter-owned identity and
-  guard behavior, all semantic phases, non-pilot construction, dialog keyboard
-  behavior, meaningful pilot geometry at 1024x640, and the final approved
-  semantic table-layout correction.
-
-Task 20 production code and focused tests implement this entry at commit
-`6e5be718b1257b0c89b97c7d72d036faae2f70de`, after final ChatGPT and
-product-owner approval. Human screen-reader certification is not claimed and
-remains a documented project limitation rather than an open Task 20 gate. Final
-colors, typography, logo treatment,
-icons, imagery, and screen design are prioritized after performance in Phase 3
-Tasks 25–28.
-Historical Task/PIV descriptions remain evidence, while their old future-task
-numbers are superseded by the authoritative roadmap.
-
-Task 23 implementation evidence
-
-- `NFR-03`: every appropriate reachable desktop screen uses the bounded Task 22
-  execution path; valid session-scoped reads return immediately, identical
-  flights coalesce, obsolete reads are removed/suppressed, and unchanged tables
-  do not rebuild. Live local-backend measurements show cached returns of
-  0.049–0.542 ms with zero repeat HTTP versus 1,890–2,408 ms uncached repeats.
-- `NFR-06`: hard-expiry and explicit SWR policies distinguish initial failure,
-  safe stale retention, non-blocking freshness warning, retry, and overriding
-  401/session expiry. Raw exceptions and authorization failures are not cached.
-- `NFR-07`: the cache remains in ApiClient infrastructure, Qt execution remains
-  in its adapter, Presenters remain Qt-free, Views passive, and backend/API/
-  CQRS/Event Sourcing/Gateway/AI ownership unchanged.
-- `NFR-08`: cache/in-flight/refresh/worker/pending/payload bounds, deterministic
-  keys, defensive copies, session/user/role clearing, targeted invalidation,
-  mutation safety, diagnostics, and deterministic lifecycle tests are recorded
-  in Task/PIV 23.
-- Security/RBAC continuity: authentication, passwords/reset values, tokens,
-  secrets, AI consultations, mutation payloads, errors, and preview bytes are
-  not cached or persisted. A new identity/role and logout/401 clear all entries.
-
-Task 24 implementation evidence
-
-- `FR-BKG-01`: Manager creation remains on the existing event-sourced command.
-- `FR-BKG-01A`: Customers request only for their authenticated linked Customer;
-  the server controls ownership, `NEW`, zero price, and instructor requirement.
-  Instructors are denied before command dispatch.
-- Activities and Bookings share the Presenter workflow and retain Task 22/23
-  execution, cache, session, and teardown guarantees.
-
-Task 24.1 implementation evidence
-
-- `FR-CUS-02`: Manager and Customer profile screens expose one contact-person
-  name/phone and no collection controls. Current reads return one active contact;
-  create/update is one backend transaction, and second-active create/reactivation
-  is rejected without deleting history.
-- The route-to-Desktop audit found no other unreachable approved business
-  capability. Maintenance/diagnostic endpoints remain intentionally non-UI.
-- Booking notes and other role-editable fields are consistent across creation,
-  immutable event, projection, details, and authorized reads.
-
-Task 24.2 implementation evidence
-
-- Booking creation remains unassigned. Managers use the existing Booking Details
-  Activity-level assignment command; labels now make that path explicit.
-- `BookingInstructorAssigned`/`BookingInstructorRemoved`, projection-based
-  Instructor visibility, authorization, cache invalidation, and concurrency are
-  unchanged. No duplicate assignment workflow exists.
-
-Task 24.3 implementation evidence
-
-- `NEW` remains the existing pending status for Customer requests and Manager
-  workflow; no status, API contract, command, event, or projection was added.
-- Manager creation may collect an optional active Instructor, but the Instructor
-  ID is excluded from `CreateBookingCommand`. After creation succeeds, the
-  Desktop delegates to the existing activity-level assignment workflow.
-- Pending Booking Details provides one obvious action: an unassigned activity is
-  assigned and then confirmed using the returned version; an already-assigned
-  pending Booking is confirmed without creating a duplicate assignment.
-- Customer requests remain `NEW` and unassigned. Existing server authorization,
-  optimistic concurrency, Event Sourcing, and Instructor visibility remain the
-  final enforcement boundaries.
-
-Task 25.0.1 implementation evidence
-
-- `NFR-01`: the Hebrew RTL Login screen has a larger centered card and a clear
-  welcome, application, description, instruction, fields, feedback, and action
-  sequence.
-- `NFR-09`: Email and Password labels are above equal-width fields; accessible
-  names, focus order, keyboard submission, and error handling remain intact.
-- `NFR-10`: automated geometry checks verify centered desktop composition and
-  non-overlapping feedback at 1200×760; the card also fits within the existing
-  1024×640 application minimum.
-- Passive View/MVP boundaries are unchanged. Task 25.0.1 changes only Login
-  View layout, an existing Login primary-style specificity rule, focused UI
-  tests, documentation, and screenshot evidence.
-
-Task 25.1 implementation evidence
-
-- `FR-CUS-01` and `FR-CUS-02`: Manager Customer browsing, text search, immediate
-  single-field sorting, creation, details, edit, and protected deletion remain available
-  through the existing Presenter and service contracts.
-- `NFR-01`: the Customer list now prioritizes text search, a single immediate
-  sort control, selection, and a full-width four-column table.
-- `NFR-09`: single-click selection, double-click/Enter/dedicated-action opening,
-  explicit Back/Escape navigation, accessible descriptions, and contextual
-  disabled actions provide a conventional keyboard-accessible Desktop flow.
-- `NFR-10`: focused layout tests cover the list and internal Details page at
-  1024×640, 1200×760, and 1440×900 while preserving table space.
-- `NFR-07` and course MVP evidence: internal page switching remains passive
-  View behavior. `CustomersPresenter`, backend, services, authorization,
-  caching, CQRS, Event Sourcing, and Customer business rules are unchanged.
-- Final Task 25.1 polish adds compact list composition, primary RTL search,
-  a progressive `סינון לפי` menu with type-specific editors, a bounded pager,
-  semantic Customer/Contact/System detail groups, RTL confirmation/session
-  dialogs, and consistent Create/Edit dialog layout without changing any
-  Customer workflow or Presenter contract. This earlier Delete workflow was
-  superseded by Task 25.2 logical lifecycle actions.
-- Final UX review adds a complete first-page filter/sort Reset, contextual
-  first-use and filtered-empty states, lighter borderless grouping, RTL header
-  alignment, clearer `לקוחות • N` counts, and no-scroll two-column Customer
-  dialogs while preserving the same passive View signals and Presenter calls.
-
-- Task 25.1 final correction removes the advanced filter menu and replaces it
-  with immediate single-field sorting; Create/Edit are vertical RTL forms and
-  successful HTTP 204 Customer deletion is verified not to expire a session.
-
-Later tasks
-
-- Phase 2: Tasks 22–23 background execution, faster repeated loading, request
-  coalescing, refresh reduction, bounded session caching, and latest-intent
-  behavior are implemented. The role-aware Booking request/creation workflow is
-  implemented by Task 24.
-- Phase 3 / Tasks 25–28: Desktop visual design, UI consistency, UX,
-  accessibility, responsive layouts, and professional presentation.
-- Phase 4 / Tasks 29–30: remaining Ollama readiness, RAG/semantic-search quality,
-  and AI experience work. Authenticated grounded retrieval, citations, desktop
-  chat, ingestion, and manager knowledge management are already implemented.
-- Phase 5 / Tasks 31–33: stabilization, performance verification, complete
-  regression, Windows packaging, submission materials, and final audit.
-
-Grade-Focused Priorities
-
-Highest priority:
-
-Event Sourcing + CQRS for bookings.
-
-PySide6 desktop with MVP pattern.
-
-Authentication and role-based authorization.
-
-Supabase PostgreSQL persistence.
-
-Gateway for external image service.
-
-Docker/Ollama RAG assistant with source-grounded answers.
-
-PIV documentation for every increment.
-
-Lower priority:
-
-Advanced inventory management.
-
-WhatsApp/email/calendar integrations.
-
-Complex reporting.
-
-Production deployment features.
-
-Rule For Future Tasks
-
-Every new task should include:
-
-PRD requirement IDs.
-
-Scope.
-
-Out of scope.
-
-Backend/frontend files expected.
-
-Validation commands.
-
-Manual acceptance checks.
-
-PIV documentation update.
-
-### Task 25.2 — role-specific management UI standard
-
-Implemented a shared RTL list-to-details management pattern for Customers,
-Instructors, and Managers. The modules share page hierarchy, semantic tables,
-pagination, cards, equal action buttons, dialog conventions, permanent
-read-only login email during edit, and centralized write-only password changes.
-The final stabilization adds a single-window startup lifecycle, removes unlaid
-loading overlays, standardizes the Customer-reference toolbar with immediate
-server-whitelisted sorting, and records the backend/Desktop completeness audit
-in the Task 25.2 PIV.
-
-The closing Task 25.2 pass makes Customer the canonical implementation for
-Instructor/Manager list, Details, empty-state and create/edit-dialog geometry;
-module navigation resets to the default list state; shared success feedback
-auto-dismisses after a consistent 2.5-second display/fade cycle; and workspace
-construction cannot expose `ShellView` as a temporary top-level window. The
-backend/Desktop capability matrix and prioritized UX findings are documented
-in `docs/piv/25-2-role-specific-management-ui-standard.md`; recommendations
-remain unimplemented pending explicit future-task approval.
-
-Final QA removed duplicate backing text from Instructor/Manager status cells,
-verified active/inactive badges at multiple window sizes, made the Customer
-toolbar container the canonical `QFrame#filterPanel`, and recorded exhaustive
-endpoint-level Desktop exposure classifications in the Task 25.2 PIV.
-
-The closing shared-foundation refactor removes the remaining Customer-specific
-layout and dialog builders. `ManagementWorkspace` now owns the common RTL
-header, toolbar, table, pagination, Details hero/actions/cards and property
-rows, while `EntityFormDialog` owns Customer/Instructor/Manager create, edit,
-and password geometry. Entity modules contribute configuration and data only.
-Manager lifecycle behavior remains unchanged pending approval of the documented
-logical-deactivation recommendation.
-
-The lifecycle recommendation is now approved and implemented in Task 25.2.
-Customers, Instructors, and Managers expose logical deactivate/reactivate only;
-Customer and Instructor profile status is updated atomically with the linked
-User status, historical records are preserved, self-deactivation remains
-blocked, and the last active Manager cannot be deactivated. Physical Customer
-and Instructor deletion endpoints are retained only for legacy maintenance and
-are intentionally unreachable from Desktop management UI.
-
-Task 25.2 also centralizes management-dialog validation: primary actions remain
-available during editing, all relevant fields validate on click, field-level
-Hebrew errors and invalid styling clear on correction, the first invalid field
-receives focus, and one temporary shared red banner summarizes the failure.
-
-### Task 25.3 - Activities management flow and layout redesign
-
-Task 25.3 advances the Activity catalog and image-management requirements with
-a unified RTL list-to-details Desktop flow. Existing Activity CRUD, role-aware
-visibility, search, audience/season/status filtering, logical lifecycle, and
-Gateway-backed image operations are exposed through the shared management
-foundation. Details owns metadata, lifecycle controls, and an aspect-ratio-safe
-gallery; Activity forms reuse shared click-time validation. Booking commands
-and Open Event queries remain in their existing modules and were not duplicated
-or redesigned. The verified capability matrix is in
-`docs/piv/25-3-activities-management-flow-redesign.md`.
-
-### Task 25.4 - Unified Booking operations workspace
-
-Task 25.4 advances Booking management, role-scoped reads, CQRS/Event Sourcing
-operations, assignment management and Open Events usability through one shared
-RTL workspace. Open Events is verified as a derived unassigned-Booking queue,
-not a separate entity. Create uses reusable searchable selectors that submit
-real Customer/Activity/Instructor IDs and reject arbitrary text. Manager-only
-history and commands, customer ownership, instructor assignment scope, status
-actions, filters, pagination and immutable event history remain enforced by
-the existing backend contracts. See
-`docs/piv/25-4-unified-booking-operations-workspace.md`.
-
-Task 25.4.1 completes the Booking UI polish with a compact Details assignment
-card, anchored progressive filters, removable active-filter chips and explicit
-RTL Booking form alignment. Existing Booking/assignment APIs, CQRS commands,
-Event Sourcing, role scoping and authorization remain unchanged.
-Booking list ordering now additionally supports the whitelisted alphabetical
-Customer-name order end to end, including filtering and pagination.
-
-### Task 25.5 - Branded Desktop Visual System
-
-Phase 1 implements the shared branded Desktop foundation only. The existing
-global token/QSS infrastructure now carries the approved warm off-white,
-teal/sky/leaf/orange/coral palette, typography hierarchy, shared controls,
-tables, status badges, navigation states, statistic-card hooks, and AI
-message/source hooks. The shared post-login shell uses the real
-`design_reference/logo.png` while preserving existing navigation items, role
-visibility, signals, logged-in email, and logout behavior. Phase 1 did not
-implement a screen-specific Dashboard, Customers, Bookings, AI Advisor, or Login
-redesign.
-
-Phase 2 implements the Dashboard visual phase only, using the approved
-Dashboard reference and hero image while preserving existing metrics,
-drill-downs, quick actions, tables, role differences, Presenter/service
-behavior, and backend/API boundaries.
-
-Phase 3 implements the Customers visual phase only, using the approved
-Customers reference and `activity-customers-hero.png` as a restrained list-page
-hero. Existing Customer search, sort/reset, table columns, pagination,
-open/details flow, create/edit/deactivate/reactivate/change-password actions,
-role visibility, Presenter/service/API behavior, and backend boundaries remain
-unchanged. Bookings, AI Advisor, Login, and the final consistency pass remain
-pending.
+# Requirements Traceability — Final MVP Baseline
+
+## Purpose
+
+This document maps the current implementation to the approved PRD and the
+academic Windows Systems Engineering project requirements. Historical Task/PIV
+files show how the system evolved; this file records the **final code-level
+state**.
+
+## Course requirements traceability
+
+| Course requirement | Current implementation evidence | Status |
+|---|---|---|
+| Choose a domain | Havaya Im Neshama activity/event management system | Implemented |
+| User management and authentication | FastAPI auth, bearer sessions, hashed passwords, Manager/Instructor/Customer roles, manager account administration | Implemented |
+| Search data | Customer, Instructor, Manager, Activity, Booking and knowledge search/filter flows | Implemented |
+| Show details for a result | Dedicated list-to-details screens and Booking/Activity/Profile details | Implemented |
+| Present data in a graph **or table** | Role-aware tables throughout Dashboard and management screens; the requirement allows a table, so QtCharts is not required | Implemented |
+| AI consultation about the domain | Authenticated `POST /api/ai/consult` and PySide6 AI Advisor | Implemented |
+| Domain data entry | Customer, Instructor, Manager, Activity, Booking, assignment and knowledge-source workflows | Implemented |
+| Desktop application | PySide6 Desktop client | Implemented |
+| MVP presentation pattern | Passive PySide6 Views, Qt-free Presenters, service/API adapters; architecture tests protect the boundary | Implemented |
+| Microfrontend/modular UI | Independent role/feature modules are composed inside one Desktop executable (`views`, `presenters`, `services`, role navigation). This is a logical modular/microfrontend interpretation rather than separately deployed frontends | Implemented with documented interpretation |
+| PySide version | Repository pins `PySide6==6.9.1` | **Verify course interpretation** if `6.5` was intended as an exact version rather than PySide6/Qt6 guidance |
+| FastAPI application server | FastAPI composition root and routers | Implemented |
+| CQRS/MVC organization | Booking commands/event writes are separated from projection queries; backend layers separate routers, application, domain and infrastructure | Implemented |
+| Cloud data storage | PostgreSQL/Supabase-compatible persistence via configured `DATABASE_URL` | Implemented; live cloud connection must be shown in demo environment |
+| Event Sourcing | Booking event store is append-only source of truth with replay, projection and optimistic concurrency | Implemented |
+| Gateway for external services | Application-owned `ImageGateway` with `CloudinaryImageGateway` adapter | Implemented |
+| Call an external service and receive processing/data | Cloudinary upload/delete returns external image metadata and secure URLs through the Gateway | Implemented for external image service; **grading note:** if the lecturer expects a second domain-data provider distinct from Cloudinary, the current repository does not contain one |
+| Ollama in Docker implementing RAG | `docker/docker-compose.yml`, local Ollama HTTP clients, pgvector ingestion/retrieval, grounded generation | Implemented |
+| Full PIV process beginning with PRD | `docs/PRD.md` plus task-by-task `docs/piv/` artifacts and final validation | Implemented |
+| Git repository | Repository-oriented project structure and Git documentation | Implementation present; final branch/push/clean status must be verified locally |
+| Professional/aesthetic UI | Branded RTL visual system, shared design tokens, role-aware heroes, responsive tables/dialogs and accessibility tests | Implemented |
+
+The course explicitly requires search, details, a graph **or table**, AI
+consultation and data entry, and requires Desktop/PySide, MVP/Microfrontends,
+FastAPI/CQRS, cloud persistence/Event Sourcing, Gateway, external service,
+Ollama/Docker/RAG, PIV and Git. The final project uses tables rather than adding
+a chart solely for grading.
+
+## Product/PRD traceability
+
+| Area | PRD scope | Final implementation |
+|---|---|---|
+| Authentication/RBAC | Role-safe login and ownership | Implemented server-side; Desktop navigation is supplementary only |
+| Customers | Manager management + Customer-owned profile | Implemented with one current contact-person workflow, lifecycle actions and linked account handling |
+| Instructors | Manager management + owned profile + assignment visibility | Implemented |
+| Manager users | Account administration | Implemented in Manager-only `מנהלים` module |
+| Activities | Catalog, management, suitability/preparation data | Implemented with role-aware active visibility |
+| Activity images | External Gateway upload/display | Implemented through Cloudinary Gateway and Desktop gallery |
+| Bookings | Create/read/update/status/history | Implemented through CQRS/Event Sourcing |
+| Booking history/replay | Immutable chronological history and rebuildable projection | Implemented and tested |
+| Instructor assignment | Assign/remove per Booking Activity | Implemented through booking events and projection |
+| Dashboard | Role-specific summaries and operational tables | Implemented |
+| Customer self-service | Own bookings, catalog and booking request | Implemented |
+| Knowledge ingestion | Approved internal knowledge | Implemented for pasted text and UTF-8 `.txt`/`.md` sources |
+| Semantic retrieval | Role-filtered approved chunks | Implemented with pgvector cosine search and fail-closed role filtering |
+| Grounded AI | RAG-only answer with citations/abstention | Implemented; no web/general-knowledge fallback |
+| AI write safety | AI must not mutate operational data | Implemented as read-only consultation |
+| Desktop responsiveness | Slow work off Qt event loop | Implemented through bounded operation executor and stale-result suppression |
+| Safe local caching | Bounded/role-scoped cache with invalidation | Implemented; no secrets or disk persistence |
+| UI/UX | Professional RTL Desktop | Implemented across major role and management surfaces |
+
+## Architecture evidence
+
+### Desktop MVP
+
+```text
+View (PySide6, passive)
+  -> Presenter (no PySide6 imports)
+    -> Service
+      -> ApiClient
+        -> FastAPI
+```
+
+Feature modules are independently composed for Login, Dashboard, Customers,
+Instructors, Managers, Activities, Bookings, profiles, Knowledge Management and
+AI consultation. `MainWindow` is the composition root and role-aware navigation
+boundary.
+
+### Booking CQRS and Event Sourcing
+
+```text
+Command endpoint
+  -> command handler
+    -> BookingAggregate replay + validation
+      -> append immutable booking event
+        -> update projections in the transaction
+
+Query endpoint
+  -> projection/query repository
+    -> read-optimized response
+```
+
+The booking event stream contains supported domain events for creation, status,
+date, price, location, participant count, notes and instructor assignment/
+removal. Stale expected versions are rejected.
+
+### Gateway and external service
+
+`ActivityImageService` depends on the application-level `ImageGateway` protocol.
+Only infrastructure instantiates `CloudinaryImageGateway`; business code does
+not import the Cloudinary SDK directly.
+
+### RAG
+
+```text
+approved source
+  -> chunk + metadata + embedding
+    -> PostgreSQL knowledge_chunks / pgvector
+
+question + authenticated role
+  -> query embedding
+    -> role-filtered cosine retrieval
+      -> strict grounded prompt
+        -> Ollama generation
+          -> citation validation / abstention
+```
+
+Current code defaults:
+
+- generation model: `llama3.1`;
+- embedding model: `nomic-embed-text-v2-moe`;
+- `RAG_MAX_COSINE_DISTANCE = 0.58`;
+- `RAG_RETRIEVAL_TOP_K = 5`;
+- generation timeout: 600 seconds;
+- generation `num_predict`: 2000;
+- Ollama keep-alive: `30m`;
+- bounded PostgreSQL connection pool: 1–5 connections.
+
+The backend also exposes a manager-only AI readiness view covering the database
+pool, Ollama reachability, installed generation/embedding models and warm model
+state. Startup attempts a non-fatal generation-model warm-up.
+
+## Final validation evidence
+
+Final repository test inventory:
+
+- backend: **229 tests / 18 files**;
+- Desktop: **251 tests / 26 files**;
+- total: **480 tests / 44 files**.
+
+Backend discovery passed 229/229. Every Desktop module is validated successfully;
+long mixed PySide6 GUI discovery may terminate natively on Windows, so final GUI
+regression uses fresh-process module isolation. See `final-validation.md`.
+
+`python -m compileall backend desktop_client rag` also succeeds on the supplied
+source tree (with two non-fatal existing `SyntaxWarning` messages in demo seed
+SQL regular-expression string literals).
+
+## Remaining release/demo checks
+
+These are not missing product features, but must be verified before submission:
+
+1. run `git diff --check` and confirm `git status --short` is clean after the
+   documentation commit;
+2. confirm the final branch is pushed to the submission repository;
+3. verify `.env` and real secrets are ignored;
+4. verify live Supabase/PostgreSQL, Cloudinary and Ollama readiness on the demo
+   machine;
+5. use `llama3.1` in the Ollama setup command, matching the code default;
+6. capture current native Windows screenshots (offscreen Qt may render Hebrew
+   with fallback square glyphs);
+7. rehearse the complete manager → instructor → customer → AI scenario;
+8. resolve with the lecturer whether `PySide6==6.9.1` is acceptable if the
+   assignment's `6/6.5` wording is intended as a strict version requirement;
+9. if required by the lecturer, add a second domain-specific external service;
+   currently Cloudinary is the external service isolated by the required
+   Gateway.
+
+## Final status
+
+The codebase is functionally complete for the documented academic MVP and has
+strong evidence for authentication, Desktop MVP, CQRS/Event Sourcing, Gateway,
+cloud persistence integration, Docker/Ollama RAG and professional role-aware
+UI. The remaining items above are submission-environment or grading-
+interpretation checks and should not be hidden by the documentation.
