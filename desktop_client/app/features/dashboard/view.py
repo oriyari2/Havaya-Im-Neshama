@@ -296,8 +296,9 @@ class DashboardView(StatefulWidget):
             action_column = len(BOOKING_COLUMNS)
             header.setSectionResizeMode(participants_column, QHeaderView.ResizeMode.Fixed)
             header.setSectionResizeMode(action_column, QHeaderView.ResizeMode.Fixed)
-            header.resizeSection(participants_column, 78)
-            header.resizeSection(action_column, 145)
+            header.resizeSection(participants_column, 112)
+            header.resizeSection(action_column, 184)
+            self.second_table.verticalHeader().setDefaultSectionSize(52)
         self.second_table.setMinimumHeight(188)
         self.second_table.setMaximumHeight(260)
         self.second_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -365,7 +366,7 @@ class DashboardView(StatefulWidget):
             # This prevents "הירשם לאירוע" / "בקשה ממתינה" from being clipped
             # while keeping the button clearly inside the registration column.
             text_width = button.fontMetrics().horizontalAdvance(text)
-            button.setFixedWidth(max(94, min(128, text_width + 14)))
+            button.setFixedWidth(max(136, min(168, text_width + 30)))
             button.setEnabled(enabled)
             button.setProperty("idleText", text)
             button.setProperty("idleEnabled", enabled)
@@ -378,11 +379,12 @@ class DashboardView(StatefulWidget):
             action_host.setObjectName("dashboardOpenEventRegisterActionHost")
             action_host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
             action_layout = QHBoxLayout(action_host)
-            action_layout.setContentsMargins(4, 2, 4, 2)
+            action_layout.setContentsMargins(6, 4, 6, 4)
             action_layout.setSpacing(0)
             action_layout.addStretch(1)
             action_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignCenter)
             action_layout.addStretch(1)
+            self.second_table.setRowHeight(row_index, 52)
             self.second_table.setCellWidget(row_index, action_column, action_host)
             if booking_activity_id:
                 self._registration_buttons[booking_activity_id] = button

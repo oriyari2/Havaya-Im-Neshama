@@ -249,3 +249,16 @@ model availability and warm generation state. Current defaults are `llama3.1`,
 `keep_alive=30m`, and a database pool bounded to five connections.
 
 Final regression evidence is documented in `docs/piv/final-validation.md`.
+### Task 26 route Gateway boundary
+
+Task 26 adds a second application-owned external-service port without changing
+Booking Event Sourcing or CQRS. `BookingTravelService` accepts a `RouteGateway`;
+`OpenRouteServiceGateway` is the only adapter that knows provider URLs,
+authorization headers, geocoder response shapes or Directions response shapes.
+The manager-only FastAPI endpoint first loads the Booking through the existing
+query/authorization boundary and then returns a transient estimate. The Desktop
+Bookings Presenter schedules the request through the existing background
+executor, while the passive View only emits intent and renders distance,
+duration and resolved addresses. No provider secret reaches the Desktop and no
+route data is persisted.
+

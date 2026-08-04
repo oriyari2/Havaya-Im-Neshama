@@ -77,9 +77,9 @@ Resolve two wording-sensitive items with the lecturer if necessary:
 
 - the repository pins `PySide6==6.9.1`; confirm this satisfies the assignment's
   `6/6.5 PySide` wording;
-- the current external service is Cloudinary behind the required Gateway. If the
-  lecturer expects an additional domain-data provider distinct from Cloudinary,
-  that would be a separate small integration task.
+- the repository now includes both the Cloudinary image Gateway and a
+  domain-specific OpenRouteService `RouteGateway` for Booking distance/duration;
+  perform one live calculation on the demonstration machine.
 
 ### Step E — Submission materials
 
@@ -97,5 +97,5 @@ The project is submission-ready when:
 - the acceptance scenario is rehearsed;
 - current screenshots match the final UI;
 - no known critical/high defect remains;
-- the lecturer-specific PySide/external-service interpretation is resolved if
-  required.
+- the lecturer-specific PySide interpretation is resolved if required, and a
+  live OpenRouteService travel calculation has been demonstrated.

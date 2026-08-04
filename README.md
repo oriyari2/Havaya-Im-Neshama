@@ -68,7 +68,9 @@ pip install -r desktop_client\requirements.txt
 Copy `backend\.env.example` to `backend\.env` when local backend
 configuration is needed. The backend reads configuration only from
 `backend\.env`, resolved from the backend source location, and real secrets
-must not be committed.
+must not be committed. For the optional Booking travel calculation, configure
+`OPENROUTESERVICE_API_KEY` and `BUSINESS_BASE_ADDRESS`; the remaining safe
+defaults are documented in `backend\.env.example`.
 
 ## AI Server Setup (Ollama)
 
@@ -162,6 +164,10 @@ Implemented so far:
 - Manager activity-image upload/delete inside the Activities screen through the
   existing FastAPI/Cloudinary Gateway, plus read-only previews for active
   activities for instructors and customers (Task 19).
+- Manager Booking Details travel calculation through a second application-owned
+  `RouteGateway`: the backend geocodes the configured business address and
+  Booking location with OpenRouteService, then returns estimated driving
+  distance and duration without exposing the provider key to the Desktop (Task 26).
 - Manager instructor profile management with search/filter/page/detail and
   protected physical deletion, plus an instructor-owned read-only profile.
   Assignment/history/user dependencies return 409.

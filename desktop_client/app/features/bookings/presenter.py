@@ -21,6 +21,9 @@ class BookingsViewPort(Protocol):
     def confirm_cancellation(self) -> bool: ...
     def confirm_completion(self) -> bool: ...
     def set_command_availability(self, status: str) -> None: ...
+    def set_travel_loading(self, loading: bool) -> None: ...
+    def show_travel_estimate(self, estimate: dict) -> None: ...
+    def show_travel_error(self, message: str) -> None: ...
 
 
 class BookingServicePort(Protocol):
@@ -28,6 +31,7 @@ class BookingServicePort(Protocol):
     def my_bookings(self, *, limit=50, offset=0, order_by="event_at") -> dict: ...
     def booking(self, booking_id: str) -> dict: ...
     def history(self, booking_id: str) -> list[dict]: ...
+    def travel_estimate(self, booking_id: str) -> dict: ...
     def booking_form_options(self): ...
     def create_booking(self, payload): ...
     def change_status(self, booking_id, status, expected_version): ...
@@ -115,6 +119,8 @@ class BookingsPresenter:
         """
         self._operations.executor.cancel_operation(self._operations.owner, "detail")
         self._operations.current.pop("detail", None)
+        self._operations.executor.cancel_operation(self._operations.owner, "travel_estimate")
+        self._operations.current.pop("travel_estimate", None)
         self.selected_id = None
         self.current_booking = None
         if hasattr(self.view, "prepare_list_navigation"):
@@ -281,6 +287,8 @@ class BookingsPresenter:
             self._operations.executor.submit(context,self.service.open_events,success,lambda _exc:self.view.show_error(message),lambda:self.view.set_loading(False))
 
     def select_booking(self, booking_id):
+        self._operations.executor.cancel_operation(self._operations.owner, "travel_estimate")
+        self._operations.current.pop("travel_estimate", None)
         self.selected_id = booking_id
         context = self._operations.replace("detail")
         self.view.set_loading(True)
@@ -372,6 +380,58 @@ class BookingsPresenter:
             context,
             lambda: self.service.request_assignment(booking_id, booking_activity_id),
             success, failure, finished,
+        )
+
+    def estimate_travel(self):
+        booking = self.current_booking
+        if self.role not in {"manager", "instructor"} or not booking:
+            return
+        booking_id = str(booking.get("id") or booking.get("booking_id") or "")
+        if not booking_id:
+            self.view.show_travel_error("לא ניתן לזהות את ההזמנה לחישוב המסלול.")
+            return
+        context = self._operations.replace("travel_estimate")
+        self.view.set_travel_loading(True)
+
+        def success(estimate):
+            current_id = ""
+            if self.current_booking:
+                current_id = str(self.current_booking.get("id") or self.current_booking.get("booking_id") or "")
+            if self._operations.is_current(context) and current_id == booking_id:
+                self.view.show_travel_estimate(estimate)
+
+        def failure(exc):
+            if not self._operations.is_current(context):
+                return
+            if isinstance(exc, ApiError):
+                if exc.status_code == 422:
+                    message = (
+                        "לא ניתן לחשב מסלול. יש לעדכן עיר בפרופיל המדריך ולוודא שמיקום האירוע מלא ומדויק."
+                        if self.role == "instructor"
+                        else "לא ניתן לחשב מסלול. יש לוודא שהעיר והמקום בהזמנה מלאים ומדויקים."
+                    )
+                elif exc.status_code == 503:
+                    message = "שירות חישוב הנסיעה אינו מוגדר בשרת."
+                elif exc.status_code == 502:
+                    message = "שירות חישוב הנסיעה אינו זמין כרגע. נסו שוב מאוחר יותר."
+                elif exc.status_code in {401, 403}:
+                    message = "אין הרשאה לחשב מסלול להזמנה זו."
+                else:
+                    message = "לא ניתן לחשב כרגע את המרחק וזמן הנסיעה."
+            else:
+                message = "לא ניתן לחשב כרגע את המרחק וזמן הנסיעה."
+            self.view.show_travel_error(message)
+
+        def finished():
+            if self._operations.finish(context):
+                self.view.set_travel_loading(False)
+
+        self._operations.executor.submit(
+            context,
+            lambda: self.service.travel_estimate(booking_id),
+            success,
+            failure,
+            finished,
         )
 
     def begin_create(self, activity_id=None):

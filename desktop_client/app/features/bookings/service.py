@@ -42,6 +42,9 @@ class BookingService:
     def history(self, booking_id: str) -> list[dict]:
         return self.api_client.get(f"/bookings/{booking_id}/history")
 
+    def travel_estimate(self, booking_id: str) -> dict:
+        return self.api_client.get(f"/bookings/{booking_id}/travel-estimate")
+
     def booking_form_options(self, *, include_customers: bool = True) -> tuple[list[dict], list[dict]]:
         customers = self.api_client.get("/customers", {"is_active": True, "limit": 50}) if include_customers else {"items": []}
         activities = self.api_client.get("/activities", {"is_active": True, "limit": 50})
