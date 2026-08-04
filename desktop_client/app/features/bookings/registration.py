@@ -27,6 +27,8 @@ def register(context: FeatureContext) -> None:
     view.queue_requested.connect(presenter.load_queue)
     if role == "instructor":
         view.assignment_request_requested.connect(presenter.request_assignment)
+    if role in {"manager", "instructor"}:
+        view.travel_estimate_requested.connect(presenter.estimate_travel)
     if role in {"manager", "customer"}:
         view.create_requested.connect(presenter.begin_create)
     if role == "manager":

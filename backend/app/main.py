@@ -14,6 +14,7 @@ from backend.app.routers.customers import router as customers_router
 from backend.app.routers.instructors import router as instructors_router
 from backend.app.routers.knowledge import router as knowledge_router
 from backend.app.routers.system import router as system_router
+from backend.app.routers.travel import router as travel_router
 from backend.app.routers.users import router as users_router
 
 load_backend_env()
@@ -43,6 +44,7 @@ app.include_router(instructors_router)
 app.include_router(activities_router)
 app.include_router(activity_images_router)
 app.include_router(bookings_router)
+app.include_router(travel_router)
 app.include_router(ai_router)
 app.include_router(knowledge_router)
 

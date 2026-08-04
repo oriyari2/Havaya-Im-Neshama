@@ -81,6 +81,10 @@ def policy_for_path(path: str) -> CachePolicy | None:
         # are operational data that can change in another user's session. Never
         # serve a stale open-event list/detail from the desktop cache.
         return None
+    if clean.startswith("/bookings/") and clean.endswith("/travel-estimate"):
+        # An explicit Manager calculation must call the external provider rather
+        # than return a stale booking-cache value.
+        return None
     if clean.startswith("/bookings") and clean.endswith("/history"):
         return CachePolicy("booking_history", 15)
     if clean.startswith("/bookings") and clean.endswith("/assignments"):

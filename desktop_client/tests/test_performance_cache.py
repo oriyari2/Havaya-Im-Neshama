@@ -5,7 +5,7 @@ import time
 import unittest
 
 from desktop_client.app.api.client import ApiClient
-from desktop_client.app.infrastructure.performance_cache import CacheCapacityError, SessionPerformanceCache
+from desktop_client.app.infrastructure.performance_cache import CacheCapacityError, SessionPerformanceCache, policy_for_path
 from desktop_client.app.features.auth.service import AuthService
 
 
@@ -71,6 +71,9 @@ class PerformanceCacheTests(unittest.TestCase):
         self.assertEqual(calls, 1)
         self.assertEqual(results, [{"value": 7}, {"value": 7}])
         self.assertEqual(self.cache.snapshot()["coalesced"], 1)
+
+    def test_travel_estimate_is_never_served_from_session_cache(self) -> None:
+        self.assertIsNone(policy_for_path("/bookings/booking-1/travel-estimate"))
 
     def test_open_event_availability_is_never_served_from_session_cache(self) -> None:
         calls = 0

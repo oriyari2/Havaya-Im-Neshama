@@ -16,7 +16,7 @@ from desktop_client.app.shared.ui.foundations import ColumnKind, ColumnPolicy, s
 
 
 class BookingsView(StatefulWidget):
-    filters_requested=Signal(dict);booking_selected=Signal(str);create_requested=Signal();edit_requested=Signal();confirm_requested=Signal();cancel_requested=Signal();complete_requested=Signal();page_requested=Signal(int,int);assignment_add_requested=Signal(dict);assignment_add_and_confirm_requested=Signal(dict);assignment_replace_requested=Signal(dict,dict);assignment_remove_requested=Signal(dict,dict);assignment_request_requested=Signal(dict);assignment_request_approve_requested=Signal(dict,dict);assignment_request_reject_requested=Signal(dict,dict);queue_requested=Signal(str)
+    filters_requested=Signal(dict);booking_selected=Signal(str);create_requested=Signal();edit_requested=Signal();confirm_requested=Signal();cancel_requested=Signal();complete_requested=Signal();page_requested=Signal(int,int);assignment_add_requested=Signal(dict);assignment_add_and_confirm_requested=Signal(dict);assignment_replace_requested=Signal(dict,dict);assignment_remove_requested=Signal(dict,dict);assignment_request_requested=Signal(dict);assignment_request_approve_requested=Signal(dict,dict);assignment_request_reject_requested=Signal(dict,dict);queue_requested=Signal(str);travel_estimate_requested=Signal()
     def __init__(self, role):
         super().__init__();self.role=role;self._selected_id=None;self._pending_open_id=None;self._empty_filtered=False;self._list_context=None;self._registration_buttons={}
         root=QVBoxLayout(self);root.setContentsMargins(0,0,0,0)
@@ -49,11 +49,13 @@ class BookingsView(StatefulWidget):
             actions=((self.cancel_button,"destructive"),(self.complete_button,"secondary"),(self.confirm_button,"success"),(self.edit_button,"primary")),
             cards=((self.booking_details,"primary"),(self.customer_details,"secondary"),(self.system_details,"system")),
         )
+        style_reference_extra_panel(self.travel_group, role="travel")
+        style_reference_button(self.travel_button, "primary")
         style_reference_extra_panel(self.assignment_group,role="assignment")
         style_reference_extra_panel(self.history_group,role="history")
         self.history_table.setProperty("managementReferenceTable",True)
         self.history_table.horizontalHeader().setDefaultAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter|Qt.AlignmentFlag.AlignAbsolute)
-        self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.confirm_button.clicked.connect(self.confirm_requested);self.cancel_button.clicked.connect(self.cancel_requested);self.complete_button.clicked.connect(self.complete_requested)
+        self.create_button.clicked.connect(self.create_requested);self.edit_button.clicked.connect(self.edit_requested);self.confirm_button.clicked.connect(self.confirm_requested);self.cancel_button.clicked.connect(self.cancel_requested);self.complete_button.clicked.connect(self.complete_requested);self.travel_button.clicked.connect(self.travel_estimate_requested)
         self.toolbar.search_requested.connect(lambda search,_sort:self._emit_filters(search=search));self.toolbar.sort_combo.currentIndexChanged.connect(lambda _i:self._emit_filters());self.toolbar.refresh_requested.connect(self._reset);self.filter_popup.apply_requested.connect(self._apply_popover_filters);self.filter_popup.clear_requested.connect(self._clear_and_apply_filters);self.filter_button.clicked.connect(self.filter_popup.toggle);self.footer.page_requested.connect(self.page_requested)
         self.table.itemSelectionChanged.connect(self._select);self.table.cellDoubleClicked.connect(lambda row,_column:self._request_open(self._row_id(row)));self.table.installEventFilter(self);self.workspace.empty_action_button.clicked.connect(self._empty_action);self.clear_details()
     def _empty_action(self):
@@ -97,6 +99,53 @@ class BookingsView(StatefulWidget):
         self.edit_button=self.workspace.add_action("עריכת פרטים");self.confirm_button=self.workspace.add_action("אישור הזמנה");self.complete_button=self.workspace.add_action("סימון כהושלמה");self.cancel_button=self.workspace.add_action("ביטול הזמנה",destructive=True)
         self.booking_details=self.workspace.add_card("פרטי הזמנה");self.customer_details=self.workspace.add_card("לקוח");self.system_details=self.workspace.add_card("מידע מערכת")
         right = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
+
+        self.travel_group = QFrame()
+        self.travel_group.setObjectName("detailPanel")
+        self.travel_group.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        travel_layout = QVBoxLayout(self.travel_group)
+        travel_layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_3)
+        travel_layout.setSpacing(SPACE_2)
+
+        travel_heading = QLabel("מרחק וזמן נסיעה")
+        travel_heading.setObjectName("sectionTitle")
+        travel_heading.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        travel_heading.setAlignment(right)
+        travel_layout.addWidget(travel_heading)
+
+        travel_origin_text = "מכתובת העסק" if self.role == "manager" else "מהעיר הרשומה בפרופיל המדריך"
+        self.travel_hint = QLabel(f"החישוב מתבצע {travel_origin_text} אל מיקום האירוע באמצעות שירות חיצוני, ללא נתוני תנועה בזמן אמת.")
+        self.travel_hint.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.travel_hint.setAlignment(right)
+        self.travel_hint.setWordWrap(True)
+        travel_layout.addWidget(self.travel_hint)
+
+        self.travel_summary = QLabel("לחצו על הכפתור כדי לחשב מרחק וזמן נסיעה משוער.")
+        self.travel_summary.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.travel_summary.setAlignment(right)
+        self.travel_summary.setWordWrap(True)
+        self.travel_summary.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        travel_layout.addWidget(self.travel_summary)
+
+        self.travel_addresses = QLabel("")
+        self.travel_addresses.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.travel_addresses.setAlignment(right)
+        self.travel_addresses.setWordWrap(True)
+        self.travel_addresses.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.travel_addresses.hide()
+        travel_layout.addWidget(self.travel_addresses)
+
+        self._travel_button_idle_text = (
+            "חשב מרחק מהעיר שלי" if self.role == "instructor" else "חשב מרחק וזמן נסיעה"
+        )
+        self.travel_button = QPushButton(self._travel_button_idle_text)
+        self.travel_button.setMinimumWidth(230)
+        travel_layout.addWidget(self.travel_button, 0, Qt.AlignmentFlag.AlignRight)
+
+        self.workspace.details_widget.layout().insertWidget(
+            self.workspace.details_widget.layout().count() - 1, self.travel_group
+        )
+        self.travel_group.setVisible(self.role in {"manager", "instructor"})
 
         self.assignment_group = QFrame()
         self.assignment_group.setObjectName("detailPanel")
@@ -327,7 +376,7 @@ class BookingsView(StatefulWidget):
             key=str(instructor["id"]);check=QCheckBox(str(instructor.get("full_name") or instructor.get("name") or key));check.setLayoutDirection(Qt.LayoutDirection.RightToLeft);self.instructor_layout.insertWidget(self.instructor_layout.count()-1,check);self.instructor_checks[key]=check
         self.instructor_empty.setVisible(not bool(instructors))
     def show_details(self,details,history):
-        self._clear_forms();identity="פרטי הזמנה";status=""
+        self._clear_forms();self.reset_travel_estimate();identity="פרטי הזמנה";status=""
         customer_labels={"לקוח","איש קשר","טלפון לקוח"}
         for label,value in details:
             if label=="לקוח":identity=value
@@ -348,6 +397,43 @@ class BookingsView(StatefulWidget):
         self.history_table.resizeRowsToContents()
         if self._pending_open_id==self._selected_id:self._pending_open_id=None;self.workspace.show_details()
 
+    def reset_travel_estimate(self):
+        if not hasattr(self, "travel_summary"):
+            return
+        self.travel_button.setEnabled(True)
+        self.travel_button.setText(self._travel_button_idle_text)
+        self.travel_summary.setText("לחצו על הכפתור כדי לחשב מרחק וזמן נסיעה משוער.")
+        self.travel_addresses.clear()
+        self.travel_addresses.hide()
+
+    def set_travel_loading(self, loading):
+        if not hasattr(self, "travel_button"):
+            return
+        self.travel_button.setEnabled(not loading)
+        if loading:
+            self.travel_button.setText("מחשב מסלול...")
+            self.travel_summary.setText("מתבצע חישוב מול שירות המסלולים החיצוני...")
+            self.travel_addresses.hide()
+        elif self.travel_button.text() == "מחשב מסלול...":
+            self.travel_button.setText("חשב שוב")
+
+    def show_travel_estimate(self, estimate):
+        distance = estimate.get("distance_km", "—")
+        duration = estimate.get("duration_minutes", "—")
+        self.travel_summary.setText(f"מרחק משוער: {distance} ק״מ  |  זמן נסיעה משוער: {duration} דקות")
+        origin = str(estimate.get("origin_resolved_address") or estimate.get("origin_address") or "—")
+        destination = str(estimate.get("destination_resolved_address") or estimate.get("destination_address") or "—")
+        self.travel_addresses.setText(f"מוצא: {origin}\nיעד: {destination}")
+        self.travel_addresses.setToolTip(self.travel_addresses.text())
+        self.travel_addresses.show()
+        self.travel_button.setText("חשב שוב")
+
+    def show_travel_error(self, message):
+        self.travel_summary.setText(message)
+        self.travel_addresses.clear()
+        self.travel_addresses.hide()
+        self.travel_button.setText("נסה שוב")
+
     def set_open_event_mode(self, active):
         self.assignment_group.setVisible(self.role == "manager" or (self.role == "instructor" and bool(active)))
         if self.role == "instructor":
@@ -356,7 +442,7 @@ class BookingsView(StatefulWidget):
         for form in (self.booking_details,self.customer_details,self.system_details):
             while form.rowCount():form.removeRow(0)
     def clear_details(self):
-        if hasattr(self,"booking_details"):self._clear_forms();self.workspace.detail_title.clear();self.workspace.show_list();self.workspace.set_actions_enabled(False);self._clear_assignment_cards()
+        if hasattr(self,"booking_details"):self._clear_forms();self.reset_travel_estimate();self.workspace.detail_title.clear();self.workspace.show_list();self.workspace.set_actions_enabled(False);self._clear_assignment_cards()
         self._selected_id=None;self._pending_open_id=None
     def select_booking(self,booking_id):
         for row in range(self.table.rowCount()):

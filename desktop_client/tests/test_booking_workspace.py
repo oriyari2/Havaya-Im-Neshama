@@ -226,11 +226,17 @@ class BookingWorkspaceTests(TestCase):
         manager.set_command_availability("CANCELLED")
         self.assertTrue(manager.edit_button.isHidden())
 
-        for role in ("customer", "instructor"):
-            view = self._track(BookingsView(role))
-            self.assertTrue(view.command_panel.isHidden())
-            self.assertTrue(view.assignment_group.isHidden())
-            self.assertTrue(view.history_group.isHidden())
+        customer = self._track(BookingsView("customer"))
+        self.assertTrue(customer.command_panel.isHidden())
+        self.assertTrue(customer.assignment_group.isHidden())
+        self.assertTrue(customer.history_group.isHidden())
+        self.assertTrue(customer.travel_group.isHidden())
+
+        instructor = self._track(BookingsView("instructor"))
+        self.assertTrue(instructor.command_panel.isHidden())
+        self.assertTrue(instructor.assignment_group.isHidden())
+        self.assertTrue(instructor.history_group.isHidden())
+        self.assertFalse(instructor.travel_group.isHidden())
 
     def test_shared_selector_filters_and_stores_real_id(self):
         selector = self._track(SearchableEntitySelector("בחירה"))

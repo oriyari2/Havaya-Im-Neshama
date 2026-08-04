@@ -17,6 +17,9 @@ DEFAULT_OLLAMA_NUM_PREDICT = 2000
 DEFAULT_DB_POOL_MIN_SIZE = 1
 DEFAULT_DB_POOL_MAX_SIZE = 5
 
+DEFAULT_OPENROUTESERVICE_BASE_URL = "https://api.openrouteservice.org"
+DEFAULT_OPENROUTESERVICE_TIMEOUT_SECONDS = 15.0
+
 RAG_MAX_COSINE_DISTANCE = 0.58
 RAG_RETRIEVAL_TOP_K = 5
 
@@ -59,6 +62,31 @@ def get_rag_max_cosine_distance() -> float:
 def get_rag_retrieval_top_k() -> int:
     """Return the default number of RAG retrieval results."""
     return RAG_RETRIEVAL_TOP_K
+
+
+def get_openrouteservice_api_key() -> str:
+    load_backend_env()
+    return os.getenv("OPENROUTESERVICE_API_KEY", "").strip()
+
+
+def get_openrouteservice_base_url() -> str:
+    load_backend_env()
+    return os.getenv("OPENROUTESERVICE_BASE_URL", DEFAULT_OPENROUTESERVICE_BASE_URL).strip().rstrip("/")
+
+
+def get_openrouteservice_timeout_seconds() -> float:
+    load_backend_env()
+    return _positive_float("OPENROUTESERVICE_TIMEOUT_SECONDS", DEFAULT_OPENROUTESERVICE_TIMEOUT_SECONDS)
+
+
+def get_openrouteservice_country_code() -> str:
+    load_backend_env()
+    return os.getenv("OPENROUTESERVICE_COUNTRY_CODE", "ISR").strip().upper()
+
+
+def get_business_base_address() -> str:
+    load_backend_env()
+    return os.getenv("BUSINESS_BASE_ADDRESS", "").strip()
 
 
 def get_db_pool_min_size() -> int:

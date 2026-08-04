@@ -26,8 +26,8 @@ state**.
 | CQRS/MVC organization | Booking commands/event writes are separated from projection queries; backend layers separate routers, application, domain and infrastructure | Implemented |
 | Cloud data storage | PostgreSQL/Supabase-compatible persistence via configured `DATABASE_URL` | Implemented; live cloud connection must be shown in demo environment |
 | Event Sourcing | Booking event store is append-only source of truth with replay, projection and optimistic concurrency | Implemented |
-| Gateway for external services | Application-owned `ImageGateway` with `CloudinaryImageGateway` adapter | Implemented |
-| Call an external service and receive processing/data | Cloudinary upload/delete returns external image metadata and secure URLs through the Gateway | Implemented for external image service; **grading note:** if the lecturer expects a second domain-data provider distinct from Cloudinary, the current repository does not contain one |
+| Gateway for external services | Application-owned `ImageGateway`/`RouteGateway` ports with Cloudinary and OpenRouteService infrastructure adapters | Implemented and tested |
+| Call an external service and receive processing/data | OpenRouteService geocodes Booking addresses and returns processed driving distance/duration through `RouteGateway`; Cloudinary remains the image Gateway | Implemented with a second domain-specific provider |
 | Ollama in Docker implementing RAG | `docker/docker-compose.yml`, local Ollama HTTP clients, pgvector ingestion/retrieval, grounded generation | Implemented |
 | Full PIV process beginning with PRD | `docs/PRD.md` plus task-by-task `docs/piv/` artifacts and final validation | Implemented |
 | Git repository | Repository-oriented project structure and Git documentation | Implementation present; final branch/push/clean status must be verified locally |
@@ -103,6 +103,13 @@ removal. Stale expected versions are rejected.
 Only infrastructure instantiates `CloudinaryImageGateway`; business code does
 not import the Cloudinary SDK directly.
 
+`BookingTravelService` similarly depends on the application-level
+`RouteGateway`. `OpenRouteServiceGateway` geocodes the configured business
+address for managers or the signed-in instructor's saved city, together with the
+Booking location, then translates the provider's Directions result into
+kilometres and estimated minutes. The API key remains backend-only and both
+Desktop roles call FastAPI rather than the provider.
+
 ### RAG
 
 ```text
@@ -165,9 +172,8 @@ These are not missing product features, but must be verified before submission:
 7. rehearse the complete manager → instructor → customer → AI scenario;
 8. resolve with the lecturer whether `PySide6==6.9.1` is acceptable if the
    assignment's `6/6.5` wording is intended as a strict version requirement;
-9. if required by the lecturer, add a second domain-specific external service;
-   currently Cloudinary is the external service isolated by the required
-   Gateway.
+9. perform a live OpenRouteService calculation on the demo machine and retain
+   a screenshot as evidence for the second domain-specific Gateway.
 
 ## Final status
 
