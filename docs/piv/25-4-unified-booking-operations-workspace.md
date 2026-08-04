@@ -151,3 +151,13 @@ as stable tie-breakers. Reset restores the default event-time order.
 ## Next
 
 Stop after Task 25.4.1 and wait for approval.
+
+## Final regression addendum — August 2026
+
+The final Booking workspace preserves the Task 25.4 command/query boundaries and
+now uses the same branded hero and shared reference layouts as the other
+management modules. Manager, Instructor and Customer variants remain role-aware;
+assignment/history controls remain server-authorized and context-sensitive.
+Final isolated regression passes `test_booking_workspace.py` 11/11 and the
+general View regression 11/11. No Booking persistence or Event Sourcing contract
+was changed by the final UI/test maintenance pass.

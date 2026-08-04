@@ -32,8 +32,6 @@ keeps the button text visible.
 - `desktop_client/tests/test_ui_foundations.py`
 - `tasks/25-desktop-visual-design-ui-ux-cohesion.md`
 - `docs/piv/requirements-traceability.md`
-- `docs/screenshots/task-25-0-1-login.png`
-- `docs/screenshots/task-25-0-1-login-error.png`
 
 ## How to run
 
@@ -58,10 +56,21 @@ Screenshots were captured at 1200×760 for both normal and error states.
 
 ## Screenshots
 
-- [Normal Login state](../screenshots/task-25-0-1-login.png)
-- [Login validation-error state](../screenshots/task-25-0-1-login-error.png)
+The historical Task 25.0.1 screenshot files are not present in the supplied
+repository. Do not cite them as submission evidence. Capture a current native
+Windows Login screenshot during final demo preparation if Login evidence is
+required.
 
 ## Next task
 
 Wait for explicit product-owner direction. Do not start the next screen as part
 of Task 25.0.1.
+
+## Final-state correction — August 2026
+
+The final Login implementation remains stacked, centered and RTL, but responsive
+Qt geometry may render the inputs at approximately 430 px in the supported
+window rather than the earlier hard-coded 440 px test expectation. Final tests
+now validate equal-width readable controls and visible feedback rather than the
+superseded exact width. The current visible description is
+`מערכת לניהול לקוחות, פעילויות והזמנות`.

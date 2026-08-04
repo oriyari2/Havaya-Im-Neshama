@@ -298,3 +298,16 @@ style, focuses the first invalid field, and clears each issue when corrected.
 A non-modal shared red banner summarizes the failure and fades after about
 three seconds. Submit is disabled only during an in-flight request; safe Hebrew
 messages keep backend validation/conflict failures inside the open dialog.
+
+## Final-state shared-management addendum — August 2026
+
+The final implementation keeps the Task 25.2 shared management architecture and
+uses it consistently for Instructors and Managers. The final table contract
+places the row-open action at the trailing column, keeps status as a real shared
+`ActiveBadge`, and uses `apply_reference_list_layout` /
+`apply_reference_detail_layout` for the current branded list-to-details flow.
+
+The shared entity-dialog implementation no longer exposes the old
+`section_labels`/single-`form` testing surface. Final tests inspect the supported
+`dialogSectionTitle`, `dialogFieldLabel`, and `section_forms` contracts instead.
+Final focused results: Instructors 8/8 and Managers/Users 9/9.

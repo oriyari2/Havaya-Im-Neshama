@@ -2,14 +2,15 @@
 
 ## Status
 
-Phase 3 complete: Customers only.
+Final branded Desktop consolidation is implemented across the current major
+surfaces. The historical phase sections below show the order in which Dashboard
+and Customers were first styled; the final code additionally applies the shared
+visual system to Login, Shell, Instructors, Managers, Activities, Bookings,
+Knowledge Management and the AI Advisor.
 
-Phase 1 remains the completed shared branded foundation. Phase 2 remains the
-completed Dashboard styling phase. Bookings, AI Advisor, Login, and the final
-cross-screen consistency pass remain pending. No Booking, AI Advisor, Login,
-backend, presenter, API, RBAC, RAG, CQRS, Event Sourcing, repository, database,
-or authentication work was implemented in this phase.
-
+No final visual-regression maintenance changed backend domain behavior, API
+contracts, RBAC, CQRS/Event Sourcing, RAG authorization, repositories or
+database schemas.
 ## Skill Used
 
 The `havaya-desktop-ui` skill was used by reading and following
@@ -419,8 +420,47 @@ screenshots. The source strings remain valid Hebrew, tests assert the live text
 values and RTL alignment, and the visual validation was used for composition,
 asset placement, table sizing, pagination reachability, and clipping/overlap.
 
+## Final-state consolidation — August 2026
+
+Current code evidence extends the original phases:
+
+- `LoginView` uses the branded logo, hierarchy, RTL labels, validation feedback
+  and primary action styling;
+- `ShellView` owns the real sidebar branding and role-aware navigation;
+- `DashboardView` uses the approved hero, responsive scrollable content, six
+  Manager stat cards, drill-downs, quick actions and operational tables;
+- `CustomersView` uses the 180 px branded Customer hero and current eight-column
+  semantic table;
+- `InstructorsView`, `UsersView`, `ActivitiesView` and `BookingsView` use the
+  shared `ManagementWorkspace`, branded management heroes and reference
+  list/detail layouts;
+- `KnowledgeManagementView` uses a branded scaffold hero while preserving its
+  Manager-only behavior;
+- `AIChatView` uses the `ai-agent-hero.png` asset and the shared branded
+  user/assistant/source message roles.
+
+The old Phase 3 text that describes a compact five-column Customer table is
+historical. The final Customer table includes serial number, name, phone, email,
+city, status, join date and a trailing action column.
+
+### Final regression evidence
+
+- backend: 229/229 tests passed;
+- Desktop inventory: 251 tests; all modules validated successfully, using
+  process isolation for long PySide6 GUI suites where Windows native Qt teardown
+  can terminate a shared process without an assertion failure;
+- Customers: 16/16; Instructors: 8/8; Managers/Users: 9/9; Presenters: 27/27;
+  Background operations: 10/10; Booking workspace: 11/11; general Views: 11/11;
+- `python -m compileall backend desktop_client rag` succeeds on the supplied
+  source tree.
+
+See `docs/piv/final-validation.md` for the complete validation record and
+`docs/piv/requirements-traceability.md` for the final course mapping.
+
 ## Next Task
 
-Task 25.5 Phase 4 should implement only the Booking/Orders workspace styling
-using the approved Orders reference. Do not begin Bookings until explicitly
-requested.
+Do not add another visual feature merely because an older roadmap phase number
+exists. The next work is release/submission preparation: clean Git verification,
+live external-service readiness, native Windows screenshots, demo rehearsal, and
+final architecture/security grading review.
+

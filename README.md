@@ -2,8 +2,8 @@
 
 Student final project for Windows Systems Engineering.
 
-The project will become the Havaya Im Neshama management system described in
-[docs/PRD.md](docs/PRD.md). The current MVP foundation includes FastAPI and
+The project implements the Havaya Im Neshama management system described in
+[docs/PRD.md](docs/PRD.md). The current academic MVP includes FastAPI and
 PySide6 MVP layers, Supabase-compatible PostgreSQL persistence, Hebrew demo
 seed data, authentication/RBAC, customer/activity/instructor management,
 event-sourced booking workflows, role-aware desktop screens, local Ollama AI
@@ -12,19 +12,16 @@ RAG-only AI consultation with manager knowledge-source management.
 
 ## Development Roadmap
 
-Tasks 01–21 are complete. The authoritative remaining order is:
+The academic MVP implementation is now feature-complete at code level through
+the final visual/UX and regression passes. Historical task numbering is
+preserved under `tasks/` and `docs/piv/`, while the current remaining work is
+release/submission preparation: Git cleanliness, live external-service
+readiness, native Windows screenshots, clean-machine startup and final demo
+rehearsal.
 
-1. Tasks 22–24: performance, background execution, faster API/screen loading,
-   refresh reduction, bounded caching, reliability, and security.
-2. Tasks 25–28: Desktop visual design, UI consistency, UX, accessibility, and
-   responsive professional presentation.
-3. Tasks 29–30: remaining Ollama, RAG, semantic-search, and AI experience work.
-4. Tasks 31–33: stabilization, performance verification, full regression,
-   Windows packaging, submission preparation, and final audit.
-
-See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md). Task 22 is the
-non-blocking Desktop/background-execution foundation and has planning-audit
-status only; implementation has not started.
+See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md),
+[docs/piv/requirements-traceability.md](docs/piv/requirements-traceability.md),
+and [docs/piv/final-validation.md](docs/piv/final-validation.md).
 
 ## Project Structure
 
@@ -81,7 +78,7 @@ docker-compose up -d
 2. Download the Llama 3 generation model into the running container. This may
    take a few minutes:
 ```powershell
-docker exec ollama_server ollama pull llama3
+docker exec ollama_server ollama pull llama3.1
 ```
 3. Once the download is complete, a prompt (`>>>`) will appear. Type `/bye`
    and press Enter to exit. The server will continue running in the background.
@@ -137,8 +134,9 @@ Implemented so far:
 
 - FastAPI health/system endpoints.
 - PostgreSQL schema initialization and Hebrew demo seed data.
-- Customer and customer-contact CRUD API, including soft delete, active defaults,
-  search, and `city` / `customer_type` filters.
+- Customer and customer-contact CRUD/lifecycle API, including protected Customer
+  physical deletion, activate/deactivate flows, active defaults, search, and
+  `city` / `customer_type` filters.
 - PySide6 login and role-based desktop shell using MVP boundaries.
 - Role-aware dashboard, bookings, booking details/history, open events, and
   customer my-bookings screens backed by the FastAPI API.
@@ -187,6 +185,10 @@ Implemented so far:
   Manager accounts; User remains an internal authentication entity
   accounts, including atomic creation of linked Customer/Instructor business
   entities, active status, email edit, and password reset (Task 21).
+
+- Bounded Desktop background execution using a private `QThreadPool`, request/session identity and stale-result suppression (Task 22).
+- Bounded process-memory performance cache with role/session scoping, TTL/SWR policies, coalescing and targeted invalidation (Task 23).
+- Professional branded RTL visual system across Login, Shell, Dashboard, Customers, Instructors, Managers, Activities, Bookings, Knowledge Management and the AI Advisor (Task 25.x final state).
 
 Task 17 connects role-aware retrieval to `POST /api/ai/consult`. The endpoint
 retrieves approved chunks using only the authenticated role before generation,
@@ -343,20 +345,28 @@ and snapshots unrelated table counts before and after the reset.
 
 ## Validation
 
-Recent Task 17 validation:
+Final code-level regression inventory:
+
+- backend: **229 tests** across 18 test files; final unittest discovery passed
+  229/229;
+- Desktop: **251 tests** across 26 test files; every module was validated
+  successfully. Long mixed PySide6 GUI runs can terminate natively on Windows,
+  so the final GUI regression uses fresh-process module isolation;
+- total: **480 tests** across 44 files;
+- `python -m compileall backend desktop_client rag` succeeds on the supplied
+  source tree.
+
+Recommended final checks before submission:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest backend.tests.test_ai_consult_api -v
-.\.venv\Scripts\python.exe -m unittest desktop_client.tests.test_services desktop_client.tests.test_presenters -v
-.\.venv\Scripts\python.exe -m unittest backend.tests.test_task15_rag_ingestion
-.\.venv\Scripts\python.exe -m unittest discover backend/tests
-.\.venv\Scripts\python.exe -m compileall backend desktop_client
+python -m unittest discover -s backend/tests -p "test_*.py" -v
+# Run Desktop GUI test files in fresh processes if combined Qt discovery is unstable.
+python -m compileall backend desktop_client rag
 git diff --check
+git status --short
 ```
 
-Expected results from the latest documented pass: focused AI/desktop tests,
-the full backend unittest suite, compile validation, and whitespace validation
-passed.
+See `docs/piv/final-validation.md` for the complete regression record.
 
 ### Task 23 desktop performance diagnostics
 

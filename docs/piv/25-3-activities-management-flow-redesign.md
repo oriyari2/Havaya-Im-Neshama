@@ -82,3 +82,13 @@ were created.
 ## Next
 
 Stop after Task 25.3 and wait for explicit approval.
+
+## Final regression addendum — August 2026
+
+The final Activities implementation still follows the architecture documented
+above: one role-aware `ActivitiesView`, trailing row action, shared branded hero,
+shared list/detail layout, manager-only lifecycle/media mutations, read-only
+Instructor/Customer catalog, and in-memory image previews. No direct Desktop DB
+access or Cloudinary SDK dependency was introduced. Final Activity View tests
+pass 11/11; Presenter and service tests are also part of the 251-test Desktop
+inventory.
