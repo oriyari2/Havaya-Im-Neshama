@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import Mock
 from desktop_client.app.api.client import ApiError,ApiErrorKind
-from desktop_client.app.presenters.instructors_presenter import InstructorProfilePresenter,InstructorsPresenter,validate_instructor
+from desktop_client.app.features.instructors.presenter import InstructorProfilePresenter,InstructorsPresenter,validate_instructor
 I={"id":"i1","full_name":"Task 12D","phone":"1","email":"x@example.com","city":"C","notes":"N","is_active":True,"created_at":"","updated_at":""}
 class InstructorPresenterTests(TestCase):
     def setUp(self):self.v=Mock();self.s=Mock();self.accounts=Mock();self.s.list_instructors.return_value={"items":[I],"count":1};self.s.instructor.return_value=I;self.p=InstructorsPresenter(self.v,self.s,self.accounts)

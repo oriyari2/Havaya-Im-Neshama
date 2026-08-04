@@ -7,8 +7,8 @@ from unittest.mock import patch
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QFormLayout, QLabel, QLineEdit, QToolButton
 
-from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog, ResetPasswordDialog
-from desktop_client.app.views.users_view import UsersView
+from desktop_client.app.features.users.dialogs import CreateUserDialog, EditUserDialog, ResetPasswordDialog
+from desktop_client.app.features.users.view import UsersView
 
 
 USER = {
@@ -129,7 +129,7 @@ class UserViewTests(TestCase):
         )
         self.assertEqual(view.table.rowCount(), 1)
 
-        with patch("desktop_client.app.views.users_view.confirm_action", return_value=True) as confirm:
+        with patch("desktop_client.app.features.users.view.confirm_action", return_value=True) as confirm:
             self.assertTrue(view.confirm_deactivation(USER["email"]))
             self.assertIn("להשבית", confirm.call_args.args[2])
 

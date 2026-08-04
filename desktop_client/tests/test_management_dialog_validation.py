@@ -7,10 +7,10 @@ from unittest import TestCase
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from desktop_client.app.views.account_dialogs import ChangePasswordDialog
-from desktop_client.app.views.customer_dialogs import CustomerDialog
-from desktop_client.app.views.instructor_dialogs import InstructorDialog
-from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog
+from desktop_client.app.shared.ui.account_dialogs import ChangePasswordDialog
+from desktop_client.app.features.customers.dialogs import CustomerDialog
+from desktop_client.app.features.instructors.dialogs import InstructorDialog
+from desktop_client.app.features.users.dialogs import CreateUserDialog, EditUserDialog
 
 
 class ManagementDialogValidationTests(TestCase):

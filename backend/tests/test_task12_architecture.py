@@ -43,17 +43,28 @@ class Task12ArchitectureTests(unittest.TestCase):
         self.assertEqual(violations, [])
 
     def test_presenters_do_not_import_pyside_and_views_do_not_import_data_layers(self) -> None:
+        app_root = ROOT / "desktop_client" / "app"
+        feature_root = app_root / "features"
+
+        presenter_paths = list(feature_root.glob("*/presenter.py")) + list(feature_root.glob("*/assignments_presenter.py"))
         presenter_violations = [
-            path.name
-            for path in (ROOT / "desktop_client" / "app" / "presenters").glob("*.py")
+            str(path.relative_to(app_root))
+            for path in presenter_paths
             if "PySide6" in path.read_text(encoding="utf-8")
         ]
+
+        view_paths = []
+        for pattern in ("*/view.py", "*/profile_view.py", "*/dialogs.py", "*/assignment_dialogs.py"):
+            view_paths.extend(feature_root.glob(pattern))
+        view_paths.extend((app_root / "shared" / "ui").glob("*.py"))
+
         view_violations = []
-        forbidden = ("desktop_client.app.services", "desktop_client.app.api", "psycopg", "get_connection")
-        for path in (ROOT / "desktop_client" / "app" / "views").glob("*.py"):
+        forbidden = ("desktop_client.app.api", "psycopg", "get_connection", ".service import")
+        for path in view_paths:
             source = path.read_text(encoding="utf-8")
             if any(token in source for token in forbidden):
-                view_violations.append(path.name)
+                view_violations.append(str(path.relative_to(app_root)))
+
         self.assertEqual(presenter_violations, [])
         self.assertEqual(view_violations, [])
 

@@ -16,7 +16,7 @@ from PySide6.QtWidgets import QApplication
 
 from desktop_client.app.api.client import ApiClient
 from desktop_client.app.main import MainWindow
-from desktop_client.app.services.auth_service import AuthService
+from desktop_client.app.features.auth.service import AuthService
 
 
 READS = (

@@ -64,8 +64,8 @@ Updated the desktop MVP chat minimally:
 - `backend/app/schemas/ai.py`
 - `backend/tests/test_ai_consult_api.py`
 - `backend/tests/test_rag_llm_client.py`
-- `desktop_client/app/services/ai_chat_service.py`
-- `desktop_client/app/presenters/ai_chat_presenter.py`
+- `desktop_client/app/features/ai_assistant/service.py`
+- `desktop_client/app/features/ai_assistant/presenter.py`
 - `desktop_client/tests/test_services.py`
 - `desktop_client/tests/test_presenters.py`
 - `docs/piv/17-grounded-rag-only-ai-consultation.md`

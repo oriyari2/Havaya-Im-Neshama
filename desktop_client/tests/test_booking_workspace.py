@@ -13,10 +13,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from desktop_client.app.presenters.formatting import booking_details, booking_row
-from desktop_client.app.views.booking_dialogs import BookingFormDialog
-from desktop_client.app.views.bookings_view import BookingsView
-from desktop_client.app.views.entity_selector import SearchableEntitySelector
+from desktop_client.app.features.bookings.formatting import booking_details, booking_row
+from desktop_client.app.features.bookings.dialogs import BookingFormDialog
+from desktop_client.app.features.bookings.view import BookingsView
+from desktop_client.app.shared.ui.entity_selector import SearchableEntitySelector
 
 
 BOOKING = {

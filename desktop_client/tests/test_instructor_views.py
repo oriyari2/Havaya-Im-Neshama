@@ -6,8 +6,8 @@ from unittest import TestCase
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QLabel, QToolButton
 
-from desktop_client.app.views.instructor_dialogs import InstructorDialog
-from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
+from desktop_client.app.features.instructors.dialogs import InstructorDialog
+from desktop_client.app.features.instructors.view import InstructorProfileView, InstructorsView
 
 
 ROW = {

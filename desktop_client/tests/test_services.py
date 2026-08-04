@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import unittest
 
-from desktop_client.app.services.booking_service import BookingService
-from desktop_client.app.services.ai_chat_service import AIChatService
+from desktop_client.app.features.bookings.service import BookingService
+from desktop_client.app.features.ai_assistant.service import AIChatService
 
 
 class _ApiClient:

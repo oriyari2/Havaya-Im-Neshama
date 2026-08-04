@@ -11,29 +11,29 @@ from PySide6.QtWidgets import QApplication, QDialog, QFormLayout, QFrame, QGroup
 
 from desktop_client.app.main import APP_STYLE, MainWindow
 from desktop_client.app.models.request_state import RequestIdentity, RequestPhase, RequestState
-from desktop_client.app.presenters.customer_formatting import customer_details
-from desktop_client.app.views.customer_dialogs import CustomerDialog
-from desktop_client.app.views.activity_dialogs import ActivityDialog
-from desktop_client.app.views.instructor_dialogs import InstructorDialog
-from desktop_client.app.views.user_dialogs import CreateUserDialog, EditUserDialog
-from desktop_client.app.views.customers_view import CustomersView
-from desktop_client.app.views.activities_view import ActivitiesView
-from desktop_client.app.views.ai_chat_view import AIChatView
-from desktop_client.app.views.bookings_view import BookingsView
-from desktop_client.app.views.dashboard_view import DashboardView
-from desktop_client.app.views.instructors_view import InstructorProfileView, InstructorsView
-from desktop_client.app.views.filter_popup import FloatingFilterPopup
-from desktop_client.app.views.knowledge_view import KnowledgeManagementView
-from desktop_client.app.views.design_tokens import (
+from desktop_client.app.features.customers.formatting import customer_details
+from desktop_client.app.features.customers.dialogs import CustomerDialog
+from desktop_client.app.features.activities.dialogs import ActivityDialog
+from desktop_client.app.features.instructors.dialogs import InstructorDialog
+from desktop_client.app.features.users.dialogs import CreateUserDialog, EditUserDialog
+from desktop_client.app.features.customers.view import CustomersView
+from desktop_client.app.features.activities.view import ActivitiesView
+from desktop_client.app.features.ai_assistant.view import AIChatView
+from desktop_client.app.features.bookings.view import BookingsView
+from desktop_client.app.features.dashboard.view import DashboardView
+from desktop_client.app.features.instructors.view import InstructorProfileView, InstructorsView
+from desktop_client.app.shared.ui.filter_popup import FloatingFilterPopup
+from desktop_client.app.features.knowledge.view import KnowledgeManagementView
+from desktop_client.app.shared.ui.design_tokens import (
     COLOR_AI_ASSISTANT_BACKGROUND, COLOR_AI_SOURCE_BACKGROUND, COLOR_AI_USER_BACKGROUND,
     COLOR_BACKGROUND, COLOR_BRAND, COLOR_BRAND_SOFT, COLOR_FOCUS, CONTROL_HEIGHT,
     DIALOG_WIDTH_DEFAULT, DURATION_STANDARD, ELEVATION_LOW, FONT_SIZE_BODY,
     ICON_SIZE, RADIUS_MEDIUM, SPACE_4, TABLE_ROW_HEIGHT, build_branded_stylesheet,
 )
-from desktop_client.app.views.login_view import LoginView
-from desktop_client.app.views.shell_view import ShellView
-from desktop_client.app.views.users_view import UsersView
-from desktop_client.app.views.ui_foundations import (
+from desktop_client.app.features.auth.view import LoginView
+from desktop_client.app.shared.ui.shell_view import ShellView
+from desktop_client.app.features.users.view import UsersView
+from desktop_client.app.shared.ui.foundations import (
     ColumnKind, ColumnPolicy, FeedbackBanner, PageScaffold, StatePanel,
     configure_data_table, set_item_text,
 )

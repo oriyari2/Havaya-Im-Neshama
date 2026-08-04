@@ -6,7 +6,7 @@ import unittest
 
 from desktop_client.app.api.client import ApiClient
 from desktop_client.app.infrastructure.performance_cache import CacheCapacityError, SessionPerformanceCache
-from desktop_client.app.services.auth_service import AuthService
+from desktop_client.app.features.auth.service import AuthService
 
 
 class _Clock:

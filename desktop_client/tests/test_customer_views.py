@@ -8,11 +8,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication, QBoxLayout, QFormLayout, QToolButton
 
-from desktop_client.app.presenters.customer_formatting import customer_details
-from desktop_client.app.views.customer_dialogs import CustomerDialog
-from desktop_client.app.views.customer_profile_view import CustomerProfileView
-from desktop_client.app.views.customers_view import CustomersView
-from desktop_client.app.views.shell_view import ShellView
+from desktop_client.app.features.customers.formatting import customer_details
+from desktop_client.app.features.customers.dialogs import CustomerDialog
+from desktop_client.app.features.customers.profile_view import CustomerProfileView
+from desktop_client.app.features.customers.view import CustomersView
+from desktop_client.app.shared.ui.shell_view import ShellView
 
 
 class CustomerViewTests(TestCase):
@@ -375,8 +375,10 @@ class CustomerViewTests(TestCase):
         self.assertEqual(view.hero.objectName(), "customersHero")
         self.assertEqual(view.hero.minimumHeight(), 180)
         self.assertEqual(view.hero.maximumHeight(), 180)
-        self.assertEqual(view.hero.hero_path.name, "activity-customers-hero.png")
-        self.assertIn("design_reference", view.hero.hero_path.parts)
+        self.assertEqual(view.hero.hero_path.name, "customers-hero.png")
+        self.assertNotIn("design_reference", view.hero.hero_path.parts)
+        self.assertIn("assets", view.hero.hero_path.parts)
+        self.assertIn("heroes", view.hero.hero_path.parts)
         self.assertFalse(view.hero._pixmap.isNull())
         self.assertEqual(view.table.property("customerTable"), True)
         self.assertEqual(

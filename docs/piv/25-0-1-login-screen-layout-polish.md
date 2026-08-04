@@ -27,8 +27,8 @@ keeps the button text visible.
 
 ## Files changed
 
-- `desktop_client/app/views/login_view.py`
-- `desktop_client/app/views/design_tokens.py`
+- `desktop_client/app/features/auth/view.py`
+- `desktop_client/app/shared/ui/design_tokens.py`
 - `desktop_client/tests/test_ui_foundations.py`
 - `tasks/25-desktop-visual-design-ui-ux-cohesion.md`
 - `docs/piv/requirements-traceability.md`

@@ -36,7 +36,7 @@ Desktop, in another terminal:
 
 ```powershell
 Remove-Item Env:SSLKEYLOGFILE -ErrorAction SilentlyContinue
-.\.venv\Scripts\python.exe -c "from desktop_client.app.api.client import ApiClient,ApiError; from desktop_client.app.services.auth_service import AuthService; c=ApiClient(); s=AuthService(c).login('manager@example.com','manager123'); d=c.get('/bookings/dashboard'); q=c.get('/customers',{'search':'בית ספר','limit':1,'offset':0}); expired=[]; c.set_unauthorized_handler(lambda:expired.append(True)); c.set_access_token('invalid-token'); kind=''; exec('try:\n c.get(\"/auth/me\")\nexcept ApiError as e:\n kind=e.kind.value'); print({'role':s.role,'dashboard_fields':sorted(d),'query_count':q['count'],'expired_kind':kind,'token_cleared':c.access_token is None,'callback_count':len(expired)})"
+.\.venv\Scripts\python.exe -c "from desktop_client.app.api.client import ApiClient,ApiError; from desktop_client.app.features.auth.service import AuthService; c=ApiClient(); s=AuthService(c).login('manager@example.com','manager123'); d=c.get('/bookings/dashboard'); q=c.get('/customers',{'search':'בית ספר','limit':1,'offset':0}); expired=[]; c.set_unauthorized_handler(lambda:expired.append(True)); c.set_access_token('invalid-token'); kind=''; exec('try:\n c.get(\"/auth/me\")\nexcept ApiError as e:\n kind=e.kind.value'); print({'role':s.role,'dashboard_fields':sorted(d),'query_count':q['count'],'expired_kind':kind,'token_cleared':c.access_token is None,'callback_count':len(expired)})"
 ```
 
 Expect `role=manager`, the six dashboard fields, `expired_kind=authentication`,

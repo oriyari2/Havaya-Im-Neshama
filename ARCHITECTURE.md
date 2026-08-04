@@ -15,25 +15,27 @@ work is release/submission verification.
 ```text
 desktop_client/app/
   api/          HTTP transport, bearer token, API errors
-  features/     Microfrontend registration façades and role ownership
+  features/     feature-first Microfrontends; each feature owns View/Presenter/service/registration
+  shared/       reusable shell, UI foundations, formatting and validation
   models/       desktop session/value models
-  services/     backend endpoint adapters
-  presenters/   UI-independent orchestration and formatting
-  views/        passive PySide6 widgets
-  main.py       thin composition root and role-aware shell
+  infrastructure/ background execution and process-memory cache
+  main.py       thin Desktop shell/composition root
 ```
 
-Views emit user intent and render supplied state. Presenters do not import
-PySide6. Services do not render UI. All operational data flows through FastAPI;
-the desktop client never connects directly to PostgreSQL/Supabase.
+Feature Views emit user intent and render supplied state. Feature Presenters do
+not import PySide6. Feature services do not render UI. All operational data
+flows through FastAPI; the desktop client never connects directly to
+PostgreSQL/Supabase.
 
-Desktop Microfrontends are explicit feature registrations under
+Desktop Microfrontends are physical feature packages under
 `desktop_client/app/features/`. `MainWindow` mounts the role-appropriate
-features through `features.registry` and no longer imports/wires business
-feature Views and Presenters directly. Each feature registration owns its View,
-Presenter, signal wiring and page key while reusing the existing tested MVP
-classes. See `docs/architecture/desktop-microfrontends.md` for the boundary
-diagram and feature map.
+packages through `features.registry` and does not import/wire business feature
+Views, Presenters or endpoint adapters directly. Each feature owns its View,
+Presenter, service adapter, dialogs/formatting where relevant, signal wiring and
+page registration. Truly reusable components live under `shared/`; there are no
+parallel business `views/`, `presenters/` or `services/` trees. See
+`docs/architecture/desktop-microfrontends.md` for the boundary diagram and
+feature map.
 
 Task 11 booking mutations preserve these boundaries: passive dialogs collect
 manager input, the booking presenter orchestrates command state and projection

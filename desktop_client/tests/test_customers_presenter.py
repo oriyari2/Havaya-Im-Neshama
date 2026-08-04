@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import Mock, call
 from desktop_client.app.api.client import ApiError, ApiErrorKind
-from desktop_client.app.presenters.customers_presenter import CustomersPresenter, CustomerProfilePresenter, validate_customer
+from desktop_client.app.features.customers.presenter import CustomersPresenter, CustomerProfilePresenter, validate_customer
 
 CONTACT={"id":"ct1","full_name":"Contact","phone":"050","is_primary":True,"is_active":True}
 CUSTOMER={"id":"c1","name":"Task 12B Test Customer","customer_type":"business","city":"Haifa","address":None,"phone":"1","email":"a@b.com","notes":None,"is_active":True,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","contacts":[CONTACT]}

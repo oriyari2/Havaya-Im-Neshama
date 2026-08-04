@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import Mock
 from desktop_client.app.api.client import ApiError,ApiErrorKind
-from desktop_client.app.presenters.booking_assignments_presenter import BookingAssignmentsPresenter
+from desktop_client.app.features.bookings.assignments_presenter import BookingAssignmentsPresenter
 A={"booking_activity_id":"ba","activity_id":"a","activity_name":"Activity","assignment_required":True,"assignments":[]};M={"booking_id":"b","version":2,"activities":[A]};I={"id":"i","full_name":"Instructor","city":"C"}
 class AssignmentPresenterTests(TestCase):
     def setUp(self):self.v=Mock();self.s=Mock();self.ins=Mock();self.s.assignments.return_value=M;self.refresh=Mock();self.related=Mock();self.confirm=Mock();self.p=BookingAssignmentsPresenter(self.v,self.s,self.ins,refresh_booking=self.refresh,refresh_related=self.related,confirm_after_assignment=self.confirm)
