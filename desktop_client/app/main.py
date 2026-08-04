@@ -113,14 +113,6 @@ class MainWindow(QMainWindow):
         self._session_expired_dialog = dialog
         dialog.open()
 
-    def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
-        dialog = getattr(self, "_session_expired_dialog", None)
-        if dialog is not None:
-            dialog.close()
-            dialog.deleteLater()
-            self._session_expired_dialog = None
-        super().closeEvent(event)
-
     def _show_freshness_warning(self, _resource: str) -> None:
         presenter = self._presenters.get(self._active_page or "")
         view = getattr(presenter, "view", None)
@@ -309,9 +301,18 @@ class MainWindow(QMainWindow):
             if invalidate is not None:
                 invalidate()
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event) -> None:  # noqa: N802 - Qt API
+        dialog = getattr(self, "_session_expired_dialog", None)
+        if dialog is not None:
+            dialog.close()
+            dialog.deleteLater()
+            self._session_expired_dialog = None
+
         self._invalidate_presenter_requests()
         self.api_client.set_unauthorized_handler(None)
+        cancel_ai_requests = getattr(self.api_client, "cancel_ai_requests", None)
+        if cancel_ai_requests is not None:
+            cancel_ai_requests()
         performance_cache = getattr(self.api_client, "performance_cache", None)
         if performance_cache is not None:
             performance_cache.set_refresh_failure_handler(None)

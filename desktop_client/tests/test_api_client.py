@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import threading
 import unittest
 from unittest.mock import Mock, patch
 from urllib.request import Request
@@ -41,6 +42,35 @@ class _RawResponse:
 
     def geturl(self):
         return self.final_url
+
+
+class _AIResponse:
+    def __init__(self, status: int, payload: object) -> None:
+        self.status = status
+        self.payload = json.dumps(payload).encode("utf-8")
+
+    def read(self):
+        return self.payload
+
+
+class _AIConnection:
+    def __init__(self, *, response: _AIResponse | None = None, error: BaseException | None = None) -> None:
+        self.response = response or _AIResponse(200, {"answer": "ok"})
+        self.error = error
+        self.request_args = None
+        self.closed = False
+        self.sock = None
+
+    def request(self, method, target, body=None, headers=None):
+        self.request_args = (method, target, body, headers or {})
+
+    def getresponse(self):
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+    def close(self):
+        self.closed = True
 
 
 class ApiClientTests(unittest.TestCase):
@@ -99,35 +129,32 @@ class ApiClientTests(unittest.TestCase):
         client.set_access_token("manager-token")
         notified = []
         client.set_unauthorized_handler(lambda: notified.append(True))
-        requests = []
+        connection = _AIConnection(error=TimeoutError())
 
-        def fail(request, timeout):
-            requests.append((request, timeout))
-            raise TimeoutError()
-
-        with patch("desktop_client.app.api.client.urlopen", side_effect=fail):
+        with patch("desktop_client.app.api.client.http.client.HTTPConnection", return_value=connection) as connection_cls:
             with self.assertRaises(ApiError) as raised:
                 client.post_ai("/api/ai/consult", {"prompt": "hello"})
 
         self.assertEqual(raised.exception.kind, ApiErrorKind.TIMEOUT)
-        self.assertEqual(requests[0][1], 480.0)
+        connection_cls.assert_called_once_with("example.test", None, timeout=480.0)
         self.assertIn("AI", str(raised.exception))
         self.assertNotIn("להתחבר לשרת", str(raised.exception))
         self.assertEqual(client.access_token, "manager-token")
         self.assertEqual(notified, [])
 
-    def test_ai_urlerror_wrapped_timeout_is_classified_as_timeout(self) -> None:
+    def test_ai_connection_failure_is_sanitized_and_preserves_session(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("manager-token")
         notified = []
         client.set_unauthorized_handler(lambda: notified.append(True))
+        connection = _AIConnection(error=OSError("offline"))
 
-        with patch("desktop_client.app.api.client.urlopen", side_effect=URLError(TimeoutError("timed out"))):
+        with patch("desktop_client.app.api.client.http.client.HTTPConnection", return_value=connection):
             with self.assertRaises(ApiError) as raised:
                 client.post_ai("/api/ai/consult", {"prompt": "hello"})
 
-        self.assertEqual(raised.exception.kind, ApiErrorKind.TIMEOUT)
-        self.assertIn("AI", str(raised.exception))
+        self.assertEqual(raised.exception.kind, ApiErrorKind.CONNECTION)
+        self.assertEqual(str(raised.exception), "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.")
         self.assertEqual(client.access_token, "manager-token")
         self.assertEqual(notified, [])
 
@@ -136,15 +163,9 @@ class ApiClientTests(unittest.TestCase):
         client.set_access_token("manager-token")
         notified = []
         client.set_unauthorized_handler(lambda: notified.append(True))
-        error = HTTPError(
-            "http://example.test/api/ai/consult",
-            503,
-            "Service Unavailable",
-            {},
-            io.BytesIO(b'{"detail":"AI service is unavailable"}'),
-        )
+        connection = _AIConnection(response=_AIResponse(503, {"detail": "AI service is unavailable"}))
 
-        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+        with patch("desktop_client.app.api.client.http.client.HTTPConnection", return_value=connection):
             with self.assertRaises(ApiError) as raised:
                 client.post_ai("/api/ai/consult", {"prompt": "hello"})
 
@@ -157,21 +178,60 @@ class ApiClientTests(unittest.TestCase):
     def test_ai_embedding_backend_detail_is_not_exposed(self) -> None:
         client = ApiClient("http://example.test")
         client.set_access_token("manager-token")
-        error = HTTPError(
-            "http://example.test/api/ai/consult",
-            503,
-            "Service Unavailable",
-            {},
-            io.BytesIO(b'{"detail":"Embedding service is unavailable. Verify Ollama is running."}'),
+        connection = _AIConnection(
+            response=_AIResponse(503, {"detail": "Embedding service is unavailable. Verify Ollama is running."})
         )
 
-        with patch("desktop_client.app.api.client.urlopen", side_effect=error):
+        with patch("desktop_client.app.api.client.http.client.HTTPConnection", return_value=connection):
             with self.assertRaises(ApiError) as raised:
                 client.post_ai("/api/ai/consult", {"prompt": "hello"})
 
         self.assertEqual(raised.exception.status_code, 503)
         self.assertEqual(str(raised.exception), "שירות ה-AI אינו זמין כרגע. נסו שוב בעוד רגע.")
         self.assertNotIn("Embedding service is unavailable", str(raised.exception))
+
+    def test_cancel_ai_requests_interrupts_blocked_transport(self) -> None:
+        client = ApiClient("http://example.test")
+        entered = threading.Event()
+        released = threading.Event()
+
+        class BlockingConnection(_AIConnection):
+            def getresponse(self):
+                entered.set()
+                released.wait(2.0)
+                raise OSError("cancelled")
+
+            def close(self):
+                self.closed = True
+                released.set()
+
+        connection = BlockingConnection()
+        errors = []
+
+        with patch("desktop_client.app.api.client.http.client.HTTPConnection", return_value=connection):
+            worker = threading.Thread(
+                target=lambda: self._capture_api_error(
+                    lambda: client.post_ai("/api/ai/consult", {"prompt": "hello"}),
+                    errors,
+                )
+            )
+            worker.start()
+            self.assertTrue(entered.wait(1.0))
+            self.assertEqual(client.cancel_ai_requests(), 1)
+            worker.join(0.5)
+
+        self.assertFalse(worker.is_alive())
+        self.assertTrue(connection.closed)
+        self.assertEqual(len(errors), 1)
+        self.assertIsInstance(errors[0], ApiError)
+        self.assertEqual(str(errors[0]), "בקשת ה-AI בוטלה.")
+
+    @staticmethod
+    def _capture_api_error(call, output) -> None:
+        try:
+            call()
+        except Exception as exc:
+            output.append(exc)
 
     def test_multipart_upload_is_authenticated_and_contains_file(self) -> None:
         client = ApiClient("http://example.test")
