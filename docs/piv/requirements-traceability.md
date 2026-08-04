@@ -20,7 +20,7 @@ state**.
 | Domain data entry | Customer, Instructor, Manager, Activity, Booking, assignment and knowledge-source workflows | Implemented |
 | Desktop application | PySide6 Desktop client | Implemented |
 | MVP presentation pattern | Passive PySide6 Views, Qt-free Presenters, service/API adapters; architecture tests protect the boundary | Implemented |
-| Microfrontend/modular UI | Independent role/feature modules are composed inside one Desktop executable (`views`, `presenters`, `services`, role navigation). This is a logical modular/microfrontend interpretation rather than separately deployed frontends | Implemented with documented interpretation |
+| Microfrontend/modular UI | Explicit `desktop_client/app/features/` registry; each role-bounded feature exposes a registration façade that owns its View/Presenter wiring and page key, while `MainWindow` composes features without importing their internals. See `docs/architecture/desktop-microfrontends.md` and `test_microfrontends.py` | Implemented and architecture-tested |
 | PySide version | Repository pins `PySide6==6.9.1` | **Verify course interpretation** if `6.5` was intended as an exact version rather than PySide6/Qt6 guidance |
 | FastAPI application server | FastAPI composition root and routers | Implemented |
 | CQRS/MVC organization | Booking commands/event writes are separated from projection queries; backend layers separate routers, application, domain and infrastructure | Implemented |

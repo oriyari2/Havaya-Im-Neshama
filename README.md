@@ -21,13 +21,14 @@ rehearsal.
 
 See [docs/PROJECT-ROADMAP.md](docs/PROJECT-ROADMAP.md),
 [docs/piv/requirements-traceability.md](docs/piv/requirements-traceability.md),
+[docs/architecture/desktop-microfrontends.md](docs/architecture/desktop-microfrontends.md),
 and [docs/piv/final-validation.md](docs/piv/final-validation.md).
 
 ## Project Structure
 
 ```text
 backend/            FastAPI backend
-desktop_client/     PySide6 desktop client
+desktop_client/     PySide6 desktop client (MVP + feature-registered Microfrontends)
 rag/                Ollama LLM and embedding clients
 docker/             Local Ollama Docker Compose service
 migrations/         Future database migrations
