@@ -28,13 +28,17 @@ and [docs/piv/final-validation.md](docs/piv/final-validation.md).
 
 ```text
 backend/            FastAPI backend
-desktop_client/     PySide6 desktop client (MVP + feature-registered Microfrontends)
+desktop_client/     PySide6 desktop client (feature-first Microfrontends, each using MVP)
 rag/                Ollama LLM and embedding clients
 docker/             Local Ollama Docker Compose service
 migrations/         Future database migrations
 docs/               Product and project documentation
 tasks/              Implementation task files
 ```
+Desktop business code is organized feature-first under `desktop_client/app/features/`
+(e.g. `customers/`, `activities/`, `bookings/`, `ai_assistant/`). Each package
+owns its View, Presenter, service adapter and registration boundary. Reusable
+Shell/UI/validation infrastructure is under `desktop_client/app/shared/`.
 
 ## Setup
 

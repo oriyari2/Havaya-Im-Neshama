@@ -47,9 +47,9 @@ successfully decoded preview is admitted to the memory cache.
 
 - `desktop_client/app/media_config.py`
 - `desktop_client/app/api/client.py`
-- `desktop_client/app/services/activity_service.py`
-- `desktop_client/app/presenters/activities_presenter.py`
-- `desktop_client/app/views/activities_view.py`
+- `desktop_client/app/features/activities/service.py`
+- `desktop_client/app/features/activities/presenter.py`
+- `desktop_client/app/features/activities/view.py`
 - `desktop_client/app/main.py`
 - four focused desktop test modules
 - Task 19, PIV, traceability, README, and architecture documents

@@ -6,23 +6,15 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QApplication, QLabel, QMainWindow, QMessageBox
 
 from desktop_client.app.api.client import ApiClient
-from desktop_client.app.features.auth import build_login_feature
+from desktop_client.app.features.auth import build_auth_service, build_login_feature
 from desktop_client.app.features.contracts import FeatureContext, FeatureServices
 from desktop_client.app.features.registry import mount_role_features
+from desktop_client.app.features.service_factory import build_feature_services
 from desktop_client.app.infrastructure.qt_operations import QtOperationExecutor
 from desktop_client.app.models.session import Session
-from desktop_client.app.presenters.navigation import navigation_for_role
-from desktop_client.app.services.auth_service import AuthService
-from desktop_client.app.services.booking_service import BookingService
-from desktop_client.app.services.assignment_service import AssignmentService
-from desktop_client.app.services.activity_service import ActivityService
-from desktop_client.app.services.ai_chat_service import AIChatService
-from desktop_client.app.services.customer_service import CustomerService
-from desktop_client.app.services.instructor_service import InstructorService
-from desktop_client.app.services.knowledge_service import KnowledgeService
-from desktop_client.app.services.user_service import UserService
-from desktop_client.app.views.shell_view import ShellView
-from desktop_client.app.views.design_tokens import build_neutral_stylesheet
+from desktop_client.app.shared.navigation import navigation_for_role
+from desktop_client.app.shared.ui.shell_view import ShellView
+from desktop_client.app.shared.ui.design_tokens import build_neutral_stylesheet
 
 APP_STYLE = build_neutral_stylesheet()
 
@@ -39,21 +31,24 @@ class MainWindow(QMainWindow):
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.api_client = api_client or ApiClient()
         self.operation_executor = QtOperationExecutor(parent=self)
-        self.auth_service = AuthService(self.api_client)
+        self.auth_service = build_auth_service(self.api_client)
         self.api_client.set_unauthorized_handler(self._handle_unauthorized)
         self.session_expired.connect(self._complete_session_expiry)
         performance_cache = getattr(self.api_client, "performance_cache", None)
         if performance_cache is not None:
             performance_cache.set_refresh_failure_handler(self.cache_refresh_failed.emit)
         self.cache_refresh_failed.connect(self._show_freshness_warning)
-        self.booking_service = BookingService(self.api_client)
-        self.assignment_service = AssignmentService(self.api_client)
-        self.activity_service = ActivityService(self.api_client)
-        self.ai_chat_service = AIChatService(self.api_client)
-        self.customer_service = CustomerService(self.api_client)
-        self.instructor_service = InstructorService(self.api_client)
-        self.knowledge_service = KnowledgeService(self.api_client)
-        self.user_service = UserService(self.api_client)
+        feature_services = build_feature_services(self.api_client)
+        # Keep the historical attributes as stable composition hooks for tests and
+        # runtime overrides; the concrete service classes now live with their features.
+        self.booking_service = feature_services.booking
+        self.assignment_service = feature_services.assignment
+        self.activity_service = feature_services.activity
+        self.ai_chat_service = feature_services.ai_chat
+        self.customer_service = feature_services.customer
+        self.instructor_service = feature_services.instructor
+        self.knowledge_service = feature_services.knowledge
+        self.user_service = feature_services.user
         self._presenters: dict[str, object] = {}
         self._active_page: str | None = None
         self._show_login()

@@ -2,7 +2,7 @@ from unittest import TestCase
 from unittest.mock import Mock
 
 from desktop_client.app.api.client import ApiError, ApiErrorKind
-from desktop_client.app.presenters.users_presenter import UsersPresenter
+from desktop_client.app.features.users.presenter import UsersPresenter
 
 
 USER = {"id":"u1","email":"user@example.com","role":"manager","display_name":"Manager","is_active":True,"customer_id":None,"customer_name":None,"instructor_id":None,"instructor_name":None,"created_at":"","updated_at":""}

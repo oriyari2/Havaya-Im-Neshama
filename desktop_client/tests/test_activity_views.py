@@ -14,11 +14,11 @@ from PySide6.QtWidgets import QApplication, QLabel, QToolButton
 
 from desktop_client.app.api import client as api_client
 from desktop_client.app.main import MainWindow
-from desktop_client.app.presenters import activities_presenter
-from desktop_client.app.presenters.activity_formatting import activity_details
-from desktop_client.app.services import activity_service
-from desktop_client.app.views.activities_view import ActivitiesView
-from desktop_client.app.views.activity_dialogs import ActivityDialog
+from desktop_client.app.features.activities import presenter as activities_presenter
+from desktop_client.app.features.activities.formatting import activity_details
+from desktop_client.app.features.activities import service as activity_service
+from desktop_client.app.features.activities.view import ActivitiesView
+from desktop_client.app.features.activities.dialogs import ActivityDialog
 
 
 ACTIVITY = {

@@ -2,7 +2,7 @@ from unittest import TestCase
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
-from desktop_client.app.services.activity_service import ActivityService
+from desktop_client.app.features.activities.service import ActivityService
 from desktop_client.app.media_config import MAX_PREVIEW_DOWNLOAD_BYTES, MAX_UPLOAD_SIZE_BYTES
 
 class ActivityServiceTests(TestCase):

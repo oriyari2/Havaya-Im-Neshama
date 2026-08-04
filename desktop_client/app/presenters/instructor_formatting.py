@@ -1,3 +1,0 @@
-from desktop_client.app.presenters.activity_formatting import _date,_display
-def instructor_row(x):return {"id":str(x["id"]),"full_name":_display(x.get("full_name")),"phone":_display(x.get("phone")),"email":_display(x.get("email")),"city":_display(x.get("city")),"is_active":bool(x.get("is_active"))}
-def instructor_details(x):return [("שם",_display(x.get("full_name"))),("טלפון",_display(x.get("phone"))),("דוא״ל",_display(x.get("email"))),("עיר",_display(x.get("city"))),("הערות",_display(x.get("notes"))),("מצב","פעיל" if x.get("is_active") else "לא פעיל"),("נוצר",_date(x.get("created_at"))),("עודכן",_date(x.get("updated_at")))]

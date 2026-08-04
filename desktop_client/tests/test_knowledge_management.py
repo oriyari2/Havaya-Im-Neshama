@@ -11,9 +11,9 @@ from PySide6.QtWidgets import QApplication
 
 from desktop_client.app.main import MainWindow
 from desktop_client.app.models.session import Session
-from desktop_client.app.presenters.knowledge_presenter import KnowledgeManagementPresenter
-from desktop_client.app.services.knowledge_service import MAX_KNOWLEDGE_SOURCE_CONTENT_CHARS, KnowledgeService, read_supported_knowledge_file
-from desktop_client.app.views.knowledge_view import KnowledgeManagementView
+from desktop_client.app.features.knowledge.presenter import KnowledgeManagementPresenter
+from desktop_client.app.features.knowledge.service import MAX_KNOWLEDGE_SOURCE_CONTENT_CHARS, KnowledgeService, read_supported_knowledge_file
+from desktop_client.app.features.knowledge.view import KnowledgeManagementView
 
 
 class KnowledgeDesktopTests(unittest.TestCase):

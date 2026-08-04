@@ -21,8 +21,9 @@ The academic MVP currently contains:
 - Booking CQRS and Event Sourcing with immutable events, projection reads,
   replay and optimistic concurrency;
 - role-aware Dashboard, Booking, Activity, profile and management workflows;
-- PySide6 Desktop MVP with passive Views, Qt-free Presenters, services and one
-  role-aware composition root;
+- PySide6 Desktop MVP organized as feature-first Microfrontends; each business
+  package owns its View, Qt-free Presenter, service adapter and registration
+  boundary, with shared UI infrastructure under `desktop_client/app/shared/`;
 - bounded background execution and process-memory caching for Desktop
   responsiveness;
 - local Ollama in Docker, pgvector retrieval, grounded RAG-only consultation,
@@ -46,6 +47,7 @@ The academic MVP currently contains:
 | Safe caching / refresh reduction | `23` | Implemented |
 | Booking creation and assignment closure | `24`, `24.1`, `24.2`, `24.3` | Implemented |
 | Desktop visual/UX redesign | `25.0.1`–`25.5` | Implemented; final state consolidated below |
+| Feature-first Desktop Microfrontends | `25.6` | Implemented structurally; run the listed regression validation after applying |
 | Final regression and requirements audit | `final-validation.md` | Completed for code-level validation |
 
 ## Authoritative final documents

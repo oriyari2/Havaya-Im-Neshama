@@ -41,10 +41,10 @@ citations, ingestion, and AI mutations remain out of scope.
 - `backend/.env.example`
 - `backend/tests/test_ai_consult_api.py`
 - `desktop_client/app/main.py`
-- `desktop_client/app/presenters/ai_chat_presenter.py`
-- `desktop_client/app/presenters/navigation.py`
-- `desktop_client/app/services/ai_chat_service.py`
-- `desktop_client/app/views/ai_chat_view.py`
+- `desktop_client/app/features/ai_assistant/presenter.py`
+- `desktop_client/app/shared/navigation.py`
+- `desktop_client/app/features/ai_assistant/service.py`
+- `desktop_client/app/features/ai_assistant/view.py`
 - `desktop_client/tests/test_presenters.py`
 - `desktop_client/tests/test_services.py`
 - `docs/piv/14-ai-chat-ui-endpoints.md`

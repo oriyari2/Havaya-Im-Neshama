@@ -41,10 +41,10 @@ desktop controls are absent.
 ## Files Changed
 
 - `desktop_client/app/api/client.py`
-- `desktop_client/app/services/booking_service.py`
-- `desktop_client/app/presenters/bookings_presenter.py`
-- `desktop_client/app/views/bookings_view.py`
-- `desktop_client/app/views/booking_dialogs.py`
+- `desktop_client/app/features/bookings/service.py`
+- `desktop_client/app/features/bookings/presenter.py`
+- `desktop_client/app/features/bookings/view.py`
+- `desktop_client/app/features/bookings/dialogs.py`
 - `desktop_client/app/main.py`
 - `desktop_client/tests/`
 - `tasks/11-desktop-booking-command-workflows.md`

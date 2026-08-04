@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from desktop_client.app.services.user_service import UserService
+from desktop_client.app.features.users.service import UserService
 
 
 class Api:

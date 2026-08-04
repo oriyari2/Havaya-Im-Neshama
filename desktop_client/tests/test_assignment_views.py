@@ -3,8 +3,8 @@ os.environ.setdefault("QT_QPA_PLATFORM","offscreen")
 from unittest import TestCase
 from unittest.mock import Mock
 from PySide6.QtWidgets import QApplication, QLabel
-from desktop_client.app.views.bookings_view import BookingsView
-from desktop_client.app.views.assignment_dialogs import InstructorSelectorDialog
+from desktop_client.app.features.bookings.view import BookingsView
+from desktop_client.app.features.bookings.assignment_dialogs import InstructorSelectorDialog
 class AssignmentViewTests(TestCase):
     @classmethod
     def setUpClass(cls):cls.app=QApplication.instance() or QApplication([])

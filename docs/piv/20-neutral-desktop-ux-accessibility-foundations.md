@@ -141,8 +141,8 @@ compatibility of unmodified modules. Screenshots must be labeled temporary.
 Created:
 
 - `desktop_client/app/models/request_state.py`;
-- `desktop_client/app/views/design_tokens.py`;
-- `desktop_client/app/views/ui_foundations.py`;
+- `desktop_client/app/shared/ui/design_tokens.py`;
+- `desktop_client/app/shared/ui/foundations.py`;
 - `desktop_client/tests/test_ui_foundations.py`.
 
 Modified only for the approved pilot/foundation:

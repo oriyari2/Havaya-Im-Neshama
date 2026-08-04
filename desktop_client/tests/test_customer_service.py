@@ -1,6 +1,6 @@
 from unittest import TestCase
 from unittest.mock import Mock
-from desktop_client.app.services.customer_service import CustomerService
+from desktop_client.app.features.customers.service import CustomerService
 
 class CustomerServiceTests(TestCase):
     def setUp(self): self.api = Mock(); self.service = CustomerService(self.api)

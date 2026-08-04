@@ -120,10 +120,10 @@ Customer list
 
 ## Files changed
 
-- `desktop_client/app/views/customers_view.py`
-- `desktop_client/app/views/customer_dialogs.py`
-- `desktop_client/app/views/design_tokens.py`
-- `desktop_client/app/views/management_common.py`
+- `desktop_client/app/features/customers/view.py`
+- `desktop_client/app/features/customers/dialogs.py`
+- `desktop_client/app/shared/ui/design_tokens.py`
+- `desktop_client/app/shared/ui/management_common.py`
 - `desktop_client/app/main.py`
 - `desktop_client/tests/test_customer_views.py`
 - `desktop_client/tests/test_ui_foundations.py`
@@ -216,8 +216,8 @@ under `docs/screenshots/` and comes from the later branded consolidation:
 
 Files changed by this responsive completion:
 
-- `desktop_client/app/views/customers_view.py`
-- `desktop_client/app/views/ui_foundations.py`
+- `desktop_client/app/features/customers/view.py`
+- `desktop_client/app/shared/ui/foundations.py`
 - `desktop_client/tests/test_customer_views.py`
 - `desktop_client/tests/test_ui_foundations.py`
 - `docs/piv/25-1-customer-screen-redesign.md`
@@ -257,7 +257,7 @@ part of Task 25.1.
 
 Files changed by this amendment:
 
-- `desktop_client/app/views/customers_view.py`
+- `desktop_client/app/features/customers/view.py`
 - `docs/piv/25-1-customer-screen-redesign.md`
 
 Validation:

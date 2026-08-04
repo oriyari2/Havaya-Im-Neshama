@@ -48,10 +48,10 @@ All source-management endpoints require the authenticated `manager` role.
 - `backend/tests/test_task18_knowledge_management.py`
 - `rag/cleanup_task16_demo_knowledge.py`
 - `desktop_client/app/main.py`
-- `desktop_client/app/presenters/knowledge_presenter.py`
-- `desktop_client/app/presenters/navigation.py`
-- `desktop_client/app/services/knowledge_service.py`
-- `desktop_client/app/views/knowledge_view.py`
+- `desktop_client/app/features/knowledge/presenter.py`
+- `desktop_client/app/shared/navigation.py`
+- `desktop_client/app/features/knowledge/service.py`
+- `desktop_client/app/features/knowledge/view.py`
 - `desktop_client/tests/test_knowledge_management.py`
 - `desktop_client/tests/test_presenters.py`
 - `desktop_client/tests/test_views.py`

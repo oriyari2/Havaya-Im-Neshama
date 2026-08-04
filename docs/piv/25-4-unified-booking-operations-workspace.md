@@ -112,11 +112,11 @@ driver, open database connections, or read `DATABASE_URL`.
 
 - `desktop_client/app/main.py`, navigation and Dashboard wiring: one Booking
   destination and integrated unassigned queue.
-- `desktop_client/app/views/bookings_view.py`: unified list, queues, Details,
+- `desktop_client/app/features/bookings/view.py`: unified list, queues, Details,
   history and assignment workspace.
-- `desktop_client/app/views/booking_dialogs.py`,
-  `desktop_client/app/views/assignment_dialogs.py`, and
-  `desktop_client/app/views/entity_selector.py`: shared RTL ID-backed selection
+- `desktop_client/app/features/bookings/dialogs.py`,
+  `desktop_client/app/features/bookings/assignment_dialogs.py`, and
+  `desktop_client/app/shared/ui/entity_selector.py`: shared RTL ID-backed selection
   flow.
 - Booking presenter/service/formatting and design tokens: orchestration,
   bounded form options and semantic state presentation.

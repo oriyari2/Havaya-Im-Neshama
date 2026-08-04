@@ -11,10 +11,10 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton, QWidget
 
 from desktop_client.app.main import MainWindow
 from desktop_client.app.models.session import Session
-from desktop_client.app.views.bookings_view import BookingsView
-from desktop_client.app.views.booking_dialogs import BookingFormDialog
-from desktop_client.app.views.dashboard_view import DashboardView
-from desktop_client.app.views.shell_view import ShellView
+from desktop_client.app.features.bookings.view import BookingsView
+from desktop_client.app.features.bookings.dialogs import BookingFormDialog
+from desktop_client.app.features.dashboard.view import DashboardView
+from desktop_client.app.shared.ui.shell_view import ShellView
 
 
 class ViewTests(unittest.TestCase):

@@ -24,18 +24,18 @@ View/style implementation.
 
 The existing reusable visual architecture is:
 
-- `desktop_client/app/views/design_tokens.py` owns the global QSS and shared
+- `desktop_client/app/shared/ui/design_tokens.py` owns the global QSS and shared
   token constants.
 - `desktop_client/app/main.py` applies the single application stylesheet.
-- `desktop_client/app/views/ui_foundations.py` owns `PageScaffold`, semantic
+- `desktop_client/app/shared/ui/foundations.py` owns `PageScaffold`, semantic
   table sizing, request-state panels, feedback banners, focus/accessibility
   helpers, and table configuration.
-- `desktop_client/app/views/management_workspace.py` owns the shared RTL
+- `desktop_client/app/shared/ui/management_workspace.py` owns the shared RTL
   management list-to-details composition.
-- `desktop_client/app/views/management_common.py` owns shared primary-button
+- `desktop_client/app/shared/ui/management_common.py` owns shared primary-button
   roles, search toolbar, pagination, active badges, retry state, and shared
   confirmation dialogs.
-- `desktop_client/app/views/shell_view.py` owns post-login shell/sidebar
+- `desktop_client/app/shared/ui/shell_view.py` owns post-login shell/sidebar
   composition and navigation signal emission.
 
 No backend/domain architecture was re-investigated or modified.
@@ -230,11 +230,11 @@ Visual validation captured:
 
 ## Files Changed
 
-- `desktop_client/app/views/design_tokens.py`
-- `desktop_client/app/views/dashboard_view.py`
-- `desktop_client/app/views/customers_view.py`
-- `desktop_client/app/views/management_workspace.py`
-- `desktop_client/app/views/shell_view.py`
+- `desktop_client/app/shared/ui/design_tokens.py`
+- `desktop_client/app/features/dashboard/view.py`
+- `desktop_client/app/features/customers/view.py`
+- `desktop_client/app/shared/ui/management_workspace.py`
+- `desktop_client/app/shared/ui/shell_view.py`
 - `desktop_client/tests/test_ui_foundations.py`
 - `desktop_client/tests/test_customer_views.py`
 - `docs/screenshots/task-25-5-dashboard-instructor-shell.png`

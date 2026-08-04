@@ -9,12 +9,12 @@ from desktop_client.app.models.session import Session
 from desktop_client.app.api.client import ApiError
 from desktop_client.app.api.client import ApiClient
 from desktop_client.app.api.client import ApiErrorKind
-from desktop_client.app.presenters.ai_chat_presenter import AIChatPresenter
-from desktop_client.app.presenters.bookings_presenter import BookingsPresenter, FormValidationError, validate_create_booking
-from desktop_client.app.presenters.dashboard_presenter import DashboardPresenter
-from desktop_client.app.presenters.login_presenter import LoginPresenter
-from desktop_client.app.presenters.navigation import navigation_for_role
-from desktop_client.app.services.ai_chat_service import AIChatService
+from desktop_client.app.features.ai_assistant.presenter import AIChatPresenter
+from desktop_client.app.features.bookings.presenter import BookingsPresenter, FormValidationError, validate_create_booking
+from desktop_client.app.features.dashboard.presenter import DashboardPresenter
+from desktop_client.app.features.auth.presenter import LoginPresenter
+from desktop_client.app.shared.navigation import navigation_for_role
+from desktop_client.app.features.ai_assistant.service import AIChatService
 
 
 BOOKING = {

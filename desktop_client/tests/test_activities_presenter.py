@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import Mock
 from desktop_client.app.api.client import ApiError, ApiErrorKind
-from desktop_client.app.presenters.activities_presenter import ActivitiesPresenter, validate_activity
+from desktop_client.app.features.activities.presenter import ActivitiesPresenter, validate_activity
 from desktop_client.app.media_config import MAX_PREVIEW_CACHE_ENTRIES
 
 ITEM={"id":"a1","name":"Task 12C Test Activity","description":"Created","target_audience":"Task12C Audience","duration_minutes":60,"recommended_capacity":30,"pricing_rule":"fixed","required_equipment":"none","preparation_notes":"prepare","season":"Task12C Season","tags":"task12c","is_active":True,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}

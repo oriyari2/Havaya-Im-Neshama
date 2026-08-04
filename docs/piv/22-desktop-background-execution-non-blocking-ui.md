@@ -39,11 +39,11 @@ Production desktop:
 - `desktop_client/app/infrastructure/__init__.py`
 - `desktop_client/app/infrastructure/qt_operations.py`
 - `desktop_client/app/main.py`
-- `desktop_client/app/presenters/login_presenter.py`
-- `desktop_client/app/presenters/dashboard_presenter.py`
-- `desktop_client/app/presenters/customers_presenter.py`
-- `desktop_client/app/presenters/instructors_presenter.py`
-- `desktop_client/app/presenters/users_presenter.py`
+- `desktop_client/app/features/auth/presenter.py`
+- `desktop_client/app/features/dashboard/presenter.py`
+- `desktop_client/app/features/customers/presenter.py`
+- `desktop_client/app/features/instructors/presenter.py`
+- `desktop_client/app/features/users/presenter.py`
 
 Tests and documentation:
 
