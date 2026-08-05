@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import unittest
+from datetime import datetime
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -556,8 +557,7 @@ class UiFoundationTests(unittest.TestCase):
         self.assertEqual(len(manager.card_values), 6)
         self.assertEqual(set(instructor.card_values), {"upcoming_count", "assigned_count"})
         self.assertTrue(manager.findChild(QFrame, "dashboardHero"))
-        self.assertEqual(manager.first_group.objectName(), "dashboardSection")
-        self.assertEqual(manager.first_table.property("task20Table"), True)
+        self.assertEqual(manager.trend_card.objectName(), "dashboardChartCard")
 
         hero = manager.findChild(QFrame, "dashboardHero")
         self.assertGreaterEqual(hero.minimumHeight(), 136)
@@ -579,98 +579,34 @@ class UiFoundationTests(unittest.TestCase):
         manager.drill_buttons["assigned_count"].click()
         self.assertEqual(emitted, ["assigned_count"])
 
-        manager.show_sections(
-            "הזמנות קרובות",
-            [{
-                "id": "b1",
-                "activity": "סדנה",
-                "event_at": "2026-08-03 10:00",
-                "status": "מאושר",
-                "city": "חיפה",
-                "venue": "מרכז",
-                "participants": "12",
-            }],
-            "דורשים שיבוץ",
-            [],
-        )
-        self.assertEqual(
-            manager.first_group.title_label.alignment() & Qt.AlignmentFlag.AlignRight,
-            Qt.AlignmentFlag.AlignRight,
-        )
-        self.assertEqual(
-            manager.first_table.horizontalHeader().defaultAlignment() & Qt.AlignmentFlag.AlignRight,
-            Qt.AlignmentFlag.AlignRight,
-        )
-        for column in range(manager.first_table.columnCount()):
-            self.assertEqual(
-                manager.first_table.horizontalHeader().sectionResizeMode(column),
-                QHeaderView.ResizeMode.Stretch,
-            )
-        self.assertEqual(
-            manager.first_table.horizontalScrollBarPolicy(),
-            Qt.ScrollBarPolicy.ScrollBarAlwaysOff,
-        )
-        self.assertEqual(
-            manager.first_table.item(0, 0).textAlignment() & Qt.AlignmentFlag.AlignRight,
-            Qt.AlignmentFlag.AlignRight,
-        )
+        manager.show_chart(2026, [2024, 2026], [{"month": month, "count": month % 3} for month in range(1, 13)])
+        self.assertEqual(manager.trend_card.year_combo.currentText(), "2026")
+        self.assertEqual(manager.trend_card.series.count(), 12)
+        self.assertFalse(manager.trend_card.chart.legend().isVisible())
 
-    def test_instructor_dashboard_open_events_have_direct_registration_action(self) -> None:
+    def test_dashboard_chart_year_selector_emits_focused_refresh(self) -> None:
         instructor = DashboardView("instructor")
         self.addCleanup(instructor.close)
         emitted = []
-        instructor.assignment_request_requested.connect(emitted.append)
-
-        open_row = {
-            "id": "booking-open-1",
-            "booking_id": "booking-open-1",
-            "booking_activity_id": "ba-open-1",
-            "my_request_status": None,
-            "activity": "פעילות פתוחה",
-            "event_at": "15/08/2026 11:00",
-            "status": "מאושר",
-            "city": "ירושלים",
-            "venue": "בית הספר",
-            "participants": "95",
-        }
-        instructor.show_sections("אירועים משויכים", [], "אירועים פתוחים", [open_row])
-
-        self.assertEqual(instructor.second_table.columnCount(), 7)
-        self.assertEqual(instructor.second_table.horizontalHeaderItem(6).text(), "הרשמה")
-        action_host = instructor.second_table.cellWidget(0, 6)
-        self.assertIsInstance(action_host, QWidget)
-        button = action_host.findChild(QPushButton, "dashboardOpenEventRegisterButton")
-        self.assertIsInstance(button, QPushButton)
-        self.assertEqual(button.text(), "הירשם לאירוע")
-        self.assertTrue(button.isEnabled())
-        self.assertEqual(button.property("buttonRole"), "managementPrimary")
-        self.assertGreaterEqual(button.width(), 136)
-        self.assertLessEqual(button.width(), 168)
-        self.assertGreaterEqual(button.width() - 24, button.fontMetrics().horizontalAdvance(button.text()))
-        self.assertEqual(button.minimumHeight(), 34)
-        self.assertEqual(button.maximumHeight(), 34)
-        header = instructor.second_table.horizontalHeader()
-        self.assertEqual(header.sectionResizeMode(5), QHeaderView.ResizeMode.Fixed)
-        self.assertEqual(header.sectionResizeMode(6), QHeaderView.ResizeMode.Fixed)
-        self.assertEqual(instructor.second_table.columnWidth(5), 112)
-        self.assertEqual(instructor.second_table.columnWidth(6), 184)
-        self.assertEqual(instructor.second_table.rowHeight(0), 52)
-        button.click()
-        self.assertEqual(emitted[0]["booking_activity_id"], "ba-open-1")
-
-        instructor.set_registration_loading("ba-open-1", True)
-        self.assertEqual(button.text(), "שולח...")
-        instructor.set_registration_pending("ba-open-1")
-        instructor.set_registration_loading("ba-open-1", False)
-        self.assertEqual(button.text(), "בקשה ממתינה")
-        self.assertFalse(button.isEnabled())
-
-        pending = dict(open_row, my_request_status="PENDING")
-        instructor.show_sections("אירועים משויכים", [], "אירועים פתוחים", [pending])
-        pending_host = instructor.second_table.cellWidget(0, 6)
-        pending_button = pending_host.findChild(QPushButton, "dashboardOpenEventRegisterButton")
-        self.assertEqual(pending_button.text(), "בקשה ממתינה")
-        self.assertFalse(pending_button.isEnabled())
+        instructor.year_changed.connect(emitted.append)
+        years = [instructor.trend_card.year_combo.itemText(index) for index in range(instructor.trend_card.year_combo.count())]
+        current_year = str(datetime.now().year)
+        self.assertEqual(len(years), 36)
+        self.assertEqual(years[0], "2015")
+        self.assertEqual(years[-1], "2050")
+        self.assertIn(current_year, years)
+        self.assertEqual(instructor.trend_card.year_combo.currentText(), current_year)
+        self.assertEqual(instructor.trend_card.year_combo.maxVisibleItems(), 12)
+        instructor.show_chart(2025, [], [{"month": month, "count": 0} for month in range(1, 13)])
+        self.assertEqual(instructor.trend_card.series.count(), 12)
+        self.assertTrue(all(point.y() == 0 for point in instructor.trend_card.series.points()))
+        self.assertEqual(instructor.trend_card.year_combo.currentText(), "2025")
+        instructor.trend_card.year_combo.setCurrentText("2026")
+        self.assertEqual(emitted, [2026])
+        self.assertIn("אין אירועים", instructor.trend_card.status_label.text())
+        instructor.show_chart_error("שגיאת חיבור")
+        instructor.set_chart_loading(False)
+        self.assertTrue(instructor.trend_card.retry_button.isVisibleTo(instructor.trend_card))
 
     def test_dashboard_content_scrolls_without_clipping_manager_layout(self) -> None:
         manager = DashboardView("manager")
@@ -686,10 +622,8 @@ class UiFoundationTests(unittest.TestCase):
         self.assertEqual(len(cards), 6)
         self.assertTrue(all(card.minimumHeight() >= 128 for card in cards))
         self.assertTrue(all(card.sizePolicy().verticalPolicy() == QSizePolicy.Policy.Preferred for card in cards))
-        self.assertGreaterEqual(manager.first_table.minimumHeight(), 180)
-        self.assertGreaterEqual(manager.second_table.minimumHeight(), 180)
-        self.assertLessEqual(manager.first_table.maximumHeight(), 280)
-        self.assertLessEqual(manager.second_table.maximumHeight(), 280)
+        self.assertGreaterEqual(manager.trend_card.minimumHeight(), 390)
+        self.assertEqual(manager.findChildren(QTableWidget), [])
         manager.close()
 
 

@@ -13,7 +13,7 @@ from desktop_client.app.features.ai_assistant.presenter import AIChatPresenter
 from desktop_client.app.features.bookings.presenter import BookingsPresenter, FormValidationError, validate_create_booking
 from desktop_client.app.features.dashboard.presenter import DashboardPresenter
 from desktop_client.app.features.auth.presenter import LoginPresenter
-from desktop_client.app.shared.navigation import navigation_for_role
+from desktop_client.app.shared.navigation import default_page_for_role, navigation_for_role
 from desktop_client.app.features.ai_assistant.service import AIChatService
 
 
@@ -52,6 +52,9 @@ class _View:
         self.assignment_loading = []
         self.registration_loading = []
         self.registration_pending = []
+        self.chart_loading = []
+        self.chart = None
+        self.chart_error = ""
 
     def set_loading(self, loading: bool) -> None:
         self.loading.append(loading)
@@ -82,6 +85,15 @@ class _View:
 
     def show_summary(self, summary) -> None:
         self.summary = summary
+
+    def set_chart_loading(self, loading):
+        self.chart_loading.append(loading)
+
+    def show_chart(self, year, years, months):
+        self.chart = (year, years, months)
+
+    def show_chart_error(self, message):
+        self.chart_error = message
 
     def show_sections(self, *sections) -> None:
         self.sections = sections
@@ -139,6 +151,15 @@ class _Service:
         self._check()
         self.calls.append(("dashboard",))
         return {"upcoming_count": 1}
+
+    def yearly_event_trend(self, year):
+        self._check()
+        self.calls.append(("trend", year))
+        return {
+            "year": year,
+            "available_years": [2025, year],
+            "months": [{"month": month, "count": 1 if month == 8 else 0} for month in range(1, 13)],
+        }
 
     def list_bookings(self, filters=None):
         self._check()
@@ -234,10 +255,14 @@ class PresenterTests(unittest.TestCase):
     def test_role_navigation_contains_only_permitted_booking_modules(self) -> None:
         self.assertEqual([key for key, _ in navigation_for_role("manager")], ["dashboard", "customers", "instructors", "users", "bookings", "activities", "knowledge", "ai_chat"])
         self.assertEqual(dict(navigation_for_role("manager"))["users"], "מנהלים")
-        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["dashboard", "activities", "bookings", "my_profile", "ai_chat"])
-        self.assertEqual([key for key, _ in navigation_for_role("customer")], ["dashboard", "activities", "my_bookings", "my_profile", "ai_chat"])
-        self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["dashboard", "activities", "my_bookings", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("instructor")], ["bookings", "activities", "my_profile", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("customer")], ["my_bookings", "activities", "my_profile", "ai_chat"])
+        self.assertEqual([key for key, _ in navigation_for_role("customer", has_profile=False)], ["my_bookings", "activities", "ai_chat"])
         self.assertEqual(navigation_for_role("unknown"), ())
+        self.assertEqual(default_page_for_role("manager"), "dashboard")
+        self.assertEqual(default_page_for_role("instructor"), "bookings")
+        self.assertEqual(default_page_for_role("customer"), "my_bookings")
+        self.assertIsNone(default_page_for_role("unknown"))
 
     def test_ai_chat_presenter_appends_conversation_and_loading(self) -> None:
         view = _View()
@@ -389,17 +414,16 @@ class PresenterTests(unittest.TestCase):
         presenter = LoginPresenter(view, Auth(), lambda _session: None); presenter.login("user@example.com", "secret")
         self.assertEqual(calls, [("user@example.com", "secret")]); self.assertFalse(presenter._loading)
 
-    def test_dashboard_loads_role_specific_sections(self) -> None:
+    def test_dashboard_loads_summary_and_chart_without_table_queries(self) -> None:
         for role in ("manager", "instructor", "customer"):
             view = _View()
             service = _Service()
             DashboardPresenter(view, service, role).load()
             self.assertEqual(view.summary, {"upcoming_count": 1})
-            self.assertIn("list", [entry[0] for entry in service.calls])
-            self.assertIsNotNone(view.sections)
-            if role == "customer":
-                customer_list_call = next(entry for entry in service.calls if entry[0] == "list")
-                self.assertIn("from_date", customer_list_call[1])
+            self.assertIn("trend", [entry[0] for entry in service.calls])
+            self.assertNotIn("list", [entry[0] for entry in service.calls])
+            self.assertNotIn("open", [entry[0] for entry in service.calls])
+            self.assertEqual(len(view.chart[2]), 12)
 
     def test_dashboard_drilldown_maps_status_and_unassigned_without_cross_role_scope(self) -> None:
         calls = []
@@ -425,23 +449,23 @@ class PresenterTests(unittest.TestCase):
         self.assertEqual(instructor_calls[0][1]["assignment_state"], "assigned")
         self.assertIn("from_date", instructor_calls[0][1])
 
-    def test_dashboard_instructor_can_request_assignment_directly_from_open_event_row(self) -> None:
-        view = _View()
-        service = _Service()
+    def test_dashboard_year_change_refreshes_only_chart(self) -> None:
+        view, service = _View(), _Service()
         presenter = DashboardPresenter(view, service, "instructor")
+        presenter.load()
+        service.calls.clear()
+        presenter.load_chart(2025)
+        self.assertEqual(service.calls, [("trend", 2025)])
+        self.assertEqual(view.chart[0], 2025)
 
-        presenter.request_assignment({
-            "id": "booking-open-1",
-            "booking_id": "booking-open-1",
-            "booking_activity_id": "ba-open-1",
-        })
-
-        self.assertIn(("request_assignment", "booking-open-1", "ba-open-1"), service.calls)
-        self.assertIn(("ba-open-1", True), view.registration_loading)
-        self.assertIn(("ba-open-1", False), view.registration_loading)
-        self.assertIn("ba-open-1", view.registration_pending)
-        # No second dashboard fetch is required just to show PENDING.
-        self.assertNotIn(("open",), service.calls)
+    def test_dashboard_chart_connection_failure_is_retryable(self) -> None:
+        view, service = _View(), _Service()
+        service.yearly_event_trend = lambda _year: (_ for _ in ()).throw(
+            ApiError("offline", kind=ApiErrorKind.CONNECTION)
+        )
+        DashboardPresenter(view, service, "manager").load_chart(2026)
+        self.assertIn("להתחבר לשרת", view.chart_error)
+        self.assertEqual(view.chart_loading, [True, False])
 
     def test_customer_booking_presenter_uses_my_bookings(self) -> None:
         view = _View()

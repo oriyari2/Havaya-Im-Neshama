@@ -73,6 +73,17 @@ QPushButton#dashboardDrillButton[accent="green"] {{ color: {COLOR_SUCCESS}; bord
 QPushButton#dashboardDrillButton[accent="orange"] {{ color: {COLOR_WARNING}; border-color: #F0D5A4; }}
 QPushButton#dashboardDrillButton[accent="coral"] {{ color: {COLOR_ERROR}; border-color: #EDC4C1; }}
 QFrame#dashboardShortcuts, QFrame#dashboardSection {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; }}
+QFrame#dashboardChartCard {{ background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_MEDIUM}px; }}
+QLabel#dashboardChartTitle {{ font-size: {FONT_SIZE_SECTION_TITLE}px; font-weight: {FONT_WEIGHT_TITLE}; color: {COLOR_BRAND}; background: transparent; }}
+QLabel#dashboardChartSubtitle, QLabel#dashboardYearLabel {{ color: {COLOR_TEXT_MUTED}; background: transparent; }}
+QComboBox#dashboardYearSelector {{ min-height: {CONTROL_HEIGHT_COMPACT}px; color: {COLOR_TEXT}; background: {COLOR_SURFACE_ALT}; border: 1px solid {COLOR_BORDER_STRONG}; border-radius: {RADIUS_SMALL}px; padding: 0 {SPACE_2}px; }}
+QComboBox#dashboardYearSelector:hover {{ border-color: {COLOR_BRAND}; }}
+QComboBox#dashboardYearSelector:focus {{ border: 2px solid {COLOR_FOCUS}; }}
+QComboBox#dashboardYearSelector::drop-down {{ width: 24px; border: none; }}
+QComboBox#dashboardYearSelector QAbstractItemView {{ color: {COLOR_TEXT}; background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; selection-background-color: {COLOR_SELECTED}; selection-color: {COLOR_TEXT}; }}
+QLabel#dashboardChartState {{ color: {COLOR_TEXT_MUTED}; background: transparent; padding: {SPACE_2}px; }}
+QPushButton#dashboardChartRetry {{ min-height: {CONTROL_HEIGHT_COMPACT}px; padding: 0 {SPACE_4}px; color: {COLOR_BRAND}; background: {COLOR_SURFACE}; border: 1px solid {COLOR_BRAND}; border-radius: {RADIUS_SMALL}px; }}
+QPushButton#dashboardChartRetry:hover {{ background: {COLOR_BRAND_SOFT}; }}
 QPushButton#dashboardShortcutButton {{ min-height: 42px; background: {COLOR_SURFACE}; border: 1px solid {COLOR_BORDER}; border-radius: {RADIUS_SMALL}px; font-weight: {FONT_WEIGHT_LABEL}; }}
 QPushButton#dashboardShortcutButton:hover {{ background: {COLOR_BRAND_SOFT}; border-color: {COLOR_BORDER_STRONG}; }}
 QPushButton#dashboardShortcutButton[buttonRole="managementPrimary"] {{ background: {COLOR_BRAND}; color: white; border-color: {COLOR_BRAND}; }}

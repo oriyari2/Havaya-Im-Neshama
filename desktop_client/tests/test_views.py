@@ -129,8 +129,8 @@ class ViewTests(unittest.TestCase):
         bookings.show_bookings([])
         self.assertIs(bookings.workspace.table_region.currentWidget(), bookings.workspace.empty_state)
         dashboard = DashboardView()
-        dashboard.show_sections("קרובים", [], "", [])
-        self.assertIn("אין נתונים", dashboard.state_label.text())
+        dashboard.show_chart(2026, [2026], [{"month": month, "count": 0} for month in range(1, 13)])
+        self.assertIn("אין אירועים", dashboard.trend_card.status_label.text())
 
     def test_shell_renders_only_configured_navigation(self) -> None:
         shell = ShellView("user@example.com")
@@ -156,8 +156,15 @@ class ViewTests(unittest.TestCase):
                 pass
 
         class Service:
+            dashboard_calls = 0
+
             def dashboard(self):
+                self.dashboard_calls += 1
                 return {}
+
+            def yearly_event_trend(self, year):
+                self.dashboard_calls += 1
+                return {"year": year, "available_years": [year], "months": [{"month": month, "count": 0} for month in range(1, 13)]}
 
             def list_bookings(self, filters=None):
                 return {"items": [], "count": 0}
@@ -191,9 +198,10 @@ class ViewTests(unittest.TestCase):
 
         expected_pages = {
             "manager": {"dashboard", "customers", "instructors", "users", "bookings", "activities", "knowledge", "ai_chat"},
-            "instructor": {"dashboard", "activities", "bookings", "my_profile", "ai_chat"},
-            "customer": {"dashboard", "activities", "my_bookings", "my_profile", "ai_chat"},
+            "instructor": {"activities", "bookings", "my_profile", "ai_chat"},
+            "customer": {"activities", "my_bookings", "my_profile", "ai_chat"},
         }
+        expected_defaults = {"manager": "dashboard", "instructor": "bookings", "customer": "my_bookings"}
         for role, pages in expected_pages.items():
             window = MainWindow(Api())
             window.booking_service = Service()
@@ -207,10 +215,28 @@ class ViewTests(unittest.TestCase):
             window._show_workspace(Session("token", "id", f"{role}@example.com", role, customer_id=customer_id, instructor_id=instructor_id))
             self.assertEqual(set(window.shell.pages), pages)
             self.assertEqual(set(window.shell.navigation_buttons), pages)
+            self.assertEqual(window._active_page, expected_defaults[role])
+            self.assertIs(window.shell.stack.currentWidget(), window.shell.pages[expected_defaults[role]])
+            if role != "manager":
+                self.assertNotIn("dashboard", window._presenters)
+                self.assertEqual(window.booking_service.dashboard_calls, 0)
             for page in pages:
                 window._navigate(page)
                 self.assertIs(window.shell.stack.currentWidget(), window.shell.pages[page])
             window.close()
+
+    def test_forbidden_navigation_keeps_active_page_unchanged(self) -> None:
+        class Api:
+            def set_unauthorized_handler(self, handler): self.handler = handler
+            def set_access_token(self, token): self.token = token
+        window = MainWindow(Api())
+        window._show_workspace(Session("token", "customer", "customer@example.com", "customer", customer_id="customer-id"))
+        active_page = window._active_page
+        active_widget = window.shell.stack.currentWidget()
+        window._navigate("dashboard")
+        self.assertEqual(window._active_page, active_page)
+        self.assertIs(window.shell.stack.currentWidget(), active_widget)
+        window.close()
 
     def test_session_expiry_returns_workspace_to_login(self) -> None:
         class Api:
@@ -239,7 +265,11 @@ class ViewTests(unittest.TestCase):
             window._logout() if operation == "logout" else window._complete_session_expiry()
             if operation == "logout":
                 self.app.processEvents()
-            presenter.invalidate_requests.assert_called_once_with(); window.close()
+            presenter.invalidate_requests.assert_called_once_with()
+            self.assertEqual(window._presenters, {})
+            self.assertIsNone(window._active_page)
+            self.assertIsNone(getattr(window, "shell", None))
+            window.close()
 
     def test_login_success_defers_workspace_transition_until_callback_returns(self) -> None:
         class Api:

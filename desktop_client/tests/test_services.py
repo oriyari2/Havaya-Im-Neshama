@@ -47,6 +47,7 @@ class BookingServiceTests(unittest.TestCase):
         service = BookingService(client)
 
         service.dashboard()
+        service.yearly_event_trend(2026)
         service.list_bookings({"status": "CONFIRMED"})
         service.my_bookings(limit=20, offset=2)
         service.open_events()
@@ -57,6 +58,7 @@ class BookingServiceTests(unittest.TestCase):
             client.calls,
             [
                 ("/bookings/dashboard", None),
+                ("/bookings/dashboard/yearly-trend", {"year": 2026}),
                 ("/bookings", {"status": "CONFIRMED"}),
                 ("/bookings/my-bookings", {"limit": 20, "offset": 2, "order_by": "event_at"}),
                 ("/bookings/open-events", None),

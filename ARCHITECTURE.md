@@ -91,6 +91,21 @@ terminal booking immutability is enforced by the aggregate rather than by UI
 button state. Architecture tests scan routers, presenters, and views for these
 boundary violations.
 
+Task 27 preserves the dashboard path as `booking projection repository ->
+query handler -> FastAPI router -> BookingService -> DashboardPresenter ->
+passive DashboardView`. The repository performs one role-scoped PostgreSQL
+aggregation over `bookings.event_at`, including zero-filled months and visible
+years. The Qt-free presenter owns focused chart request/retry state; only the
+View imports Qt Charts. Selecting a year never reloads dashboard summary cards.
+The former dashboard tables were removed only from the View and their dedicated
+Booking/Open Events workflows remain intact.
+Dashboard registration is declared Manager-only in the feature registry. The
+composition root selects `dashboard` for Manager, `bookings` for Instructor,
+and `my_bookings` for Customer; it never constructs a Dashboard presenter/view
+or issues Dashboard API reads for non-managers. Unknown navigation keys return
+before active-page state changes. Session expiry/logout invalidate and discard
+the mounted presenter set, including Dashboard chart request state.
+
 Task 19 extends the existing activity path without adding a media module:
 `ApiClient -> ActivityService -> ActivitiesPresenter -> passive
 ActivitiesView`. Authenticated upload/delete continue through FastAPI and the

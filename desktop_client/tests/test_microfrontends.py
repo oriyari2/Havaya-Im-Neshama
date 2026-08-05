@@ -89,7 +89,8 @@ class MicrofrontendArchitectureTests(unittest.TestCase):
         self.assertEqual(roles_by_feature["knowledge"], frozenset({"manager"}))
         self.assertEqual(roles_by_feature["customers"], frozenset({"manager", "customer"}))
         self.assertEqual(roles_by_feature["instructors"], frozenset({"manager", "instructor"}))
-        for name in ("dashboard", "activities", "bookings", "ai_assistant"):
+        self.assertEqual(roles_by_feature["dashboard"], frozenset({"manager"}))
+        for name in ("activities", "bookings", "ai_assistant"):
             self.assertEqual(roles_by_feature[name], frozenset({"manager", "instructor", "customer"}))
 
     def test_runtime_assets_are_packaged_and_not_design_reference_dependent(self) -> None:

@@ -144,9 +144,13 @@ Implemented so far:
 - Customer and customer-contact CRUD/lifecycle API, including protected Customer
   physical deletion, activate/deactivate flows, active defaults, search, and
   `city` / `customer_type` filters.
-- PySide6 login and role-based desktop shell using MVP boundaries.
-- Role-aware dashboard, bookings, booking details/history, open events, and
+- PySide6 login and role-based desktop shell using MVP boundaries. Managers open
+  Dashboard by default; Instructors open My Events and Customers open My Bookings.
+- Manager-only dashboard, role-aware bookings, booking details/history, open events, and
   customer my-bookings screens backed by the FastAPI API.
+- The dashboard includes a responsive Task 27 Qt Charts annual event trend.
+  Every month is shown, the selector covers 2015–2050 with the current year as
+  default, and changing the year refreshes only the chart.
 - Manager booking creation and Customer self-service Booking requests from
   Bookings or a selected Activity, plus Manager confirmation, cancellation, and
   supported field edits through the event-sourced command API. Customer

@@ -12,7 +12,7 @@ from desktop_client.app.features.registry import mount_role_features
 from desktop_client.app.features.service_factory import build_feature_services
 from desktop_client.app.infrastructure.qt_operations import QtOperationExecutor
 from desktop_client.app.models.session import Session
-from desktop_client.app.shared.navigation import navigation_for_role
+from desktop_client.app.shared.navigation import default_page_for_role, navigation_for_role
 from desktop_client.app.shared.ui.shell_view import ShellView
 from desktop_client.app.shared.ui.design_tokens import build_neutral_stylesheet
 
@@ -57,12 +57,18 @@ class MainWindow(QMainWindow):
 
     def _show_login(self, message: str | None = None) -> None:
         self._active_page = None
+        had_workspace = hasattr(self, "shell")
         if hasattr(self, "_pending_workspace_session"):
             self._pending_workspace_session = None
         feature = build_login_feature(self.auth_service, self._schedule_workspace, self.operation_executor)
         self.login_view = feature.view
         self.login_presenter = feature.presenter
         self.setCentralWidget(self.login_view)
+        if had_workspace:
+            # Release the previous role workspace after Qt has detached it.
+            # This guarantees Dashboard widgets/chart state cannot survive a
+            # logout or expired session through MainWindow's shell reference.
+            self.shell = None
         if message:
             self.login_view.show_error(message)
 
@@ -149,12 +155,18 @@ class MainWindow(QMainWindow):
         )
         mount_role_features(context)
 
-        self._active_page = "dashboard"
-        self.shell.show_page("dashboard")
-        self._presenters["dashboard"].load()
+        default_page = default_page_for_role(session.role)
+        if default_page is None or default_page not in self._presenters:
+            self._active_page = None
+        else:
+            self._active_page = default_page
+            self.shell.show_page(default_page)
+            self._presenters[default_page].load()
         self.setCentralWidget(self.shell)
 
     def _navigate(self, key: str) -> None:
+        if key not in self._presenters:
+            return
         self._invalidate_page(self._active_page, unless=key)
         self._active_page = key
         self.shell.show_page(key)

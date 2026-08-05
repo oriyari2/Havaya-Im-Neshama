@@ -10,6 +10,9 @@ class BookingService:
     def dashboard(self) -> dict:
         return self.api_client.get("/bookings/dashboard")
 
+    def yearly_event_trend(self, year: int) -> dict:
+        return self.api_client.get("/bookings/dashboard/yearly-trend", {"year": year})
+
     def list_bookings(self, filters: dict[str, object] | None = None) -> dict:
         return self.api_client.get("/bookings", filters)
 

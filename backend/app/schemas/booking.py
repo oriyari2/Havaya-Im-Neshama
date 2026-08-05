@@ -159,6 +159,17 @@ class DashboardSummaryResponse(BaseModel):
     unassigned_count: int = Field(description="Upcoming instructor-required bookings with at least one activity lacking an active instructor")
 
 
+class MonthlyEventCount(BaseModel):
+    month: int = Field(ge=1, le=12)
+    count: int = Field(ge=0)
+
+
+class YearlyEventTrendResponse(BaseModel):
+    year: int
+    available_years: list[int]
+    months: list[MonthlyEventCount]
+
+
 class OpenEventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

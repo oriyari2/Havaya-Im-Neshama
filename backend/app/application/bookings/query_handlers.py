@@ -142,6 +142,21 @@ def get_dashboard_summary(current_user: dict) -> dict:
             )
 
 
+def get_yearly_event_trend(current_user: dict, year: int) -> dict:
+    role, scope_customer_id, scope_instructor_id = _resolve_visibility_scope(current_user)
+    current_year = datetime.now(UTC).year
+    with get_connection() as conn:
+        with conn.cursor(row_factory=dict_row) as cur:
+            return projection_repo.get_yearly_event_trend(
+                cur,
+                role=role,
+                customer_id=scope_customer_id,
+                instructor_id=scope_instructor_id,
+                year=year,
+                current_year=current_year,
+            )
+
+
 def get_my_bookings(current_user: dict, limit: int, offset: int, *, order_by: str = "event_at") -> list[dict]:
     if current_user.get("role") != "customer":
         raise BookingAccessDeniedError

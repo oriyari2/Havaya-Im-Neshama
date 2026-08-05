@@ -3,25 +3,22 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Protocol
 
+from desktop_client.app.api.client import ApiError, ApiErrorKind
 from desktop_client.app.models.operation import OperationExecutor, PresenterOperations
-from desktop_client.app.features.bookings.formatting import booking_row
 
 
 class DashboardViewPort(Protocol):
     def set_loading(self, loading: bool) -> None: ...
     def show_error(self, message: str) -> None: ...
     def show_summary(self, summary: dict[str, int]) -> None: ...
-    def show_sections(self, first_title: str, first_rows: list[dict[str, str]], second_title: str, second_rows: list[dict[str, str]]) -> None: ...
-    def set_registration_loading(self, booking_activity_id: str, loading: bool) -> None: ...
-    def set_registration_pending(self, booking_activity_id: str) -> None: ...
+    def set_chart_loading(self, loading: bool) -> None: ...
+    def show_chart(self, year: int, years: list[int], months: list[dict[str, int]]) -> None: ...
+    def show_chart_error(self, message: str) -> None: ...
 
 
 class DashboardServicePort(Protocol):
     def dashboard(self) -> dict: ...
-    def list_bookings(self, filters: dict[str, object] | None = None) -> dict: ...
-    def my_bookings(self, *, limit: int = 50, offset: int = 0) -> dict: ...
-    def open_events(self) -> list[dict]: ...
-    def request_assignment(self, booking_id: str, booking_activity_id: str) -> dict: ...
+    def yearly_event_trend(self, year: int) -> dict: ...
 
 
 class DashboardPresenter:
@@ -33,7 +30,7 @@ class DashboardPresenter:
         self.create_booking = create_booking
         self._operations = PresenterOperations(executor, "dashboard")
         self._has_rendered = False
-        self._assignment_submitting = False
+        self._selected_year = datetime.now(UTC).year
 
     def invalidate_requests(self) -> None:
         self._operations.invalidate()
@@ -66,100 +63,19 @@ class DashboardPresenter:
             self.navigate(target, None)
 
 
-    def request_assignment(self, row: dict) -> None:
-        if self.role != "instructor" or self._assignment_submitting:
-            return
-        booking_id = str(row.get("booking_id") or row.get("id") or "")
-        booking_activity_id = str(row.get("booking_activity_id") or "")
-        if not booking_id or not booking_activity_id:
-            self.view.show_error("לא ניתן לזהות את האירוע לבקשת השיבוץ.")
-            return
-
-        context = self._operations.begin("assignment_request")
-        if context is None:
-            return
-        self._assignment_submitting = True
-        self.view.set_registration_loading(booking_activity_id, True)
-
-        def succeeded(_request) -> None:
-            if self._operations.is_current(context):
-                # The POST already returned success, so reflect the new state
-                # immediately instead of waiting for a second dashboard fetch.
-                # This also prevents a brief flash back to "הירשם לאירוע".
-                self.view.set_registration_pending(booking_activity_id)
-
-        def failed(_exc: Exception) -> None:
-            if self._operations.is_current(context):
-                self.view.show_error("לא ניתן לשלוח את בקשת השיבוץ. נסו שוב.")
-
-        def finished() -> None:
-            if self._operations.finish(context):
-                self._assignment_submitting = False
-                self.view.set_registration_loading(booking_activity_id, False)
-
-        self._operations.executor.submit(
-            context,
-            lambda: self.service.request_assignment(booking_id, booking_activity_id),
-            succeeded,
-            failed,
-            finished,
-        )
-
     def load(self) -> None:
         context = self._operations.replace("load")
         if not self._has_rendered:
             self.view.set_loading(True)
 
         def operation():
-            errors: list[str] = []
-            summary: dict = {}
-            first_title = second_title = ""
-            first: list[dict] = []
-            second: list[dict] = []
-            try:
-                summary = self.service.dashboard()
-            except Exception:
-                errors.append("לא ניתן לטעון את נתוני הסיכום.")
-            try:
-                if self.role == "customer":
-                    # Keep the dashboard table aligned with upcoming_count.  The
-                    # previous my_bookings call also returned historical rows,
-                    # which made the card totals and the visible list disagree.
-                    first = self.service.list_bookings({
-                        "limit": 10,
-                        "offset": 0,
-                        "from_date": datetime.now(UTC).isoformat(),
-                        "order_by": "event_at",
-                    })["items"]
-                    first_title = "ההזמנות הקרובות שלי"
-                elif self.role == "instructor":
-                    first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
-                    invalidate = getattr(self.service, "invalidate_open_events", None)
-                    if callable(invalidate):
-                        invalidate()
-                    second = self.service.open_events()
-                    first_title, second_title = "אירועים משויכים", "אירועים פתוחים"
-                else:
-                    first = self.service.list_bookings({"limit": 10, "from_date": datetime.now(UTC).isoformat()})["items"]
-                    invalidate = getattr(self.service, "invalidate_open_events", None)
-                    if callable(invalidate):
-                        invalidate()
-                    second = self.service.open_events()
-                    first_title, second_title = "הזמנות קרובות", "דורשים שיבוץ"
-            except Exception:
-                errors.append("לא ניתן לטעון את רשימות לוח הבקרה.")
-            return summary, first_title, first, second_title, second, errors
+            return self.service.dashboard()
 
-        def succeeded(result) -> None:
+        def succeeded(summary) -> None:
             if not self._operations.is_current(context):
                 return
-            summary, first_title, first, second_title, second, errors = result
-            if summary:
-                self.view.show_summary(summary)
-            self.view.show_sections(first_title, [booking_row(item) for item in first], second_title, [booking_row(item) for item in second])
+            self.view.show_summary(summary)
             self._has_rendered = True
-            if errors:
-                self.view.show_error(" | ".join(errors))
 
         def failed(_exc: Exception) -> None:
             if self._operations.is_current(context):
@@ -170,3 +86,43 @@ class DashboardPresenter:
                 self.view.set_loading(False)
 
         self._operations.executor.submit(context, operation, succeeded, failed, finished)
+        self.load_chart(self._selected_year)
+
+    def load_chart(self, year: int | None = None) -> None:
+        if year is not None:
+            self._selected_year = int(year)
+        context = self._operations.replace("chart")
+        self.view.set_chart_loading(True)
+
+        def succeeded(result: dict) -> None:
+            if not self._operations.is_current(context):
+                return
+            self._selected_year = int(result.get("year", self._selected_year))
+            self.view.show_chart(
+                self._selected_year,
+                [int(value) for value in result.get("available_years", [])],
+                list(result.get("months", [])),
+            )
+
+        def failed(exc: Exception) -> None:
+            if not self._operations.is_current(context):
+                return
+            if isinstance(exc, ApiError) and exc.kind == ApiErrorKind.PERMISSION:
+                message = "אין הרשאה לצפות במגמת האירועים."
+            elif isinstance(exc, ApiError) and exc.kind == ApiErrorKind.CONNECTION:
+                message = "לא ניתן להתחבר לשרת. לחצו כדי לנסות שוב."
+            else:
+                message = "לא ניתן לטעון את מגמת האירועים. לחצו כדי לנסות שוב."
+            self.view.show_chart_error(message)
+
+        def finished() -> None:
+            if self._operations.finish(context):
+                self.view.set_chart_loading(False)
+
+        self._operations.executor.submit(
+            context,
+            lambda: self.service.yearly_event_trend(self._selected_year),
+            succeeded,
+            failed,
+            finished,
+        )

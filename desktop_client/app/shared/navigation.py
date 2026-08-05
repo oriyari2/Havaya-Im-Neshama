@@ -12,17 +12,21 @@ NAVIGATION_BY_ROLE = {
         ("knowledge", "ניהול ידע"),
     ),
     "instructor": (
-        ("dashboard", "לוח בקרה"),
-        ("activities", "פעילויות"),
         ("bookings", "האירועים שלי"),
+        ("activities", "פעילויות"),
         ("my_profile", "הפרופיל שלי"),
     ),
     "customer": (
-        ("dashboard", "לוח בקרה"),
-        ("activities", "פעילויות"),
         ("my_bookings", "ההזמנות שלי"),
+        ("activities", "פעילויות"),
         ("my_profile", "הפרופיל שלי"),
     ),
+}
+
+DEFAULT_PAGE_BY_ROLE = {
+    "manager": "dashboard",
+    "instructor": "bookings",
+    "customer": "my_bookings",
 }
 
 
@@ -30,3 +34,7 @@ def navigation_for_role(role: str, *, has_profile: bool = True) -> tuple[tuple[s
     items = NAVIGATION_BY_ROLE.get(role, ())
     visible_items = tuple(item for item in items if has_profile or item[0] != "my_profile")
     return (*visible_items, ("ai_chat", "יועץ AI")) if visible_items else ()
+
+
+def default_page_for_role(role: str) -> str | None:
+    return DEFAULT_PAGE_BY_ROLE.get(role)

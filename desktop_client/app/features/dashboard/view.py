@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRect, Qt, Signal
+from datetime import datetime
+
+from PySide6.QtCharts import QBarCategoryAxis, QChart, QChartView, QLineSeries, QValueAxis
+from PySide6.QtCore import QMargins, QRect, Qt, Signal
 from PySide6.QtGui import QColor, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
-from PySide6.QtWidgets import QFrame, QGridLayout, QHeaderView, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QComboBox, QFrame, QGridLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from desktop_client.app.resource_paths import asset_path
-from desktop_client.app.shared.ui.common import BOOKING_COLUMNS, StatefulWidget, create_booking_table, populate_booking_table
-from desktop_client.app.shared.ui.design_tokens import SPACE_1, SPACE_2, SPACE_3, SPACE_4, SPACE_6
+from desktop_client.app.shared.ui.common import StatefulWidget
+from desktop_client.app.shared.ui.design_tokens import COLOR_BORDER, COLOR_BRAND, COLOR_TEXT, COLOR_TEXT_MUTED, SPACE_1, SPACE_2, SPACE_3, SPACE_4, SPACE_6
 
 
 SUMMARY_LABELS = {
@@ -29,8 +32,8 @@ CARD_ACCENTS = {
 
 
 _RIGHT_LABEL_ALIGNMENT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
-_RIGHT_TABLE_ALIGNMENT = Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
-_LTR_TABLE_ALIGNMENT = Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignAbsolute
+MONTH_LABELS = ["ינו׳", "פבר׳", "מרץ", "אפר׳", "מאי", "יוני", "יולי", "אוג׳", "ספט׳", "אוק׳", "נוב׳", "דצמ׳"]
+SELECTABLE_YEARS = tuple(range(2015, 2051))
 
 
 def _align_hebrew_label(label: QLabel) -> None:
@@ -42,30 +45,6 @@ def _align_hebrew_label(label: QLabel) -> None:
 def _align_dashboard_button(button: QPushButton) -> None:
     button.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     button.setStyleSheet("text-align: right; padding-right: 14px; padding-left: 14px;")
-
-
-def _configure_dashboard_table(table: QTableWidget) -> None:
-    table.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-    table.horizontalHeader().setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-    table.horizontalHeader().setDefaultAlignment(_RIGHT_TABLE_ALIGNMENT)
-    # Dashboard tables are compact summaries: stretch every column to the
-    # available viewport so short values such as status are never clipped.
-    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-    table.horizontalHeader().setStretchLastSection(True)
-    table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-    for column in range(table.columnCount()):
-        header_item = table.horizontalHeaderItem(column)
-        if header_item is not None:
-            header_item.setTextAlignment(_RIGHT_TABLE_ALIGNMENT)
-
-
-def _align_dashboard_table_items(table: QTableWidget) -> None:
-    for column, (key, _) in enumerate(BOOKING_COLUMNS):
-        alignment = _LTR_TABLE_ALIGNMENT if key == "event_at" else _RIGHT_TABLE_ALIGNMENT
-        for row in range(table.rowCount()):
-            item = table.item(row, column)
-            if item is not None:
-                item.setTextAlignment(alignment)
 
 
 class DashboardHero(QFrame):
@@ -147,38 +126,144 @@ class DashboardHero(QFrame):
         # extra overlay widget is required here.
 
 
-class SectionPanel(QFrame):
+class MonthlyTrendCard(QFrame):
+    year_changed = Signal(int)
+    retry_requested = Signal()
+
     def __init__(self) -> None:
         super().__init__()
-        self.setObjectName("dashboardSection")
+        self.setObjectName("dashboardChartCard")
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.setMinimumHeight(390)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(SPACE_4, SPACE_3, SPACE_4, SPACE_4)
-        layout.setSpacing(SPACE_3)
-        self.title_label = QLabel()
-        self.title_label.setObjectName("dashboardSectionTitle")
-        _align_hebrew_label(self.title_label)
-        layout.addWidget(self.title_label)
-        self.content = QVBoxLayout()
-        self.content.setContentsMargins(0, 0, 0, 0)
-        layout.addLayout(self.content, 1)
-        self.setMinimumHeight(232)
-        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        layout.setContentsMargins(SPACE_4, SPACE_4, SPACE_4, SPACE_4)
+        layout.setSpacing(SPACE_2)
 
-    def setTitle(self, title: str) -> None:
-        self.title_label.setText(title)
-        self.title_label.setAccessibleName(title)
+        header = QHBoxLayout()
+        header.setSpacing(SPACE_2)
+        text = QVBoxLayout()
+        self.title = QLabel("מגמת אירועים שנתית")
+        self.title.setObjectName("dashboardChartTitle")
+        self.subtitle = QLabel("מספר האירועים המתוכננים בכל חודש לפי מועד האירוע")
+        self.subtitle.setObjectName("dashboardChartSubtitle")
+        for label in (self.title, self.subtitle):
+            _align_hebrew_label(label)
+        text.addWidget(self.title)
+        text.addWidget(self.subtitle)
+        header.addLayout(text, 1)
+        self.year_combo = QComboBox()
+        self.year_combo.setObjectName("dashboardYearSelector")
+        self.year_combo.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.year_combo.setMinimumWidth(92)
+        self.year_combo.setMaximumWidth(112)
+        self.year_combo.addItems([str(year) for year in SELECTABLE_YEARS])
+        self.year_combo.setCurrentText(str(datetime.now().year))
+        self.year_combo.view().setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.year_combo.setMaxVisibleItems(12)
+        year_label = QLabel("שנה:")
+        year_label.setObjectName("dashboardYearLabel")
+        year_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight)
+        header.addWidget(self.year_combo, 0, Qt.AlignmentFlag.AlignTop)
+        header.addWidget(year_label, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addLayout(header)
+
+        self.series = QLineSeries()
+        self.series.setName("אירועים")
+        self.series.setPointsVisible(True)
+        pen = QPen(QColor(COLOR_BRAND), 3)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        self.series.setPen(pen)
+        self.series.setColor(QColor(COLOR_BRAND))
+        self.chart = QChart()
+        self.chart.addSeries(self.series)
+        self.chart.legend().hide()
+        self.chart.setAnimationOptions(QChart.AnimationOption.SeriesAnimations)
+        self.chart.setBackgroundVisible(False)
+        self.chart.setMargins(QMargins(4, 8, 4, 4))
+        self.x_axis = QBarCategoryAxis()
+        self.x_axis.append(MONTH_LABELS)
+        self.y_axis = QValueAxis()
+        self.y_axis.setLabelFormat("%d")
+        self.y_axis.setRange(0, 1)
+        self.y_axis.setTickCount(2)
+        self.chart.addAxis(self.x_axis, Qt.AlignmentFlag.AlignBottom)
+        self.chart.addAxis(self.y_axis, Qt.AlignmentFlag.AlignLeft)
+        self.series.attachAxis(self.x_axis)
+        self.series.attachAxis(self.y_axis)
+        for axis in (self.x_axis, self.y_axis):
+            axis.setLabelsColor(QColor(COLOR_TEXT_MUTED))
+            axis.setGridLineColor(QColor(COLOR_BORDER))
+            axis.setLinePenColor(QColor(COLOR_BORDER))
+
+        self.chart_view = QChartView(self.chart)
+        self.chart_view.setObjectName("dashboardYearlyChart")
+        self.chart_view.setRenderHint(QPainter.RenderHint.Antialiasing)
+        self.chart_view.setMinimumHeight(270)
+        self.chart_view.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        layout.addWidget(self.chart_view, 1)
+        self.status_label = QLabel()
+        self.status_label.setObjectName("dashboardChartState")
+        self.status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.status_label.hide()
+        layout.addWidget(self.status_label)
+        self.retry_button = QPushButton("נסו שוב")
+        self.retry_button.setObjectName("dashboardChartRetry")
+        self.retry_button.setProperty("buttonRole", "managementSecondary")
+        self.retry_button.clicked.connect(self.retry_requested)
+        self.retry_button.hide()
+        layout.addWidget(self.retry_button, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.year_combo.currentTextChanged.connect(self._emit_year)
+
+    def _emit_year(self, value: str) -> None:
+        if value.isdigit() and not self.year_combo.signalsBlocked():
+            self.year_changed.emit(int(value))
+
+    def set_loading(self, loading: bool) -> None:
+        self.year_combo.setEnabled(not loading)
+        if loading:
+            self.retry_button.hide()
+            self.status_label.setText("טוען נתוני מגמה...")
+            self.status_label.show()
+
+    def show_data(self, year: int, years: list[int], months: list[dict[str, int]]) -> None:
+        del years
+        if year in SELECTABLE_YEARS and self.year_combo.currentText() != str(year):
+            self.year_combo.blockSignals(True)
+            self.year_combo.setCurrentText(str(year))
+            self.year_combo.blockSignals(False)
+        counts = {int(item.get("month", 0)): int(item.get("count", 0)) for item in months}
+        values = [max(0, counts.get(month, 0)) for month in range(1, 13)]
+        self.series.clear()
+        for index, count in enumerate(values):
+            self.series.append(index, count)
+        maximum = max(values, default=0)
+        upper = max(1, maximum)
+        self.y_axis.setRange(0, upper)
+        self.y_axis.setTickCount(min(6, upper + 1))
+        self.retry_button.hide()
+        if maximum == 0:
+            self.status_label.setText("אין אירועים מתוכננים בשנה זו.")
+            self.status_label.show()
+        else:
+            self.status_label.hide()
+
+    def show_error(self, message: str) -> None:
+        self.status_label.setText(message)
+        self.status_label.show()
+        self.retry_button.show()
 
 
 class DashboardView(StatefulWidget):
     drill_down_requested = Signal(str)
     shortcut_requested = Signal(str)
     create_booking_requested = Signal()
-    assignment_request_requested = Signal(dict)
+    year_changed = Signal(int)
+    chart_retry_requested = Signal()
 
     def __init__(self, role: str = "manager") -> None:
         super().__init__()
         self.role = role
-        self._registration_buttons: dict[str, QPushButton] = {}
         self.setObjectName("dashboardPage")
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         _align_hebrew_label(self.state_label)
@@ -268,143 +353,20 @@ class DashboardView(StatefulWidget):
         # Keep the signal/API surface unchanged; only the redundant visual row is removed.
         self.shortcuts_region.hide()
 
-        self.first_group = SectionPanel()
-        self.first_table = create_booking_table()
-        _configure_dashboard_table(self.first_table)
-        self.first_table.setMinimumHeight(188)
-        self.first_table.setMaximumHeight(260)
-        self.first_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.first_group.content.addWidget(self.first_table)
-        self.second_group = SectionPanel()
-        self.second_table = create_booking_table()
-        if self.role == "instructor":
-            action_column = len(BOOKING_COLUMNS)
-            self.second_table.insertColumn(action_column)
-            action_header = QTableWidgetItem("הרשמה")
-            action_header.setTextAlignment(_RIGHT_TABLE_ALIGNMENT)
-            self.second_table.setHorizontalHeaderItem(action_column, action_header)
-        _configure_dashboard_table(self.second_table)
-        if self.role == "instructor":
-            # Leave more horizontal room for the registration action while
-            # keeping the low-information participant count compact.  The
-            # remaining booking columns continue to share the available space.
-            header = self.second_table.horizontalHeader()
-            header.setStretchLastSection(False)
-            for column in range(len(BOOKING_COLUMNS) - 1):
-                header.setSectionResizeMode(column, QHeaderView.ResizeMode.Stretch)
-            participants_column = len(BOOKING_COLUMNS) - 1
-            action_column = len(BOOKING_COLUMNS)
-            header.setSectionResizeMode(participants_column, QHeaderView.ResizeMode.Fixed)
-            header.setSectionResizeMode(action_column, QHeaderView.ResizeMode.Fixed)
-            header.resizeSection(participants_column, 112)
-            header.resizeSection(action_column, 184)
-            self.second_table.verticalHeader().setDefaultSectionSize(52)
-        self.second_table.setMinimumHeight(188)
-        self.second_table.setMaximumHeight(260)
-        self.second_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.second_group.content.addWidget(self.second_table)
-        layout.addWidget(self.first_group)
-        layout.addWidget(self.second_group)
+        self.trend_card = MonthlyTrendCard()
+        self.trend_card.year_changed.connect(self.year_changed)
+        self.trend_card.retry_requested.connect(self.chart_retry_requested)
+        layout.addWidget(self.trend_card)
 
     def show_summary(self, summary: dict[str, int]) -> None:
         for key, label in self.card_values.items():
             label.setText(str(summary.get(key, 0)))
 
-    def show_sections(self, first_title: str, first_rows: list[dict[str, str]], second_title: str, second_rows: list[dict[str, str]]) -> None:
-        self.state_label.hide()
-        self.first_group.setTitle(first_title)
-        populate_booking_table(self.first_table, first_rows)
-        _align_dashboard_table_items(self.first_table)
-        self.second_group.setTitle(second_title)
-        self.second_group.setVisible(bool(second_title))
-        populate_booking_table(self.second_table, second_rows)
-        _align_dashboard_table_items(self.second_table)
-        if self.role == "instructor":
-            self._populate_open_event_registration_actions(second_rows)
-        if not first_rows and not second_rows:
-            self.show_empty("אין נתונים קרובים להצגה.")
+    def set_chart_loading(self, loading: bool) -> None:
+        self.trend_card.set_loading(loading)
 
-    def _populate_open_event_registration_actions(self, rows: list[dict[str, str]]) -> None:
-        self._registration_buttons.clear()
-        action_column = len(BOOKING_COLUMNS)
-        for row_index, row in enumerate(rows):
-            booking_activity_id = str(row.get("booking_activity_id") or "")
-            request_status = str(row.get("my_request_status") or "").upper()
-            button = QPushButton()
-            button.setObjectName("dashboardOpenEventRegisterButton")
-            button.setProperty("buttonRole", "managementPrimary")
-            # Keep the action visually compact while guaranteeing the full
-            # Hebrew label is visible.  The global primary-button QSS adds
-            # generous padding, so this dashboard-only override uses tighter
-            # padding and a slightly taller control that still fits inside the
-            # standard dashboard table row.
-            button.setStyleSheet(
-                "font-size: 12px; font-weight: 600; "
-                "padding: 0 4px;"
-            )
-            # Apply the fixed geometry after the local stylesheet. Qt can
-            # otherwise recalculate the minimum height from QSS and report a
-            # 2px minimum before layout, even though the rendered control is
-            # taller. Keeping the explicit 34px contract here makes the
-            # dashboard action readable and deterministic in tests.
-            button.setFixedHeight(34)
-            button.setCursor(Qt.CursorShape.PointingHandCursor)
+    def show_chart(self, year: int, years: list[int], months: list[dict[str, int]]) -> None:
+        self.trend_card.show_data(year, years, months)
 
-            if not booking_activity_id:
-                text, enabled = "לא זמין", False
-            elif request_status == "PENDING":
-                text, enabled = "בקשה ממתינה", False
-            elif request_status == "APPROVED":
-                text, enabled = "אושר", False
-            elif request_status == "REJECTED":
-                text, enabled = "הירשם שוב", True
-            else:
-                text, enabled = "הירשם לאירוע", True
-
-            button.setText(text)
-            # Size from the actual rendered text instead of a hard-coded width.
-            # This prevents "הירשם לאירוע" / "בקשה ממתינה" from being clipped
-            # while keeping the button clearly inside the registration column.
-            text_width = button.fontMetrics().horizontalAdvance(text)
-            button.setFixedWidth(max(136, min(168, text_width + 30)))
-            button.setEnabled(enabled)
-            button.setProperty("idleText", text)
-            button.setProperty("idleEnabled", enabled)
-            if enabled:
-                payload = dict(row)
-                button.clicked.connect(
-                    lambda _checked=False, value=payload: self.assignment_request_requested.emit(value)
-                )
-            action_host = QWidget()
-            action_host.setObjectName("dashboardOpenEventRegisterActionHost")
-            action_host.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-            action_layout = QHBoxLayout(action_host)
-            action_layout.setContentsMargins(6, 4, 6, 4)
-            action_layout.setSpacing(0)
-            action_layout.addStretch(1)
-            action_layout.addWidget(button, 0, Qt.AlignmentFlag.AlignCenter)
-            action_layout.addStretch(1)
-            self.second_table.setRowHeight(row_index, 52)
-            self.second_table.setCellWidget(row_index, action_column, action_host)
-            if booking_activity_id:
-                self._registration_buttons[booking_activity_id] = button
-
-    def set_registration_pending(self, booking_activity_id: str) -> None:
-        button = self._registration_buttons.get(str(booking_activity_id))
-        if button is None:
-            return
-        button.setProperty("idleText", "בקשה ממתינה")
-        button.setProperty("idleEnabled", False)
-        button.setText("בקשה ממתינה")
-        button.setEnabled(False)
-
-    def set_registration_loading(self, booking_activity_id: str, loading: bool) -> None:
-        button = self._registration_buttons.get(str(booking_activity_id))
-        if button is None:
-            return
-        if loading:
-            button.setText("שולח...")
-            button.setEnabled(False)
-            return
-        button.setText(str(button.property("idleText") or "הירשם לאירוע"))
-        button.setEnabled(bool(button.property("idleEnabled")))
+    def show_chart_error(self, message: str) -> None:
+        self.trend_card.show_error(message)

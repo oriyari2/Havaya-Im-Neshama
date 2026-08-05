@@ -15,7 +15,7 @@ state**.
 | User management and authentication | FastAPI auth, bearer sessions, hashed passwords, Manager/Instructor/Customer roles, manager account administration | Implemented |
 | Search data | Customer, Instructor, Manager, Activity, Booking and knowledge search/filter flows | Implemented |
 | Show details for a result | Dedicated list-to-details screens and Booking/Activity/Profile details | Implemented |
-| Present data in a graph **or table** | Role-aware tables throughout Dashboard and management screens; the requirement allows a table, so QtCharts is not required | Implemented |
+| Present data in a graph **or table** | Role-aware management tables plus the Task 27 Qt Charts annual dashboard event trend | Implemented |
 | AI consultation about the domain | Authenticated `POST /api/ai/consult` and PySide6 AI Advisor | Implemented |
 | Domain data entry | Customer, Instructor, Manager, Activity, Booking, assignment and knowledge-source workflows | Implemented |
 | Desktop application | PySide6 Desktop client | Implemented |
@@ -37,7 +37,7 @@ The course explicitly requires search, details, a graph **or table**, AI
 consultation and data entry, and requires Desktop/PySide, MVP/Microfrontends,
 FastAPI/CQRS, cloud persistence/Event Sourcing, Gateway, external service,
 Ollama/Docker/RAG, PIV and Git. The final project uses tables rather than adding
-a chart solely for grading.
+a role-scoped Qt Charts trend in addition to operational tables.
 
 ## Product/PRD traceability
 
@@ -52,7 +52,7 @@ a chart solely for grading.
 | Bookings | Create/read/update/status/history | Implemented through CQRS/Event Sourcing |
 | Booking history/replay | Immutable chronological history and rebuildable projection | Implemented and tested |
 | Instructor assignment | Assign/remove per Booking Activity | Implemented through booking events and projection |
-| Dashboard | Role-specific summaries and operational tables | Implemented |
+| Dashboard | Manager-only summaries and annual event-date trend; Instructor defaults to My Events and Customer to My Bookings | Implemented (Task 27) |
 | Customer self-service | Own bookings, catalog and booking request | Implemented |
 | Knowledge ingestion | Approved internal knowledge | Implemented for pasted text and UTF-8 `.txt`/`.md` sources |
 | Semantic retrieval | Role-filtered approved chunks | Implemented with pgvector cosine search and fail-closed role filtering |

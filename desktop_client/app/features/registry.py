@@ -21,7 +21,7 @@ class FeatureDescriptor:
 
 
 FEATURES: tuple[FeatureDescriptor, ...] = (
-    FeatureDescriptor("dashboard", ALL_ROLES, ("dashboard",), dashboard.register),
+    FeatureDescriptor("dashboard", frozenset({"manager"}), ("dashboard",), dashboard.register),
     FeatureDescriptor("activities", ALL_ROLES, ("activities",), activities.register),
     FeatureDescriptor("instructors", frozenset({"manager", "instructor"}), ("instructors", "my_profile"), instructors.register),
     FeatureDescriptor("users", frozenset({"manager"}), ("users",), users.register),

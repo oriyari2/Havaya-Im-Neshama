@@ -323,6 +323,59 @@ def get_dashboard_summary(cur, *, role: str, customer_id: UUID | None, instructo
     return dict(cur.fetchone() or {})
 
 
+def get_yearly_event_trend(
+    cur,
+    *,
+    role: str,
+    customer_id: UUID | None,
+    instructor_id: UUID | None,
+    year: int,
+    current_year: int,
+) -> dict:
+    """Return a complete 12-month projection and scoped selectable years."""
+    visibility_sql, visibility_params = _visibility_filter(
+        role,
+        customer_id,
+        instructor_id,
+        booking_alias="b",
+    )
+    cur.execute(
+        f"""
+        WITH visible_bookings AS (
+            SELECT b.event_at
+            FROM bookings b
+            WHERE 1 = 1
+            {visibility_sql}
+        ),
+        requested_months AS (
+            SELECT generate_series(1, 12) AS month
+        ),
+        monthly_counts AS (
+            SELECT EXTRACT(MONTH FROM event_at)::integer AS month, COUNT(*)::integer AS count
+            FROM visible_bookings
+            WHERE EXTRACT(YEAR FROM event_at)::integer = %s
+            GROUP BY EXTRACT(MONTH FROM event_at)::integer
+        ),
+        available_years AS (
+            SELECT DISTINCT EXTRACT(YEAR FROM event_at)::integer AS year
+            FROM visible_bookings
+            UNION SELECT %s
+        )
+        SELECT
+            (SELECT json_agg(json_build_object('month', m.month, 'count', COALESCE(c.count, 0)) ORDER BY m.month)
+             FROM requested_months m LEFT JOIN monthly_counts c ON c.month = m.month) AS months,
+            (SELECT array_agg(y.year ORDER BY y.year) FROM available_years y) AS available_years;
+        """,
+        [*visibility_params, year, current_year],
+    )
+    row = dict(cur.fetchone() or {})
+    return {
+        "year": year,
+        "available_years": list(row.get("available_years") or [current_year]),
+        "months": list(row.get("months") or [{"month": month, "count": 0} for month in range(1, 13)]),
+    }
+
+
 def get_open_events(cur, *, role: str, customer_id: UUID | None, instructor_id: UUID | None, now: object) -> list[dict]:
     if role not in {"manager", "instructor"}:
         return []

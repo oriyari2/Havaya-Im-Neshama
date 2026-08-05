@@ -35,6 +35,7 @@ from backend.app.schemas.booking import (
     CustomerBookingSummaryListResponse,
     CustomerBookingSummaryResponse,
     DashboardSummaryResponse,
+    YearlyEventTrendResponse,
     ExpectedVersionRequest,
     InstructorBookingListResponse,
     InstructorBookingResponse,
@@ -161,6 +162,18 @@ def get_dashboard_summary(current_user: dict = Depends(get_current_user)) -> Das
     except Exception as exc:
         _raise_query_error(exc)
     return DashboardSummaryResponse(**summary)
+
+
+@router.get("/bookings/dashboard/yearly-trend", response_model=YearlyEventTrendResponse)
+def get_yearly_event_trend(
+    year: Annotated[int, Query(ge=2000, le=2100)],
+    current_user: dict = Depends(get_current_user),
+) -> YearlyEventTrendResponse:
+    try:
+        trend = query_handlers.get_yearly_event_trend(current_user, year)
+    except Exception as exc:
+        _raise_query_error(exc)
+    return YearlyEventTrendResponse(**trend)
 
 
 @router.get("/bookings/open-events", response_model=list[OpenEventResponse])

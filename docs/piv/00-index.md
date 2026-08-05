@@ -48,6 +48,7 @@ The academic MVP currently contains:
 | Booking creation and assignment closure | `24`, `24.1`, `24.2`, `24.3` | Implemented |
 | Desktop visual/UX redesign | `25.0.1`–`25.5` | Implemented; final state consolidated below |
 | Feature-first Desktop Microfrontends | `25.6` | Implemented structurally; run the listed regression validation after applying |
+| Dashboard annual Qt Charts trend | `27`, `27-validation.md` | Implemented and validated |
 | Final regression and requirements audit | `final-validation.md` | Completed for code-level validation |
 
 ## Authoritative final documents
@@ -58,6 +59,14 @@ The academic MVP currently contains:
    validation limitations.
 4. `ARCHITECTURE.md` — current logical architecture and boundaries.
 5. `README.md` — setup/run instructions.
+
+## Task 27 documentation
+
+- `tasks/27-dashboard-yearly-event-trend.md` — specification and acceptance scope.
+- `docs/piv/27-dashboard-yearly-event-trend.md` — implementation/PIV record.
+- `docs/piv/27-requirements-traceability.md` — Task 27 requirement evidence.
+- `docs/manual-testing-task-27.md` — independent manual acceptance guide.
+- `docs/piv/27-validation.md` — automated and live-backend validation report.
 
 ## Historical-note rule
 

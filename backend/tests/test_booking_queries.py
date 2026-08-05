@@ -151,6 +151,39 @@ class BookingQueryTests(unittest.TestCase):
         self.assertEqual(kwargs["instructor_id"], current_user["instructor_id"])
         self.assertIn("now", kwargs)
 
+    def test_yearly_trend_calls_repository_with_role_visibility(self) -> None:
+        current_user = {"role": "customer", "customer_id": uuid4()}
+        payload = {
+            "year": 2026,
+            "available_years": [2026],
+            "months": [{"month": month, "count": 0} for month in range(1, 13)],
+        }
+        with patch("backend.app.application.bookings.query_handlers.get_connection", return_value=_DummyConnection()):
+            with patch("backend.app.application.bookings.query_handlers.projection_repo.get_yearly_event_trend", return_value=payload) as trend_mock:
+                result = query_handlers.get_yearly_event_trend(current_user, 2026)
+        self.assertEqual(result, payload)
+        self.assertEqual(trend_mock.call_args.kwargs["role"], "customer")
+        self.assertEqual(trend_mock.call_args.kwargs["customer_id"], current_user["customer_id"])
+        self.assertIsNone(trend_mock.call_args.kwargs["instructor_id"])
+
+    def test_yearly_trend_sql_uses_event_date_single_query_and_all_months(self) -> None:
+        cursor = _CaptureCursor()
+        result = booking_projection_repository.get_yearly_event_trend(
+            cursor,
+            role="instructor",
+            customer_id=None,
+            instructor_id=uuid4(),
+            year=2026,
+            current_year=2026,
+        )
+        normalized_sql = " ".join(cursor.executed_sql.split())
+        self.assertIn("generate_series(1, 12)", normalized_sql)
+        self.assertIn("EXTRACT(YEAR FROM event_at)", normalized_sql)
+        self.assertNotIn("created_at", normalized_sql)
+        self.assertIn("bi.instructor_id = %s", normalized_sql)
+        self.assertEqual(len(result["months"]), 12)
+        self.assertEqual(cursor.params[-2:], [2026, 2026])
+
     def test_dashboard_sql_counts_only_upcoming_domain_statuses(self) -> None:
         cursor = _CaptureCursor()
         now = datetime(2026, 7, 1, tzinfo=UTC)
